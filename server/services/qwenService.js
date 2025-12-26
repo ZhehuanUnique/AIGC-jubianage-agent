@@ -20,29 +20,36 @@ export async function callQwenAPI(prompt, model = 'qwen-plus') {
     throw new Error('请设置 DASHSCOPE_API_KEY 环境变量')
   }
 
+  // 记录使用的模型
+  console.log(`🤖 调用通义千问API，使用模型: ${model}`)
+  
   try {
     // 使用HTTP请求调用通义千问API
+    const requestBody = {
+      model: model,
+      input: {
+        messages: [
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+      },
+      parameters: {
+        max_tokens: 2000,
+        temperature: 0.3,
+      },
+    }
+    
+    console.log(`🤖 API请求体中的模型参数: ${requestBody.model}`)
+    
     const response = await fetch('https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({
-        model: model,
-        input: {
-          messages: [
-            {
-              role: 'user',
-              content: prompt,
-            },
-          ],
-        },
-        parameters: {
-          max_tokens: 2000,
-          temperature: 0.3,
-        },
-      }),
+      body: JSON.stringify(requestBody),
     })
 
     if (!response.ok) {
@@ -58,9 +65,16 @@ export async function callQwenAPI(prompt, model = 'qwen-plus') {
 
     const data = await response.json()
     
+    // 记录API响应中的模型信息（如果有）
+    if (data.model) {
+      console.log(`🤖 API响应中使用的模型: ${data.model}`)
+    }
+    
     // 解析返回结果
     if (data.output && data.output.choices && data.output.choices.length > 0) {
-      return data.output.choices[0].message?.content || ''
+      const result = data.output.choices[0].message?.content || ''
+      console.log(`🤖 API调用成功，返回内容长度: ${result.length} 字符`)
+      return result
     }
     
     if (data.output && data.output.text) {

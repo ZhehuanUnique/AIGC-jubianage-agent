@@ -45,3 +45,9 @@ VIDEO_MODEL=wan2.2-i2v-flash
 
 console.log('✅ 配置完成！API Key:', newApiKey.substring(0, 10) + '...' + newApiKey.substring(newApiKey.length - 4))
 
+
+
+
+
+
+

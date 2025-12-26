@@ -18,11 +18,15 @@ if not exist ".env" (
 )
 
 echo 启动后端服务...
-echo 服务将在 http://localhost:3001 启动
+echo 服务将在 http://localhost:3002 启动
 echo 按 Ctrl+C 停止服务
 echo.
 
 call npm run dev
 
 pause
+
+
+
+
 
