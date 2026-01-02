@@ -6,17 +6,31 @@ import pool from './connection.js'
 export class TaskRepository {
   /**
    * 获取所有任务
+   * @param {number} userId - 可选的用户ID，如果提供则只返回该用户的任务
    */
-  static async getAllTasks() {
+  static async getAllTasks(userId = null) {
     try {
-      const result = await pool.query(`
+      let query = `
         SELECT 
           t.*,
-          p.name as project_name
+          p.name as project_name,
+          p.script_content,
+          p.analysis_result,
+          p.work_style
         FROM tasks t
         LEFT JOIN projects p ON t.project_id = p.id
-        ORDER BY t.created_at DESC
-      `)
+      `
+      const params = []
+      
+      if (userId !== null) {
+        // 确保任务属于该用户，并且关联的项目也属于该用户（如果项目存在）
+        query += ` WHERE t.user_id = $1 AND (p.user_id = $1 OR p.user_id IS NULL)`
+        params.push(userId)
+      }
+      
+      query += ` ORDER BY t.created_at DESC`
+      
+      const result = await pool.query(query, params)
       return result.rows
     } catch (error) {
       console.error('获取任务列表失败:', error)
@@ -47,6 +61,7 @@ export class TaskRepository {
     try {
       const {
         project_id,
+        user_id,
         title,
         description,
         date,
@@ -58,10 +73,10 @@ export class TaskRepository {
 
       const result = await pool.query(
         `INSERT INTO tasks 
-         (project_id, title, description, date, progress1, progress2, is_completed1, mode)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         (project_id, user_id, title, description, date, progress1, progress2, is_completed1, mode)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          RETURNING *`,
-        [project_id, title, description, date, progress1, progress2, is_completed1, mode]
+        [project_id, user_id, title, description, date, progress1, progress2, is_completed1, mode]
       )
       return result.rows[0]
     } catch (error) {
@@ -142,6 +157,8 @@ export class TaskRepository {
     }
   }
 }
+
+
 
 
 

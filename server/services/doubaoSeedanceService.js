@@ -12,14 +12,41 @@ if (existsSync(envPath)) {
 }
 
 /**
- * 豆包 Seedance 1.5 Pro 图生视频服务
- * 文档: https://302ai.apifox.cn/305249446e0
+ * 豆包 Seedance 视频生成服务
+ * 文档: 
+ * - 文/图生视频: https://302ai.apifox.cn/305249446e0
+ * - 参考生视频: https://302ai.apifox.cn/344076582e0
+ * - 首尾帧生视频: https://302ai.apifox.cn/344076585e0
+ * - 获取任务结果: https://302ai.apifox.cn/305262977e0
  */
 
 /**
- * 使用豆包 Seedance 1.5 Pro 生成视频
+ * 根据模型获取对应的 API Key
+ * @param {string} model - 模型名称
+ * @returns {string} API Key
+ */
+function getApiKeyForModel(model) {
+  // 根据模型选择对应的 API Key
+  if (model === 'doubao-seedance-1-0-lite-i2v-250428') {
+    return process.env.DOUBAO_SEEDANCE_1_0_LITE_API_KEY || 
+           process.env.DOUBAO_SEEDANCE_API_KEY || 
+           process.env.MIDJOURNEY_API_KEY
+  } else if (model === 'doubao-seedance-1-5-pro-251215') {
+    return process.env.DOUBAO_SEEDANCE_1_5_PRO_API_KEY || 
+           process.env.DOUBAO_SEEDANCE_API_KEY || 
+           process.env.MIDJOURNEY_API_KEY
+  } else {
+    // 默认使用通用 API Key
+    return process.env.DOUBAO_SEEDANCE_API_KEY || 
+           process.env.MIDJOURNEY_API_KEY
+  }
+}
+
+/**
+ * 使用豆包 Seedance 生成视频（文/图生视频）
  * @param {string} imageUrl - 图片URL（必须是可访问的HTTP/HTTPS URL）
  * @param {Object} options - 生成选项
+ * @param {string} options.model - 模型名称，默认 'doubao-seedance-1-5-pro-251215'
  * @param {string} options.resolution - 分辨率 (480p, 720p, 1080p)
  * @param {string} options.ratio - 宽高比 (16:9, 4:3, 1:1, 3:4, 9:16, 21:9, adaptive)
  * @param {number} options.duration - 视频时长（秒），支持 2~12 秒，默认 5
@@ -28,15 +55,8 @@ if (existsSync(envPath)) {
  * @returns {Promise<Object>} 返回任务ID和状态
  */
 export async function generateVideoWithSeedance(imageUrl, options = {}) {
-  const apiKey = process.env.DOUBAO_SEEDANCE_API_KEY || process.env.MIDJOURNEY_API_KEY
-
-  if (!apiKey) {
-    throw new Error('DOUBAO_SEEDANCE_API_KEY 或 MIDJOURNEY_API_KEY 环境变量未设置，请检查 .env 文件')
-  }
-
-  const apiHost = process.env.DOUBAO_SEEDANCE_API_HOST || process.env.MIDJOURNEY_API_HOST || 'https://api.302.ai'
-
   const {
+    model = 'doubao-seedance-1-5-pro-251215', // 默认使用 1.5 Pro，也支持 1.0 Lite
     resolution = '720p',
     ratio = 'adaptive', // 图生视频默认使用 adaptive
     duration = 5,
@@ -44,9 +64,20 @@ export async function generateVideoWithSeedance(imageUrl, options = {}) {
     generateAudio = true,
   } = options
 
+  const apiKey = getApiKeyForModel(model)
+
+  if (!apiKey) {
+    throw new Error('DOUBAO_SEEDANCE_API_KEY 或相关模型专用 API Key 环境变量未设置，请检查 .env 文件')
+  }
+
+  const apiHost = process.env.DOUBAO_SEEDANCE_API_HOST || process.env.MIDJOURNEY_API_HOST || 'https://api.302.ai'
+
   try {
-    console.log('🎬 调用豆包 Seedance 1.5 Pro 图生视频API:', {
+    const modelName = model
+    
+    console.log(`🎬 调用豆包 Seedance ${modelName} 文/图生视频API:`, {
       imageUrl: imageUrl.substring(0, 100) + (imageUrl.length > 100 ? '...' : ''),
+      model: modelName,
       resolution,
       ratio,
       duration,
@@ -56,7 +87,7 @@ export async function generateVideoWithSeedance(imageUrl, options = {}) {
 
     // 构建请求体
     const requestBody = {
-      model: 'doubao-seedance-1-5-pro-251215',
+      model: modelName,
       content: [
         {
           type: 'image_url',
@@ -115,7 +146,7 @@ export async function generateVideoWithSeedance(imageUrl, options = {}) {
       const errorMessage = errorData.message || errorData.error?.message || `HTTP ${response.status}`
       
       if (response.status === 401) {
-        throw new Error('API密钥无效，请检查 DOUBAO_SEEDANCE_API_KEY 或 MIDJOURNEY_API_KEY 环境变量')
+        throw new Error(`API密钥无效，请检查 ${model === 'doubao-seedance-1-0-lite-i2v-250428' ? 'DOUBAO_SEEDANCE_1_0_LITE_API_KEY' : 'DOUBAO_SEEDANCE_1_5_PRO_API_KEY'} 或 DOUBAO_SEEDANCE_API_KEY 环境变量`)
       }
       
       throw new Error(`豆包 Seedance API调用失败: ${errorMessage}`)
@@ -147,15 +178,270 @@ export async function generateVideoWithSeedance(imageUrl, options = {}) {
 }
 
 /**
+ * 使用豆包 Seedance 生成参考生视频
+ * 只有 doubao-seedance-1-0-lite-i2v-250428 支持此功能
+ * @param {string} referenceImageUrl - 参考图片URL
+ * @param {string} referenceVideoUrl - 参考视频URL
+ * @param {Object} options - 生成选项
+ * @param {string} options.text - 文本提示词
+ * @param {string} options.resolution - 分辨率 (480p, 720p, 1080p)
+ * @param {string} options.ratio - 宽高比 (16:9, 4:3, 1:1, 3:4, 9:16, 21:9)
+ * @param {number} options.duration - 视频时长（秒），支持 5 或 10 秒
+ * @returns {Promise<Object>} 返回任务ID和状态
+ */
+export async function generateReferenceVideoWithSeedance(referenceImageUrl, referenceVideoUrl, options = {}) {
+  const model = 'doubao-seedance-1-0-lite-i2v-250428' // 只有这个模型支持参考生视频
+  const apiKey = getApiKeyForModel(model)
+
+  if (!apiKey) {
+    throw new Error('DOUBAO_SEEDANCE_1_0_LITE_API_KEY 或 DOUBAO_SEEDANCE_API_KEY 环境变量未设置，请检查 .env 文件')
+  }
+
+  const apiHost = process.env.DOUBAO_SEEDANCE_API_HOST || process.env.MIDJOURNEY_API_HOST || 'https://api.302.ai'
+
+  const {
+    text = '',
+    resolution = '720p',
+    ratio = '16:9',
+    duration = 5,
+  } = options
+
+  try {
+    console.log(`🎬 调用豆包 Seedance 1.0 Lite 参考生视频API:`, {
+      referenceImageUrl: referenceImageUrl.substring(0, 100) + (referenceImageUrl.length > 100 ? '...' : ''),
+      referenceVideoUrl: referenceVideoUrl.substring(0, 100) + (referenceVideoUrl.length > 100 ? '...' : ''),
+      model,
+      resolution,
+      ratio,
+      duration,
+      hasText: !!text,
+    })
+
+    // 构建请求体（根据官方文档：参考生视频需要 reference_image 和 reference_video）
+    const requestBody = {
+      model: model,
+      content: [
+        {
+          type: 'text',
+          text: text || '生成参考视频风格的视频',
+        },
+        {
+          type: 'image_url',
+          image_url: {
+            url: referenceImageUrl,
+          },
+          role: 'reference_image',
+        },
+        {
+          type: 'image_url',
+          image_url: {
+            url: referenceVideoUrl,
+          },
+          role: 'reference_video',
+        },
+      ],
+      service_tier: 'default',
+      generate_audio: false, // 参考生视频不支持音频
+    }
+
+    // 设置参数
+    if (resolution) {
+      requestBody.content[0].resolution = resolution
+    }
+    if (ratio) {
+      requestBody.content[0].ratio = ratio
+    }
+    if (duration) {
+      requestBody.content[0].duration = duration
+    }
+
+    console.log('📤 发送请求到:', `${apiHost}/doubao/doubao-seedance`)
+    console.log('📤 请求体:', JSON.stringify(requestBody, null, 2))
+
+    const response = await fetch(`${apiHost}/doubao/doubao-seedance`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(requestBody),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      const errorMessage = errorData.message || errorData.error?.message || `HTTP ${response.status}`
+      
+      if (response.status === 401) {
+        throw new Error('API密钥无效，请检查 DOUBAO_SEEDANCE_1_0_LITE_API_KEY 或 DOUBAO_SEEDANCE_API_KEY 环境变量')
+      }
+      
+      throw new Error(`豆包 Seedance 参考生视频API调用失败: ${errorMessage}`)
+    }
+
+    const data = await response.json()
+    
+    console.log('✅ 豆包 Seedance 参考生视频API响应:', JSON.stringify(data, null, 2))
+
+    if (data.id) {
+      return {
+        taskId: data.id,
+        status: 'pending',
+        message: '参考生视频任务已提交',
+      }
+    } else {
+      throw new Error('API响应中未找到任务ID')
+    }
+  } catch (error) {
+    console.error('❌ 豆包 Seedance 参考生视频API调用错误:', error)
+    
+    if (error instanceof Error) {
+      throw error
+    }
+    
+    throw new Error(`豆包 Seedance 参考生视频调用失败: ${error.message || '未知错误'}`)
+  }
+}
+
+/**
+ * 使用豆包 Seedance 生成首尾帧生视频
+ * 支持模型：doubao-seedance-1-5-pro-251215, doubao-seedance-1-0-pro-250528, doubao-seedance-1-0-lite-i2v-250428
+ * @param {string} firstFrameUrl - 首帧图片URL
+ * @param {string} lastFrameUrl - 尾帧图片URL
+ * @param {Object} options - 生成选项
+ * @param {string} options.model - 模型名称，默认 'doubao-seedance-1-5-pro-251215'
+ * @param {string} options.text - 文本提示词
+ * @param {string} options.resolution - 分辨率 (480p, 720p, 1080p)
+ * @param {string} options.ratio - 宽高比 (16:9, 4:3, 1:1, 3:4, 9:16, 21:9)
+ * @param {number} options.duration - 视频时长（秒），支持 2~12 秒
+ * @returns {Promise<Object>} 返回任务ID和状态
+ */
+export async function generateFirstLastFrameVideoWithSeedance(firstFrameUrl, lastFrameUrl, options = {}) {
+  const {
+    model = 'doubao-seedance-1-5-pro-251215',
+    text = '',
+    resolution = '720p',
+    ratio = '16:9',
+    duration = 5,
+  } = options
+
+  const apiKey = getApiKeyForModel(model)
+
+  if (!apiKey) {
+    throw new Error('DOUBAO_SEEDANCE_API_KEY 或相关模型专用 API Key 环境变量未设置，请检查 .env 文件')
+  }
+
+  const apiHost = process.env.DOUBAO_SEEDANCE_API_HOST || process.env.MIDJOURNEY_API_HOST || 'https://api.302.ai'
+
+  try {
+    console.log(`🎬 调用豆包 Seedance ${model} 首尾帧生视频API:`, {
+      firstFrameUrl: firstFrameUrl.substring(0, 100) + (firstFrameUrl.length > 100 ? '...' : ''),
+      lastFrameUrl: lastFrameUrl.substring(0, 100) + (lastFrameUrl.length > 100 ? '...' : ''),
+      model,
+      resolution,
+      ratio,
+      duration,
+      hasText: !!text,
+    })
+
+    // 构建请求体（根据官方文档：首尾帧生视频需要 first_frame 和 last_frame）
+    const requestBody = {
+      model: model,
+      content: [
+        {
+          type: 'text',
+          text: text || '生成从首帧到尾帧的视频',
+        },
+        {
+          type: 'image_url',
+          image_url: {
+            url: firstFrameUrl,
+          },
+          role: 'first_frame',
+        },
+        {
+          type: 'image_url',
+          image_url: {
+            url: lastFrameUrl,
+          },
+          role: 'last_frame',
+        },
+      ],
+      service_tier: 'default',
+      generate_audio: model === 'doubao-seedance-1-5-pro-251215', // 只有 1.5 Pro 支持音频
+    }
+
+    // 设置参数
+    if (resolution) {
+      requestBody.content[0].resolution = resolution
+    }
+    if (ratio) {
+      requestBody.content[0].ratio = ratio
+    }
+    if (duration) {
+      requestBody.content[0].duration = duration
+    }
+
+    console.log('📤 发送请求到:', `${apiHost}/doubao/doubao-seedance`)
+    console.log('📤 请求体:', JSON.stringify(requestBody, null, 2))
+
+    const response = await fetch(`${apiHost}/doubao/doubao-seedance`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(requestBody),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      const errorMessage = errorData.message || errorData.error?.message || `HTTP ${response.status}`
+      
+      if (response.status === 401) {
+        throw new Error(`API密钥无效，请检查 ${model === 'doubao-seedance-1-0-lite-i2v-250428' ? 'DOUBAO_SEEDANCE_1_0_LITE_API_KEY' : 'DOUBAO_SEEDANCE_1_5_PRO_API_KEY'} 或 DOUBAO_SEEDANCE_API_KEY 环境变量`)
+      }
+      
+      throw new Error(`豆包 Seedance 首尾帧生视频API调用失败: ${errorMessage}`)
+    }
+
+    const data = await response.json()
+    
+    console.log('✅ 豆包 Seedance 首尾帧生视频API响应:', JSON.stringify(data, null, 2))
+
+    if (data.id) {
+      return {
+        taskId: data.id,
+        status: 'pending',
+        message: '首尾帧生视频任务已提交',
+      }
+    } else {
+      throw new Error('API响应中未找到任务ID')
+    }
+  } catch (error) {
+    console.error('❌ 豆包 Seedance 首尾帧生视频API调用错误:', error)
+    
+    if (error instanceof Error) {
+      throw error
+    }
+    
+    throw new Error(`豆包 Seedance 首尾帧生视频调用失败: ${error.message || '未知错误'}`)
+  }
+}
+
+/**
  * 查询视频生成任务状态
  * @param {string} taskId - 任务ID
  * @returns {Promise<Object>} 返回任务状态和视频信息
  */
 export async function getSeedanceTaskStatus(taskId) {
-  const apiKey = process.env.DOUBAO_SEEDANCE_API_KEY || process.env.MIDJOURNEY_API_KEY
+  // 尝试使用默认 API Key（查询接口可能不需要特定模型的 Key）
+  const apiKey = process.env.DOUBAO_SEEDANCE_1_5_PRO_API_KEY || 
+                 process.env.DOUBAO_SEEDANCE_1_0_LITE_API_KEY ||
+                 process.env.DOUBAO_SEEDANCE_API_KEY || 
+                 process.env.MIDJOURNEY_API_KEY
 
   if (!apiKey) {
-    throw new Error('DOUBAO_SEEDANCE_API_KEY 或 MIDJOURNEY_API_KEY 环境变量未设置，请检查 .env 文件')
+    throw new Error('DOUBAO_SEEDANCE_API_KEY 或相关模型专用 API Key 环境变量未设置，请检查 .env 文件')
   }
 
   // 302.ai 使用火山引擎的API

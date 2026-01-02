@@ -7,7 +7,7 @@ dotenv.config()
  * @param {string} prompt - 提示词
  * @param {string} model - 模型名称
  *   可选值：
- *   - 'qwen-max': 最强模型，效果最好，成本最高（0.12元/千tokens）
+ *   - 'qwen-max': 最强模型，效果最好，成本最高（0.12元/千t okens）
  *   - 'qwen-plus': 推荐，平衡效果和成本（0.02元/千tokens）
  *   - 'qwen-turbo': 快速模型，成本低（0.008元/千tokens）
  *   - 'qwen-flash': 最快模型，成本最低（0.008元/千tokens）

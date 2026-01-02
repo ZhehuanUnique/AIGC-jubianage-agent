@@ -1,0 +1,36 @@
+{
+  "id": "com.aigc.photoshop-automation",
+  "name": "AIGC Photoshop 自动化插件",
+  "version": "1.0.0",
+  "manifestVersion": 3,
+  "host": {
+    "app": "PS",
+    "minVersion": "22.0.0"
+  },
+  "entrypoints": [
+    {
+      "type": "panel",
+      "id": "automationPanel",
+      "label": {
+        "default": "AIGC 自动化"
+      }
+    }
+  ],
+  "requiredPermissions": [
+    {
+      "name": "network",
+      "reason": "需要与本地服务器通信以接收自动化命令"
+    }
+  ],
+  "icons": [
+    {
+      "width": 48,
+      "height": 48,
+      "path": "icon.png"
+    }
+  ]
+}
+
+
+
+

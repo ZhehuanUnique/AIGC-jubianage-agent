@@ -5,7 +5,7 @@
  */
 
 /**
- * 使用 302.ai API 生成图片（备选方案）
+ * 使用 302.ai API 生成图片（备选方案，支持文生图和图生图）
  */
 async function generateImageWith302AI(prompt, options = {}) {
   const apiKey = process.env.MIDJOURNEY_API_KEY || process.env.DASHSCOPE_API_KEY // 使用 302.ai 的 API Key
@@ -15,23 +15,48 @@ async function generateImageWith302AI(prompt, options = {}) {
     throw new Error('未配置 302.ai API Key，请设置 MIDJOURNEY_API_KEY 或 DASHSCOPE_API_KEY 环境变量')
   }
 
-  const { aspectRatio = 'auto', size = '2K' } = options
+  const { 
+    aspectRatio = 'auto', 
+    size = '2K',
+    referenceImage, // 参考图片（用于图生图）
+  } = options
+
+  const isImageToImage = !!referenceImage
 
   try {
-    console.log('🔄 使用 302.ai API 生成图片')
+    console.log(`🔄 使用 302.ai API 生成图片 (${isImageToImage ? '图生图' : '文生图'})`)
+
+    // 构建请求体
+    const requestBody = {
+      prompt: prompt,
+      aspect_ratio: aspectRatio === 'auto' ? '16:9' : aspectRatio,
+      resolution: size.toLowerCase(), // 1k, 2k, 4k
+    }
+
+    // 如果有参考图片，添加到请求体中
+    if (referenceImage) {
+      if (referenceImage.startsWith('data:image/') || referenceImage.startsWith('base64,')) {
+        requestBody.image = referenceImage
+      } else if (referenceImage.startsWith('http://') || referenceImage.startsWith('https://')) {
+        requestBody.image_url = referenceImage
+      } else {
+        requestBody.image = referenceImage
+      }
+    }
+
+    // 根据是否有参考图片选择不同的API端点
+    const apiEndpoint = isImageToImage
+      ? `${apiHost}/ws/api/v3/google/nano-banana-pro/image-to-image`
+      : `${apiHost}/ws/api/v3/google/nano-banana-pro/text-to-image`
 
     // 302.ai 的 nano-banana-pro API
-    const response = await fetch(`${apiHost}/ws/api/v3/google/nano-banana-pro/text-to-image`, {
+    const response = await fetch(apiEndpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({
-        prompt: prompt,
-        aspect_ratio: aspectRatio === 'auto' ? '16:9' : aspectRatio,
-        resolution: size.toLowerCase(), // 1k, 2k, 4k
-      }),
+      body: JSON.stringify(requestBody),
     })
 
     if (!response.ok) {
@@ -66,11 +91,13 @@ async function generateImageWith302AI(prompt, options = {}) {
 }
 
 /**
- * 使用 Nano Banana Pro 生成图片
+ * 使用 Nano Banana Pro 生成图片（支持文生图和图生图）
  * @param {string} prompt - 文生图提示词
  * @param {Object} options - 生成选项
  * @param {string} options.aspectRatio - 宽高比 (auto, 16:9, 1:1, 9:16, 21:9)
  * @param {string} options.size - 图片尺寸 (1K, 2K, 4K)
+ * @param {string} options.referenceImage - 参考图片URL或base64（用于图生图）
+ * @param {string} options.referenceImageUrl - 参考图片URL（用于图生图，与referenceImage二选一）
  * @returns {Promise<Object>} 返回任务ID和状态
  */
 export async function generateImageWithNanoBanana(prompt, options = {}) {
@@ -84,28 +111,58 @@ export async function generateImageWithNanoBanana(prompt, options = {}) {
   const {
     aspectRatio = 'auto',
     size = '1K',
+    referenceImage, // 参考图片（base64或URL）
+    referenceImageUrl, // 参考图片URL
   } = options
 
+  // 确定参考图片（优先使用 referenceImageUrl，其次 referenceImage）
+  const imageRef = referenceImageUrl || referenceImage
+  const isImageToImage = !!imageRef
+
   try {
-    console.log('🎨 调用 Nano Banana Pro 文生图API:', {
+    console.log(`🎨 调用 Nano Banana Pro ${isImageToImage ? '图生图' : '文生图'}API:`, {
       prompt: prompt.substring(0, 50) + '...',
       aspectRatio,
       size,
+      hasReferenceImage: !!imageRef,
     })
 
     // 构建请求体
-    // 注意：Grsai API 可能需要不同的格式，如果返回 "model not found"，可能需要使用 302.ai 的 API
     const requestBody = {
       prompt: prompt,
       aspect_ratio: aspectRatio,
       size: size,
     }
 
-    console.log('📤 发送请求到:', `${apiHost}/v1/draw/nano-banana`)
-    console.log('📤 请求体:', JSON.stringify(requestBody, null, 2))
+    // 如果有参考图片，添加到请求体中（图生图模式）
+    if (imageRef) {
+      // 判断是base64还是URL
+      if (imageRef.startsWith('data:image/') || imageRef.startsWith('base64,')) {
+        // base64格式
+        requestBody.image = imageRef
+      } else if (imageRef.startsWith('http://') || imageRef.startsWith('https://')) {
+        // URL格式
+        requestBody.image_url = imageRef
+      } else {
+        // 假设是base64字符串（没有data:前缀）
+        requestBody.image = imageRef
+      }
+    }
 
-    // 调用 Nano Banana Pro 文生图接口
-    const response = await fetch(`${apiHost}/v1/draw/nano-banana`, {
+    // 根据是否有参考图片选择不同的API端点
+    const apiEndpoint = isImageToImage 
+      ? `${apiHost}/v1/draw/nano-banana-image-to-image` 
+      : `${apiHost}/v1/draw/nano-banana`
+    
+    console.log('📤 发送请求到:', apiEndpoint)
+    console.log('📤 请求体:', JSON.stringify({
+      ...requestBody,
+      image: requestBody.image ? '[base64数据已隐藏]' : undefined,
+      image_url: requestBody.image_url || undefined,
+    }, null, 2))
+
+    // 调用 Nano Banana Pro 接口（文生图或图生图）
+    const response = await fetch(apiEndpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -123,7 +180,11 @@ export async function generateImageWithNanoBanana(prompt, options = {}) {
       console.error('❌ Grsai API 返回 "model not found"，尝试使用 302.ai API')
       
       // 如果 Grsai API 失败，尝试使用 302.ai 的 API
-      return await generateImageWith302AI(prompt, { aspectRatio, size })
+      return await generateImageWith302AI(prompt, { 
+        aspectRatio, 
+        size,
+        referenceImage: imageRef, // 传递参考图片
+      })
     }
 
     if (!response.ok) {
@@ -143,7 +204,11 @@ export async function generateImageWithNanoBanana(prompt, options = {}) {
       console.error('❌ Nano Banana Pro API响应中未找到 taskId:', JSON.stringify(data, null, 2))
       // 如果 Grsai API 失败，尝试使用 302.ai 的 API
       console.log('🔄 尝试使用 302.ai API 作为备选方案')
-      return await generateImageWith302AI(prompt, { aspectRatio, size })
+      return await generateImageWith302AI(prompt, { 
+        aspectRatio, 
+        size,
+        referenceImage: imageRef, // 传递参考图片
+      })
     }
 
     console.log('✅ 提取的 taskId:', taskId)

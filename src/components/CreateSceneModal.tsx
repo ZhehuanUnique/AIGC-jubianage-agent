@@ -1,0 +1,551 @@
+import { useState, useEffect, useRef } from 'react'
+import { X, Upload, Loader2, Trash2 } from 'lucide-react'
+import { alert } from '../utils/alert'
+import { generateImage, getImageTaskStatus, GenerateImageRequest, ImageTaskStatus, uploadAssetImage } from '../services/api'
+
+interface CreateSceneModalProps {
+  onClose: () => void
+  onSceneSelect?: (scene: { id: string; name: string; image?: string }) => void // 选择场景时的回调
+  projectName?: string // 项目名称，用于保存到项目文件夹
+}
+
+interface SceneTask {
+  id: string
+  name: string
+  taskId: string
+  status: 'generating' | 'completed' | 'failed'
+  progress: number
+  imageUrl?: string
+  model: string
+  resolution: string
+  prompt: string
+  createdAt: number
+}
+
+// 获取模型的 logo 路径
+const getModelLogo = (modelId: string): string => {
+  switch (modelId) {
+    case 'nano-banana-pro':
+      return '/models_logo/nano-banana.png'
+    case 'midjourney-v7-t2i':
+      return '/models_logo/midjourney.png'
+    case 'flux-2-max':
+    case 'flux-2-flex':
+    case 'flux-2-pro':
+      return '/models_logo/flux.png'
+    case 'seedream-4-5':
+    case 'seedream-4-0':
+      return '/models_logo/jimeng.png'
+    default:
+      return ''
+  }
+}
+
+// 已接入的图片生成模型
+const IMAGE_MODELS = [
+  { id: 'nano-banana-pro', name: 'Nano Banana Pro' },
+  { id: 'midjourney-v7-t2i', name: 'Midjourney v7' },
+  { id: 'flux-2-max', name: 'Flux-2-Max' },
+  { id: 'flux-2-flex', name: 'Flux-2-Flex' },
+  { id: 'flux-2-pro', name: 'Flux-2-Pro' },
+  { id: 'seedream-4-5', name: 'Seedream 4.5' },
+  { id: 'seedream-4-0', name: 'Seedream 4.0' },
+]
+
+function CreateSceneModal({ onClose, onSceneSelect, projectName }: CreateSceneModalProps) {
+  // 从 sessionStorage 获取项目名称（如果没有通过props传递）
+  const [currentProjectName, setCurrentProjectName] = useState<string | null>(projectName || null)
+  
+  useEffect(() => {
+    if (!currentProjectName) {
+      try {
+        const savedScriptTitle = sessionStorage.getItem('scriptInput_scriptTitle')
+        if (savedScriptTitle) {
+          setCurrentProjectName(savedScriptTitle)
+        }
+      } catch (error) {
+        console.warn('⚠️ 获取项目名称失败:', error)
+      }
+    }
+  }, [])
+
+  const [leftVisible, setLeftVisible] = useState(false)
+  const [rightVisible, setRightVisible] = useState(false)
+  const [generationMode, setGenerationMode] = useState<'model' | 'upload'>('model')
+  const [selectedModel, setSelectedModel] = useState<string | null>(null)
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [selectedResolution, setSelectedResolution] = useState<'1K' | '2K' | '4K' | null>(null)
+  const [sceneName, setSceneName] = useState('')
+  const [description, setDescription] = useState('')
+  const [referenceImage, setReferenceImage] = useState<string | null>(null)
+  const referenceImageInputRef = useRef<HTMLInputElement>(null)
+  
+  // 任务列表：生成中的任务
+  const [generatingTasks, setGeneratingTasks] = useState<SceneTask[]>([])
+  // 已完成的任务（显示在"确定使用场景"中）
+  const [completedScenes, setCompletedScenes] = useState<SceneTask[]>([])
+  
+  // 轮询任务状态的定时器
+  const pollingTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map())
+
+  // 获取模型支持的分辨率列表
+  const getSupportedResolutions = (modelId: string | null): Array<'1K' | '2K' | '4K'> => {
+    if (!modelId) return []
+    
+    switch (modelId) {
+      case 'nano-banana-pro':
+        return ['1K', '2K', '4K']
+      case 'midjourney-v7-t2i':
+        return ['2K'] // Midjourney 只支持2K（通过Upscaler）
+      case 'flux-2-max':
+      case 'flux-2-flex':
+      case 'flux-2-pro':
+        return ['2K', '4K']
+      case 'seedream-4-5':
+        return ['2K', '4K']
+      case 'seedream-4-0':
+        return ['1K', '2K', '4K']
+      default:
+        return ['2K'] // 默认支持2K
+    }
+  }
+
+  // 当模型改变时，自动选择第一个支持的分辨率
+  useEffect(() => {
+    if (selectedModel) {
+      const supportedResolutions = getSupportedResolutions(selectedModel)
+      if (supportedResolutions.length > 0 && !supportedResolutions.includes(selectedResolution as any)) {
+        setSelectedResolution(supportedResolutions[0])
+      }
+    } else {
+      setSelectedResolution(null)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedModel])
+
+  useEffect(() => {
+    setLeftVisible(true)
+    setTimeout(() => {
+      setRightVisible(true)
+    }, 200)
+  }, [])
+
+  const handleClose = () => {
+    setRightVisible(false)
+    setTimeout(() => {
+      setLeftVisible(false)
+      setTimeout(() => {
+        onClose()
+      }, 300)
+    }, 200)
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center" onClick={handleClose}>
+      {/* 左侧窗口 - 创建场景 */}
+      <div
+        className={`absolute left-0 top-0 bottom-0 w-2/3 bg-white border-r border-purple-500 overflow-y-auto transition-transform duration-300 ${
+          leftVisible ? 'translate-x-0' : '-translate-x-full'
+        }`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold">创建场景</h2>
+            <button onClick={handleClose} className="text-gray-600 hover:text-gray-900">
+              <X size={24} />
+            </button>
+          </div>
+
+          <div className="space-y-6">
+            {/* 场景名称 */}
+            <div>
+              <label className="block text-sm mb-2">
+                <span className="text-red-500">*</span> 场景名称
+              </label>
+              <input
+                type="text"
+                value={sceneName}
+                onChange={(e) => setSceneName(e.target.value)}
+                placeholder="请输入场景名称"
+                className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500"
+              />
+            </div>
+
+            {/* 生成方式 */}
+            <div>
+              <label className="block text-sm mb-2">
+                <span className="text-red-500">*</span> 生成方式
+              </label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    setGenerationMode('model')
+                    setUploadedImage(null) // 切换到模型生成时，清除上传的图片
+                  }}
+                  className={`flex-1 px-4 py-2 rounded-lg transition-all ${
+                    generationMode === 'model'
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-white border border-gray-300 text-gray-600 hover:border-purple-500'
+                  }`}
+                >
+                  通过模型生成场景
+                </button>
+                <button
+                  onClick={() => {
+                    setGenerationMode('upload')
+                    setSelectedModel(null) // 切换到上传图片时，清除选中的模型
+                  }}
+                  className={`flex-1 px-4 py-2 rounded-lg transition-all ${
+                    generationMode === 'upload'
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-white border border-gray-300 text-gray-600 hover:border-purple-500'
+                  }`}
+                >
+                  自己上传场景图片
+                </button>
+              </div>
+            </div>
+
+            {/* 选择模型 - 仅在"通过模型生成场景"时显示 */}
+            {generationMode === 'model' && (
+              <>
+                <div>
+                  <label className="block text-sm mb-2">
+                    <span className="text-red-500">*</span> 选择模型
+                  </label>
+                  <div className="grid grid-cols-7 gap-2">
+                    {IMAGE_MODELS.map((model) => {
+                      const logoPath = getModelLogo(model.id)
+                      return (
+                        <button
+                          key={model.id}
+                          type="button"
+                          onClick={() => setSelectedModel(model.id)}
+                          className={`flex flex-col items-center justify-center px-2 py-3 rounded-lg text-sm font-medium transition-all w-full ${
+                            selectedModel === model.id
+                              ? 'bg-purple-600 text-white border-2 border-purple-600'
+                              : 'bg-white text-gray-700 border border-gray-300 hover:border-purple-500 hover:bg-purple-50'
+                          }`}
+                        >
+                          {logoPath && (
+                            <img
+                              src={logoPath}
+                              alt={model.name}
+                              className="w-12 h-12 object-contain mb-2"
+                              onError={(e) => {
+                                // 如果图片加载失败，隐藏图片
+                                e.currentTarget.style.display = 'none'
+                              }}
+                            />
+                          )}
+                          <span className="text-xs text-center leading-tight">{model.name}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* 分辨率选择 - 仅在选择了模型后显示 */}
+                {selectedModel && (
+                  <div>
+                    <label className="block text-sm mb-2">
+                      <span className="text-red-500">*</span> 分辨率
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {getSupportedResolutions(selectedModel).map((resolution) => (
+                        <button
+                          key={resolution}
+                          type="button"
+                          onClick={() => setSelectedResolution(resolution)}
+                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                            selectedResolution === resolution
+                              ? 'bg-purple-600 text-white border-2 border-purple-600'
+                              : 'bg-white text-gray-700 border border-gray-300 hover:border-purple-500 hover:bg-purple-50'
+                          }`}
+                        >
+                          {resolution}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* 上传图片 - 仅在"自己上传场景图片"时显示 */}
+            {generationMode === 'upload' && (
+              <div>
+                <label className="block text-sm mb-2">
+                  <span className="text-red-500">*</span> 上传图片
+                </label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/jpg,image/png"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) {
+                      // 验证文件类型
+                      if (!file.type.match(/^image\/(jpeg|jpg|png)$/)) {
+                        alert('请上传 JPG、JPEG 或 PNG 格式的图片', 'warning')
+                        return
+                      }
+                      // 读取文件并转换为 base64
+                      const reader = new FileReader()
+                      reader.onload = (event) => {
+                        setUploadedImage(event.target?.result as string)
+                      }
+                      reader.readAsDataURL(file)
+                    }
+                  }}
+                />
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-purple-500 transition-colors"
+                >
+                  {uploadedImage ? (
+                    <div className="space-y-2">
+                      <img
+                        src={uploadedImage}
+                        alt="上传的图片"
+                        className="max-w-full max-h-48 mx-auto rounded-lg"
+                      />
+                      <p className="text-gray-600 text-sm">点击更换图片</p>
+                    </div>
+                  ) : (
+                    <>
+                      <Upload className="mx-auto mb-2 text-gray-600" size={32} />
+                      <p className="text-gray-600 text-sm">点击上传图片</p>
+                      <p className="text-gray-500 text-xs mt-1">支持JPG / JPEG / PNG格式</p>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* 描述 - 仅在"通过模型生成场景"时显示 */}
+            {generationMode === 'model' && (
+              <div>
+                <label className="block text-sm mb-2">
+                  <span className="text-red-500">*</span> 描述
+                </label>
+                <div className="mb-2">
+                  <button className="px-4 py-1 bg-purple-600 text-white rounded text-sm">一键填入提示词框架</button>
+                </div>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="从多角度对场景进行详细描述，如空间、时间、天气、标志性物品、背景元素、整体环境、时代、主题、艺术风格、画面视角等角度"
+                  rows={8}
+                  className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 resize-none"
+                />
+              </div>
+            )}
+
+            {/* 上传参考图 - 仅在"通过模型生成场景"时显示 */}
+            {generationMode === 'model' && (
+              <div>
+                <label className="block text-sm mb-2">上传参考图</label>
+                <input
+                  ref={referenceImageInputRef}
+                  type="file"
+                  accept="image/jpeg,image/jpg,image/png"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) {
+                      if (!file.type.match(/^image\/(jpeg|jpg|png)$/)) {
+                        alert('请上传 JPG、JPEG 或 PNG 格式的图片', 'warning')
+                        return
+                      }
+                      const reader = new FileReader()
+                      reader.onload = (event) => {
+                        setReferenceImage(event.target?.result as string)
+                      }
+                      reader.readAsDataURL(file)
+                    }
+                  }}
+                />
+                <div
+                  onClick={() => referenceImageInputRef.current?.click()}
+                  className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-purple-500 transition-colors"
+                >
+                  {referenceImage ? (
+                    <div className="space-y-2">
+                      <img
+                        src={referenceImage}
+                        alt="参考图"
+                        className="max-w-full max-h-48 mx-auto rounded-lg"
+                      />
+                      <p className="text-gray-600 text-sm">点击更换参考图</p>
+                    </div>
+                  ) : (
+                    <>
+                      <Upload className="mx-auto mb-2 text-gray-600" size={32} />
+                      <p className="text-gray-600 text-sm">上传参考图</p>
+                      <p className="text-gray-500 text-xs mt-1">支持JPG / JPEG / PNG格式</p>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* 提交按钮 */}
+            <div className="flex justify-end">
+              <button
+                onClick={handleSubmitTask}
+                disabled={!canSubmit()}
+                className={`px-8 py-3 rounded-lg transition-all ${
+                  canSubmit()
+                    ? 'bg-purple-600 text-white hover:bg-purple-700'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                提交任务 (消耗10积分)
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 右侧窗口 - 场景生成任务列表 */}
+      <div
+        className={`absolute right-0 top-0 bottom-0 w-1/3 bg-white border-l border-purple-500 overflow-y-auto transition-transform duration-300 ${
+          rightVisible ? 'translate-x-0' : 'translate-x-full'
+        }`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold">场景生成任务列表</h2>
+            <button onClick={handleClose} className="text-gray-600 hover:text-gray-900">
+              <X size={24} />
+            </button>
+          </div>
+
+          <div className="space-y-6">
+            {/* 场景预生成 */}
+            <div>
+              <h3 className="text-sm font-medium mb-4">场景预生成</h3>
+              {generatingTasks.length === 0 ? (
+                <div className="bg-white border border-gray-300 rounded-lg p-12 text-center">
+                  <div className="text-gray-500 text-sm">暂无数据</div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {generatingTasks.map((task) => (
+                    <div
+                      key={task.id}
+                      className="bg-white border border-gray-300 rounded-lg p-4"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium">{task.name}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-500">
+                            {task.status === 'generating' ? `${task.progress}%` : task.status === 'failed' ? '失败' : '完成'}
+                          </span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              // 停止轮询
+                              const timer = pollingTimersRef.current.get(task.id)
+                              if (timer) {
+                                clearInterval(timer)
+                                pollingTimersRef.current.delete(task.id)
+                              }
+                              // 从任务列表中移除
+                              setGeneratingTasks(generatingTasks.filter(t => t.id !== task.id))
+                            }}
+                            className="text-red-500 hover:text-red-700 transition-colors"
+                            title="删除任务"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+                      {task.status === 'generating' && (
+                        <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+                          <div
+                            className="bg-purple-600 h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${task.progress}%` }}
+                          />
+                        </div>
+                      )}
+                      {task.status === 'generating' && (
+                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          <span>生成中...</span>
+                        </div>
+                      )}
+                      {task.status === 'failed' && (
+                        <div className="text-xs text-red-500">生成失败，请重试</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 确定使用场景 */}
+            <div>
+              <h3 className="text-sm font-medium mb-4">确定使用场景</h3>
+              {completedScenes.length === 0 ? (
+                <div className="bg-white border border-gray-300 rounded-lg p-12 text-center">
+                  <div className="text-gray-500 text-sm">暂无数据</div>
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    {completedScenes.map((scene) => (
+                      <div
+                        key={scene.id}
+                        className="bg-white border border-gray-300 rounded-lg overflow-hidden cursor-pointer hover:border-purple-500 transition-colors"
+                        onClick={() => {
+                          if (onSceneSelect) {
+                            onSceneSelect({
+                              id: scene.id,
+                              name: scene.name,
+                              image: scene.imageUrl,
+                            })
+                            onClose()
+                          }
+                        }}
+                      >
+                        <div className="aspect-square bg-gray-700 flex items-center justify-center overflow-hidden">
+                          {scene.imageUrl ? (
+                            <img
+                              src={scene.imageUrl}
+                              alt={scene.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-16 h-16 rounded-lg bg-purple-600 flex items-center justify-center text-white text-xs">
+                              {scene.name}
+                            </div>
+                          )}
+                        </div>
+                        <div className="p-2 text-center text-xs">{scene.name}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {completedScenes.length > 4 && (
+                    <div className="flex justify-center items-center gap-2 mt-4">
+                      <button className="px-2 py-1 text-gray-600">上一页</button>
+                      <span className="text-gray-600 text-sm">1 / {Math.ceil(completedScenes.length / 4)}</span>
+                      <button className="px-2 py-1 text-gray-600">下一页</button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default CreateSceneModal

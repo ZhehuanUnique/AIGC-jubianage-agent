@@ -1,0 +1,717 @@
+# AIGC 剧变时代 Agent - 完整技能文档
+
+本文档整合了项目中所有通用功能、配置指南和部署说明。
+
+## 📋 目录
+
+1. [项目概述](#项目概述)
+2. [MCP 配置指南](#mcp-配置指南)
+3. [图片生成模型说明](#图片生成模型说明)
+4. [数据库管理](#数据库管理)
+5. [Milvus 向量数据库](#milvus-向量数据库)
+6. [RAG 库使用](#rag-库使用)
+7. [腾讯云 COS 配置](#腾讯云-cos-配置)
+8. [部署方案](#部署方案)
+9. [常用命令](#常用命令)
+10. [故障排查](#故障排查)
+
+---
+
+## 项目概述
+
+### 核心功能
+- 📝 剧本输入和管理：支持文本输入和.docx文件上传
+- 🤖 智能剧本分析：使用通义千问大模型自动提取角色、场景、物品
+- ✂️ 智能剧本切分：自动将剧本切分为多个片段，每个片段对应一个分镜
+- 🎨 文生图功能：支持多种图片生成模型
+- 🎬 图生视频模式：集成多种图生视频服务
+- 🎨 资产详情管理：管理角色、场景、物品，支持本地上传
+- 📸 分镜管理：配置每个分镜的详细信息
+- 🖼️ 融图管理：选择图片素材并配置视频生成参数
+- 🎥 视频编辑和导出：编辑和导出生成的视频
+
+### 技术栈
+- **前端**：React 18 + TypeScript + Vite + Tailwind CSS
+- **后端**：Node.js + Express
+- **数据库**：Supabase (PostgreSQL)
+- **存储**：腾讯云 COS
+- **AI服务**：通义千问、Nano Banana、Midjourney、通义万相等
+
+---
+
+## MCP 配置指南
+
+### MCP 服务器配置位置
+
+配置文件：`.cursor/mcp.json`
+
+### 当前已配置的 MCP 服务器
+
+1. **Supabase** - 数据库管理
+2. **腾讯云 COS** - 对象存储
+3. **GitHub** - 代码仓库管理
+4. **Vercel** - 部署管理
+5. **火山引擎 Vevod** - 视频处理
+6. **302.ai Custom MCP** - AI 服务
+
+### MCP 工具数量优化
+
+**问题**：当工具数量超过 80 个时，Cursor 会显示警告。
+
+**解决方案**：
+1. 在 Cursor 设置中禁用不需要的工具
+2. 只保留实际使用的工具
+3. 推荐工具数量：50-80 个
+
+### Vercel MCP 工具选择
+
+**需要保留的工具**：
+- `get_deployment` - 获取部署信息
+- `get_deployment_events` - 获取部署事件
+- `get_deployment_logs` - 获取部署日志
+- `get_project` - 获取项目信息
+- 域名管理相关工具
+- 环境变量管理相关工具
+
+**需要禁用的工具类别**：
+- 团队管理工具
+- 监控和分析工具
+- 安全设置工具
+
+### MCP 令牌获取
+
+#### GitHub Personal Access Token
+1. 访问 [GitHub Settings → Developer settings → Personal access tokens](https://github.com/settings/tokens)
+2. 生成新令牌，选择所需权限
+3. 复制令牌（只显示一次）
+
+#### Vercel Access Token
+1. 访问 [Vercel Account → Tokens](https://vercel.com/account/tokens)
+2. 创建新令牌
+3. 复制令牌（只显示一次）
+
+#### 腾讯云 COS 密钥
+1. 访问 [腾讯云控制台 → 访问管理 → API密钥管理](https://console.cloud.tencent.com/cam/capi)
+2. 创建或查看密钥
+3. 获取 SecretId 和 SecretKey
+
+#### Supabase Access Token
+1. 访问 [Supabase Dashboard](https://app.supabase.com)
+2. 进入项目设置 → API
+3. 复制 Access Token
+
+---
+
+## 图片生成模型说明
+
+### 支持参考图的模型
+
+1. **nano-banana-pro** ✅
+   - 支持单张参考图
+   - 角色一致性、高级文本渲染、4K输出
+
+2. **seedream-4-0** ✅
+   - 支持单张或多张参考图（最多10张）
+
+3. **seedream-4-5** ✅
+   - 支持单张或多张参考图（最多10张）
+
+4. **flux-2-max** ✅
+   - 支持单张或多张参考图（最多8张）
+
+5. **flux-2-flex** ✅
+   - 支持单张或多张参考图（最多8张）
+
+6. **flux-2-pro** ✅
+   - 支持单张或多张参考图（最多8张）
+
+### 不支持参考图的模型
+
+1. **midjourney-v7-t2i** ❌
+   - 不支持参考图（图生图模式）
+   - 只能使用文生图模式
+   - 会生成4张图片的网格（2x2布局）
+   - 自动 Upscale 功能：网格图生成后自动放大
+
+### 使用说明
+
+- **自动启用参考图模式**：当关联了角色、场景、物品或姿势时，系统会自动启用参考图模式
+- **参考图优先级**：
+  - nano-banana-pro：只支持单张，使用第一张图片
+  - Seedream、Flux：支持多张参考图，传递所有关联的图片
+- **图片比例**：所有分镜使用全局设置的图片比例（16:9、9:16 或 1:1）
+
+---
+
+## 数据库管理
+
+### Supabase 配置
+
+**配置文件位置**：`.cursor/mcp.json`
+
+**只读模式配置**：
+```json
+{
+  "mcpServers": {
+    "supabase-jubianage-agent": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "@supabase/mcp-server-supabase@latest",
+        "--read-only",
+        "--project-ref=ogndfzxtzsifaqwzfojs"
+      ],
+      "env": {
+        "SUPABASE_ACCESS_TOKEN": "您的访问令牌"
+      }
+    }
+  }
+}
+```
+
+### 用户数据隔离
+
+- 所有项目、任务、角色、场景、物品等数据都按 `user_id` 隔离
+- 每个用户只能看到和操作自己的数据
+- 创建数据时自动关联当前登录用户
+
+### 数据库表结构
+
+主要表：
+- `users` - 用户表
+- `projects` - 项目表（包含 `user_id`）
+- `tasks` - 任务表（包含 `user_id`）
+- `characters` - 角色表
+- `scenes` - 场景表
+- `items` - 物品表
+- `shots` - 分镜表
+- `files` - 文件表
+- `generated_assets` - 生成资产表（用于跨设备同步）
+
+---
+
+## Milvus 向量数据库
+
+### 快速启动
+
+#### 方式 1：Docker 单容器启动
+
+```powershell
+docker pull milvusdb/milvus:latest
+docker run -d --name milvus-standalone -p 19530:19530 -p 9091:9091 milvusdb/milvus:latest
+```
+
+#### 方式 2：Docker Compose 启动（推荐）
+
+```powershell
+cd milvus
+docker-compose up -d
+```
+
+### 验证 Milvus 运行
+
+```powershell
+# 检查容器状态
+docker ps | findstr milvus
+
+# 检查端口
+netstat -an | findstr 19530
+```
+
+### 常用命令
+
+```powershell
+# 启动
+docker start milvus-standalone
+
+# 停止
+docker stop milvus-standalone
+
+# 查看日志
+docker logs milvus-standalone
+
+# 进入容器
+docker exec -it milvus-standalone /bin/bash
+```
+
+### 推荐配置
+
+**开发环境（推荐使用 Chroma）**：
+```env
+VECTOR_DB_TYPE=chroma
+GEMINI_RAG_VECTOR_DB_PATH=./data/gemini_rag_vectors
+```
+
+**生产环境（推荐使用 Milvus）**：
+```env
+VECTOR_DB_TYPE=milvus
+MILVUS_HOST=localhost
+MILVUS_PORT=19530
+```
+
+---
+
+## RAG 库使用
+
+### 导入剧本文档到 RAG 库
+
+#### 方式 1：使用简单脚本导入（推荐）
+
+1. **修改脚本配置**
+
+编辑 `server/services/videoMotionPrompt/simple-import-script.js` 文件：
+
+```javascript
+// 剧本文件路径（修改为你的文档路径）
+const scriptFilePath = 'C:\\Users\\Administrator\\Desktop\\agent测试\\安萌.docx'
+
+// RAG 库中的剧本ID（修改为唯一的ID，建议使用英文和数字）
+const scriptId = 'anmeng' // 例如：'anmeng', 'script_001', 'my_script' 等
+```
+
+2. **运行导入脚本**
+
+```powershell
+cd server
+node services/videoMotionPrompt/simple-import-script.js
+```
+
+3. **查看导入结果**
+
+脚本运行后会显示：
+- ✅ 文件检查结果
+- ✅ 解析成功信息（剧本长度、预览）
+- ✅ 切分结果（片段数量）
+- ✅ 存储成功信息
+- ✅ 验证结果（检索测试）
+
+### RAG 库功能
+
+- **剧本导入**：支持 .docx 文件导入
+- **智能切分**：自动将剧本切分为多个片段
+- **向量存储**：使用 Milvus 或 Chroma 存储向量
+- **智能检索**：支持语义检索相关片段
+- **视频运动提示词生成**：基于 RAG 检索生成视频运动提示词
+
+---
+
+## 腾讯云 COS 配置
+
+### MCP 配置
+
+```json
+{
+  "mcpServers": {
+    "tencent-cos-AIGC-jubianage-agent": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "cos-mcp@latest",
+        "--Region=ap-guangzhou",
+        "--Bucket=jubianage-agent-1392491103",
+        "--connectType=stdio"
+      ],
+      "env": {
+        "COS_SECRET_ID": "YOUR_SECRET_ID_HERE",
+        "COS_SECRET_KEY": "YOUR_SECRET_KEY_HERE"
+      }
+    }
+  }
+}
+```
+
+### 获取配置信息
+
+#### 1. 获取 SecretId 和 SecretKey
+
+1. 访问 [腾讯云控制台 → 访问管理 → API密钥管理](https://console.cloud.tencent.com/cam/capi)
+2. 创建或查看密钥
+3. 复制 SecretId 和 SecretKey（⚠️ SecretKey 只显示一次，请妥善保存）
+
+#### 2. 获取存储桶信息
+
+1. 访问 [腾讯云 COS 控制台](https://console.cloud.tencent.com/cos)
+2. 查看存储桶列表
+3. 记录：
+   - **存储桶名称**（Bucket）
+   - **所属地域代码**（Region）
+
+#### 3. 创建数据集（可选，用于智能检索）
+
+1. 在 COS 控制台进入存储桶
+2. 进入 **数据万象** → **智能检索**
+3. 创建数据集（DatasetName）
+
+### 功能特性
+
+- **对象存储**：上传/下载/删除对象
+- **图片处理**：水印、超分、抠图、质量评估
+- **文档处理**：文档转 PDF
+- **智能检索**：文搜图、图搜图
+
+### 多存储桶配置
+
+如果需要配置多个存储桶，可以在 `.cursor/mcp.json` 中添加多个配置：
+
+```json
+{
+  "mcpServers": {
+    "tencent-cos-bucket1": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "cos-mcp@latest",
+        "--Region=ap-guangzhou",
+        "--Bucket=bucket1-1392491103",
+        "--connectType=stdio"
+      ],
+      "env": {
+        "COS_SECRET_ID": "YOUR_SECRET_ID_HERE",
+        "COS_SECRET_KEY": "YOUR_SECRET_KEY_HERE"
+      }
+    },
+    "tencent-cos-bucket2": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "cos-mcp@latest",
+        "--Region=ap-beijing",
+        "--Bucket=bucket2-1392491103",
+        "--connectType=stdio"
+      ],
+      "env": {
+        "COS_SECRET_ID": "YOUR_SECRET_ID_HERE",
+        "COS_SECRET_KEY": "YOUR_SECRET_KEY_HERE"
+      }
+    }
+  }
+}
+```
+
+---
+
+## 部署方案
+
+### 部署方案对比
+
+#### 1. 腾讯云 CVM（推荐用于国内用户）⭐
+
+**优点**：
+- 国内访问速度快
+- 数据合规要求（数据存储在境内）
+- 长期成本更低（约便宜 30-50%）
+- 技术生态完整，方便扩展
+- 稳定性更好，技术支持完善
+
+**适用场景**：主要面向国内用户的商业产品
+
+**配置推荐**：
+- **初期（<1000用户）**：2核4G（约 ¥100-150/月）
+- **成长期（1000-10000用户）**：4核8G（约 ¥200-300/月）
+- **操作系统**：Ubuntu 22.04 LTS（推荐）
+- **带宽**：5Mbps（按量计费或包年包月）
+
+#### 2. Railway（推荐用于开发/测试）
+
+**优点**：
+- 免费额度：$5/月（500小时运行时间）
+- 无文件大小限制
+- 支持 Node.js、PostgreSQL
+- 自动 HTTPS
+- 简单易用，GitHub 集成
+
+**适用场景**：中小型项目，需要简单部署
+
+#### 3. Fly.io
+
+**优点**：
+- 免费额度：3个共享CPU、256MB RAM的VM（2340小时/月）
+- 无明确的部署文件大小限制
+- 全球边缘节点，速度快
+- 支持 Docker
+- 持久存储：3GB（免费额度）
+
+**适用场景**：需要全球部署、对性能要求高的项目
+
+#### 4. Render
+
+**优点**：
+- 免费额度：750小时/月
+- 无文件大小限制
+- 支持 Node.js、PostgreSQL
+- 自动 HTTPS
+- 支持 WebSocket
+
+**缺点**：
+- 免费服务在15分钟无活动后会休眠
+- 国内访问可能较慢
+
+### 部署步骤（以腾讯云为例）
+
+#### 1. 购买和配置服务器
+
+1. 登录 [腾讯云控制台](https://console.cloud.tencent.com/)
+2. 进入 **云服务器 CVM** → **新建实例**
+3. 选择配置（参考上述推荐配置）
+4. 设置登录方式（密码或SSH密钥）
+5. 完成支付
+
+#### 2. 安装必要软件
+
+```bash
+# 更新系统
+apt update && apt upgrade -y
+
+# 安装 Node.js（使用 NVM）
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+source ~/.bashrc
+nvm install 20
+nvm use 20
+nvm alias default 20
+
+# 安装 PM2
+npm install -g pm2
+pm2 startup
+
+# 安装 Nginx
+apt install nginx -y
+systemctl start nginx
+systemctl enable nginx
+
+# 安装 Git
+apt install git -y
+```
+
+#### 3. 部署应用
+
+```bash
+# 克隆代码
+cd /var/www
+git clone https://github.com/你的用户名/AIGC-jubianage-agent.git aigc-agent
+cd aigc-agent
+
+# 安装依赖
+npm install
+cd server
+npm install
+
+# 配置环境变量
+cp .env.example .env
+# 编辑 .env 文件，填入所有必要的配置
+
+# 构建前端
+cd ..
+npm run build
+
+# 启动服务
+cd server
+pm2 start index.js --name aigc-agent
+pm2 save
+```
+
+#### 4. 配置 Nginx
+
+```bash
+# 创建 Nginx 配置
+sudo nano /etc/nginx/sites-available/aigc-agent
+```
+
+配置内容：
+```nginx
+server {
+    listen 80;
+    server_name jubianai.cn;
+
+    # 前端静态文件
+    location / {
+        root /var/www/aigc-agent/dist;
+        try_files $uri $uri/ /index.html;
+    }
+
+    # 后端 API
+    location /api {
+        proxy_pass http://localhost:3002;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+```
+
+启用配置：
+```bash
+sudo ln -s /etc/nginx/sites-available/aigc-agent /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+#### 5. 配置 SSL（使用 Certbot）
+
+```bash
+# 安装 Certbot
+sudo apt install certbot python3-certbot-nginx -y
+
+# 获取 SSL 证书
+sudo certbot --nginx -d jubianai.cn
+
+# 自动续期（已自动配置）
+sudo certbot renew --dry-run
+```
+
+---
+
+## 常用命令
+
+### Docker 相关
+
+```powershell
+# Milvus 启动
+cd milvus
+docker-compose up -d
+
+# Milvus 停止
+docker-compose down
+
+# 查看 Milvus 容器
+docker ps | findstr milvus
+```
+
+### 项目相关
+
+```powershell
+# 启动后端服务
+cd server
+npm start
+
+# 启动前端服务（开发模式）
+npm run dev
+
+# 构建前端
+npm run build
+```
+
+### 数据库相关
+
+```powershell
+# 查看 Supabase 表
+# 使用 MCP 工具：mcp_supabase-jubianage-agent_list_tables
+
+# 执行 SQL 迁移
+# 使用 MCP 工具：mcp_supabase-jubianage-agent_apply_migration
+```
+
+### PM2 相关（服务器上）
+
+```bash
+# 启动应用
+pm2 start index.js --name aigc-agent
+
+# 查看状态
+pm2 status
+
+# 查看日志
+pm2 logs aigc-agent
+
+# 重启应用
+pm2 restart aigc-agent
+
+# 停止应用
+pm2 stop aigc-agent
+
+# 保存配置
+pm2 save
+```
+
+---
+
+## 故障排查
+
+### 常见问题
+
+#### 1. MCP 配置问题
+
+**问题**：MCP 工具无法使用
+
+**解决**：
+1. 检查 `.cursor/mcp.json` 配置是否正确
+2. 确认 API 密钥和令牌有效
+3. 重启 Cursor
+
+#### 2. 数据库连接问题
+
+**问题**：无法连接到 Supabase
+
+**解决**：
+1. 检查 Supabase 项目是否正常运行
+2. 确认连接字符串正确
+3. 检查网络连接
+
+#### 3. COS 上传失败
+
+**问题**：文件上传到 COS 失败
+
+**解决**：
+1. 检查 COS 配置（SecretId、SecretKey、Bucket、Region）
+2. 确认存储桶权限设置正确
+3. 检查网络连接
+
+#### 4. Milvus 连接超时
+
+**问题**：`Error: 4 DEADLINE_EXCEEDED: Deadline exceeded`
+
+**解决**：
+1. 检查 Milvus 容器是否运行：`docker ps | findstr milvus`
+2. 检查端口是否被占用：`netstat -an | findstr 19530`
+3. 增加超时时间配置
+
+#### 5. 图片生成失败
+
+**问题**：图片生成任务失败
+
+**解决**：
+1. 检查对应的 API 密钥是否正确配置
+2. 查看后端日志获取详细错误信息
+3. 确认 API 配额是否充足
+
+#### 6. 部署后无法访问
+
+**问题**：部署后网站无法访问
+
+**解决**：
+1. 检查服务器防火墙设置（开放 80、443 端口）
+2. 检查 Nginx 配置是否正确
+3. 检查 PM2 进程是否运行：`pm2 status`
+4. 查看 Nginx 日志：`sudo tail -f /var/log/nginx/error.log`
+
+---
+
+## 注意事项
+
+1. **MCP 配置修改后需要重启 Cursor**
+2. **API 密钥和令牌不要提交到代码仓库**
+3. **用户数据完全隔离，不同用户之间数据不互通**
+4. **工具数量建议控制在 80 个以下**
+5. **所有新的 .md 文档应保存在 `skill` 文件夹中**
+6. **生产环境必须使用 HTTPS**
+7. **定期备份数据库**
+8. **监控服务器资源使用情况**
+
+---
+
+## 相关资源
+
+- [Supabase Dashboard](https://app.supabase.com)
+- [Vercel Dashboard](https://vercel.com/dashboard)
+- [腾讯云控制台](https://console.cloud.tencent.com)
+- [302.ai Dashboard](https://302.ai/dashboard)
+- [GitHub 仓库](https://github.com/ZhehuanUnique/AIGC-jubianage-agent)
+
+---
+
+## 更新日志
+
+- **2026-01-01**：整合所有通用功能文档，形成统一技能文档

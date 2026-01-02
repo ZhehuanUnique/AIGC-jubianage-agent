@@ -70,7 +70,14 @@ export async function uploadFile(filePath, cosKey, options = {}) {
     }
   } catch (error) {
     console.error('❌ COS文件上传失败:', error)
-    throw new Error(`文件上传失败: ${error.message}`)
+    
+    // 检测账户欠费错误
+    const errorMessage = error.message || error.Error?.Message || ''
+    if (errorMessage.includes('arrears') || errorMessage.includes('欠费') || errorMessage.includes('recharge')) {
+      throw new Error('文件上传失败: 腾讯云COS账户欠费，请充值后再试')
+    }
+    
+    throw new Error(`文件上传失败: ${errorMessage}`)
   }
 }
 
@@ -117,7 +124,14 @@ export async function uploadBuffer(buffer, cosKey, contentType = 'application/oc
     }
   } catch (error) {
     console.error('❌ COS Buffer上传失败:', error)
-    throw new Error(`文件上传失败: ${error.message}`)
+    
+    // 检测账户欠费错误
+    const errorMessage = error.message || error.Error?.Message || ''
+    if (errorMessage.includes('arrears') || errorMessage.includes('欠费') || errorMessage.includes('recharge')) {
+      throw new Error('文件上传失败: 腾讯云COS账户欠费，请充值后再试')
+    }
+    
+    throw new Error(`文件上传失败: ${errorMessage}`)
   }
 }
 
@@ -199,12 +213,148 @@ export function getFileUrl(cosKey) {
 export function generateCosKey(fileType, fileName) {
   const timestamp = Date.now()
   const random = Math.random().toString(36).substring(2, 8)
-  const ext = fileName.split('.').pop()
+  // 如果 fileName 包含点号，提取扩展名；否则直接使用（可能是纯扩展名如 'mp3'）
+  const ext = fileName.includes('.') ? fileName.split('.').pop() : fileName
   const date = new Date()
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
   
   return `${fileType}/${year}/${month}/${timestamp}_${random}.${ext}`
+}
+
+/**
+ * 获取COS中的文件列表
+ * @param {string} prefix - 文件路径前缀（如：images/recreation/）
+ * @param {number} maxKeys - 最大返回数量，默认100
+ * @returns {Promise<Array<{key: string, url: string, lastModified: string, size: number}>>}
+ */
+export async function listFiles(prefix = '', maxKeys = 100) {
+  try {
+    const params = {
+      Bucket: COS_CONFIG.Bucket,
+      Region: COS_CONFIG.Region,
+      Prefix: prefix,
+      MaxKeys: maxKeys,
+    }
+
+    console.log(`📋 获取COS文件列表: prefix=${prefix}, maxKeys=${maxKeys}`)
+
+    const result = await cos.getBucket(params)
+    
+    if (!result.Contents || result.Contents.length === 0) {
+      console.log(`📋 未找到文件: prefix=${prefix}`)
+      return []
+    }
+
+    // 构建文件列表，包含URL
+    const files = result.Contents
+      .filter(item => item.Key && !item.Key.endsWith('/')) // 过滤掉目录
+      .map(item => ({
+        key: item.Key,
+        url: getFileUrl(item.Key),
+        lastModified: item.LastModified,
+        size: item.Size,
+      }))
+      .sort((a, b) => new Date(b.lastModified) - new Date(a.lastModified)) // 按时间倒序
+
+    console.log(`✅ 获取到 ${files.length} 个文件`)
+    
+    return files
+  } catch (error) {
+    console.error('❌ 获取COS文件列表失败:', error)
+    throw new Error(`获取文件列表失败: ${error.message}`)
+  }
+}
+
+/**
+ * 批量删除COS中的文件
+ * @param {Array<string>} cosKeys - COS中的文件路径数组
+ * @returns {Promise<void>}
+ */
+export async function deleteFiles(cosKeys) {
+  try {
+    if (!cosKeys || cosKeys.length === 0) {
+      return
+    }
+
+    // COS批量删除最多支持1000个文件
+    const batchSize = 1000
+    for (let i = 0; i < cosKeys.length; i += batchSize) {
+      const batch = cosKeys.slice(i, i + batchSize)
+      const params = {
+        Bucket: COS_CONFIG.Bucket,
+        Region: COS_CONFIG.Region,
+        Objects: batch.map(key => ({ Key: key })),
+      }
+
+      await cos.deleteMultipleObject(params)
+      console.log(`✅ 批量删除文件成功: ${batch.length} 个文件`)
+    }
+  } catch (error) {
+    console.error('❌ COS批量删除文件失败:', error)
+    throw new Error(`批量删除文件失败: ${error.message}`)
+  }
+}
+
+/**
+ * 清理项目相关的COS文件
+ * @param {string} projectName - 项目名称（用于标识，实际通过keepKeys过滤）
+ * @param {Array<string>} keepKeys - 需要保留的文件key列表（从数据库获取的正在使用的文件）
+ * @returns {Promise<{deleted: number, kept: number}>}
+ */
+export async function cleanupProjectFiles(projectName, keepKeys = []) {
+  try {
+    // 获取所有相关文件
+    const prefixes = [
+      `characters/`,
+      `scenes/`,
+      `items/`,
+      `videos/`,
+      `images/`,
+    ]
+
+    const allFiles = []
+    for (const prefix of prefixes) {
+      try {
+        const files = await listFiles(prefix, 10000) // 获取最多10000个文件
+        allFiles.push(...files)
+      } catch (error) {
+        console.warn(`获取 ${prefix} 文件列表失败:`, error)
+      }
+    }
+
+    // 将keepKeys转换为Set以便快速查找
+    const keepKeysSet = new Set(keepKeys.map(key => {
+      // 处理URL格式的key，提取实际的COS key
+      if (key && key.includes('/')) {
+        // 从URL中提取key（最后一个/之后的部分，或者完整路径）
+        const urlMatch = key.match(/https?:\/\/[^\/]+\/(.+)/)
+        return urlMatch ? urlMatch[1] : key
+      }
+      return key
+    }))
+
+    // 过滤出需要删除的文件（不在保留列表中的文件）
+    const filesToDelete = allFiles.filter(file => {
+      // 检查文件key是否在保留列表中
+      return !keepKeysSet.has(file.key)
+    })
+
+    if (filesToDelete.length === 0) {
+      console.log('📋 没有需要清理的文件')
+      return { deleted: 0, kept: keepKeys.length }
+    }
+
+    // 批量删除
+    const keysToDelete = filesToDelete.map(file => file.key)
+    await deleteFiles(keysToDelete)
+
+    console.log(`✅ 清理完成: 删除 ${filesToDelete.length} 个文件，保留 ${keepKeys.length} 个文件`)
+    return { deleted: filesToDelete.length, kept: keepKeys.length }
+  } catch (error) {
+    console.error('❌ 清理项目文件失败:', error)
+    throw new Error(`清理项目文件失败: ${error.message}`)
+  }
 }
 
 export default cos

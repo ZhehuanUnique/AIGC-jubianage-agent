@@ -5,17 +5,35 @@ import { callQwenAPI } from './qwenService.js'
  * @param {string} segment - 剧本片段内容
  * @param {number} shotNumber - 分镜编号
  * @param {string} model - 使用的模型名称，默认 'qwen-max'
+ * @param {string} workStyle - 作品风格，如 '真人电影风格', '2d动漫风', '3d动漫风'
+ * @param {string} workBackground - 作品背景，如 '古代', '现代', '未来', '中古世纪', '异世界穿越', '末世'
  * @returns {Promise<{prompt: string, description: string}>} 返回分镜提示词和描述
  */
-export async function generateShotPrompt(segment, shotNumber, model = 'qwen-max') {
+export async function generateShotPrompt(segment, shotNumber, model = 'qwen-max', workStyle = '真人电影风格', workBackground = '现代') {
   if (!segment || segment.trim().length === 0) {
     throw new Error('剧本片段内容不能为空')
   }
 
-  console.log(`🎬 开始为分镜 ${shotNumber} 生成提示词，片段长度: ${segment.length} 字符`)
+  console.log(`🎬 开始为分镜 ${shotNumber} 生成提示词，片段长度: ${segment.length} 字符，风格: ${workStyle}，背景: ${workBackground}`)
+
+  // 根据作品背景生成风格描述
+  const backgroundStyleMap = {
+    '古代': '古风风格，传统建筑，古典服饰，古代场景元素',
+    '现代': '近现代写实风格，现代建筑，现代服饰，现代生活场景',
+    '未来': '科技科幻风格，未来建筑，科技感服饰，科幻场景元素，高科技设备',
+    '中古世纪': '中古世纪欧洲风格，中世纪建筑，骑士盔甲，城堡场景，欧洲古典元素',
+    '异世界穿越': '异世界穿越风格，奇幻建筑，魔法元素，天马行空的设定，可以是真人风格也可以是动漫风格',
+    '末世': '末世风格，废墟场景，破败建筑，末世氛围，荒凉感'
+  }
+
+  const backgroundStyle = backgroundStyleMap[workBackground] || '现代写实风格'
 
   // 构建专业的分镜提示词生成提示
   const prompt = `你是一名大师级别专业的影视导演，根据以下剧本片段的剧情，详细规划分镜脚本，规避开太暴力血腥的画面。
+
+**重要设定：**
+- 作品风格：${workStyle}
+- 作品背景：${workBackground}（${backgroundStyle}）
 
 要求：
 1. 将剧本片段切分为多个分镜，每句话对应两个分镜。
@@ -23,11 +41,12 @@ export async function generateShotPrompt(segment, shotNumber, model = 'qwen-max'
 3. 融图提示词必须严格按照以下固定格式生成，不要有任何额外文字或解释：
    景别：[景别描述]
    主体: [主体描述]
-   风格: [风格描述]
+   风格: [${workStyle}，${backgroundStyle}]
    构图: [构图描述]
    氛围：[氛围描述]
 4. 画面比例为横屏16:9。
 5. 规避任何暴力血腥的画面。
+6. **必须严格遵循作品背景设定**：所有场景、物品、服饰、建筑等元素都必须符合"${workBackground}"的背景设定。
 
 剧本片段：
 ${segment}

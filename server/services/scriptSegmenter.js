@@ -7,17 +7,36 @@ import { generateShotPrompt } from './shotPromptGenerator.js'
  * @param {string} scriptTitle - 剧本标题（可选）
  * @param {string} model - 使用的模型名称，默认 'qwen-max'，可选 'qwen-plus'
  * @param {boolean} generatePrompts - 是否生成分镜提示词，默认 true
+ * @param {string} workStyle - 作品风格，如 '真人电影风格', '2d动漫风', '3d动漫风'
+ * @param {string} workBackground - 作品背景，如 '古代', '现代', '未来', '中古世纪', '异世界穿越', '末世'
  * @returns {Promise<Array<{segment: string, shotNumber: number, prompt?: string, description?: string}>>} 返回切分后的片段数组，包含分镜提示词
  */
-export async function segmentScript(scriptContent, scriptTitle = '', model = 'qwen-max', generatePrompts = true) {
+export async function segmentScript(scriptContent, scriptTitle = '', model = 'qwen-max', generatePrompts = true, workStyle = '真人电影风格', workBackground = '现代') {
   if (!scriptContent || scriptContent.trim().length === 0) {
     throw new Error('剧本内容不能为空')
   }
 
   console.log('📝 开始切分剧本，长度:', scriptContent.length, '字符')
+  console.log('📝 作品风格:', workStyle, '作品背景:', workBackground)
+
+  // 根据作品背景生成风格描述
+  const backgroundStyleMap = {
+    '古代': '古风风格，传统建筑，古典服饰，古代场景元素',
+    '现代': '近现代写实风格，现代建筑，现代服饰，现代生活场景',
+    '未来': '科技科幻风格，未来建筑，科技感服饰，科幻场景元素，高科技设备',
+    '中古世纪': '中古世纪欧洲风格，中世纪建筑，骑士盔甲，城堡场景，欧洲古典元素',
+    '异世界穿越': '异世界穿越风格，奇幻建筑，魔法元素，天马行空的设定，可以是真人风格也可以是动漫风格',
+    '末世': '末世风格，废墟场景，破败建筑，末世氛围，荒凉感'
+  }
+
+  const backgroundStyle = backgroundStyleMap[workBackground] || '现代写实风格'
 
   // 构建提示词 - 每句话对应两个分镜
   const prompt = `你是一名大师级别专业的影视导演，根据上述剧本的剧情，详细规划分镜脚本，规避开太暴力血腥的画面。
+
+**重要设定：**
+- 作品风格：${workStyle}
+- 作品背景：${workBackground}（${backgroundStyle}）
 
 **重要要求：每句话必须对应两个分镜！**
 
@@ -29,6 +48,7 @@ export async function segmentScript(scriptContent, scriptTitle = '', model = 'qw
 5. 每个片段应该适合制作一个5-10秒的视频分镜
 6. 规避开太暴力血腥的画面，使用更温和的表达方式
 7. 不要遗漏任何内容，所有片段合起来应该是完整的剧本
+8. **必须严格遵循作品背景设定**：所有场景、物品、服饰、建筑等元素都必须符合"${workBackground}"的背景设定
 
 示例：
 如果剧本中有："听说傅北川很爱很爱我，苏绵绵不服气地撇撇嘴，朝我翻了个白眼。"
@@ -55,7 +75,7 @@ export async function segmentScript(scriptContent, scriptTitle = '', model = 'qw
 剧本内容：
 ${scriptContent}
 
-请开始切分，确保每句话对应两个分镜：`
+请开始切分，确保每句话对应两个分镜，并严格遵循"${workBackground}"的背景设定：`
 
   try {
     // 调用大模型API（使用指定的模型）
@@ -101,7 +121,7 @@ ${scriptContent}
       
       for (const segment of segments) {
         try {
-          const promptResult = await generateShotPrompt(segment.segment, segment.shotNumber, model)
+          const promptResult = await generateShotPrompt(segment.segment, segment.shotNumber, model, workStyle, workBackground)
           segmentsWithPrompts.push({
             ...segment,
             prompt: promptResult.prompt,

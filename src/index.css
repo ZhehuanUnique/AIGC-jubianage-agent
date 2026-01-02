@@ -15,12 +15,16 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #0a0a0a;
-  color: #ffffff;
+  background-color: #ffffff;
+  color: #1f2937;
 }
 
 #root {
   width: 100%;
   min-height: 100vh;
 }
+
+
+
+
 

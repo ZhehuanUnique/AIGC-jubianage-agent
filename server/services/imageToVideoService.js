@@ -5,6 +5,10 @@ import { existsSync } from 'fs'
 import { uploadBuffer } from './cosService.js'
 import { generateCosKey } from './cosService.js'
 import { generateVideoWithSeedance, getSeedanceTaskStatus } from './doubaoSeedanceService.js'
+import { upscaleVideoWithViduHd, getViduHdTaskStatus } from './viduHdService.js'
+import { generateVideoWithViduV2, getViduV2TaskStatus } from './viduV2Service.js'
+import { generateVideoWithVeo3, getVeo3TaskStatus } from './veo3Service.js'
+import { generateVideoWithHailuo, getHailuoTaskStatus } from './hailuoService.js'
 
 // 加载.env文件
 const __filename = fileURLToPath(import.meta.url)
@@ -32,8 +36,69 @@ export async function generateVideoFromImage(imageUrl, options = {}) {
     ratio = 'adaptive',
   } = options
 
+  // 如果是 MiniMax Hailuo 模型，使用专门的服务
+  if (model === 'minimax-hailuo-02' || model === 'minimax-hailuo-2.3' || model === 'minimax-hailuo-2.3-fast') {
+    // 将分辨率转换为 Hailuo 需要的格式（512P, 768P, 1080P）
+    let hailuoResolution = '768P'
+    if (resolution === '480p' || resolution === '512P') {
+      hailuoResolution = '512P'
+    } else if (resolution === '720p' || resolution === '768P') {
+      hailuoResolution = '768P'
+    } else if (resolution === '1080p' || resolution === '1080P') {
+      hailuoResolution = '1080P'
+    }
+    
+    // Hailuo 的时长限制：1080P 只支持 6 秒，其他支持 6 或 10 秒
+    let hailuoDuration = duration
+    if (hailuoResolution === '1080P' && duration > 6) {
+      hailuoDuration = 6
+      console.warn('⚠️ 1080P 分辨率只支持 6 秒，已自动调整为 6 秒')
+    }
+    
+    return await generateVideoWithHailuo(imageUrl, {
+      model,
+      resolution: hailuoResolution,
+      duration: hailuoDuration,
+      prompt: text,
+      promptOptimizer: true,
+    })
+  }
+
+  // 如果是 Veo3.1 模型，使用专门的服务
+  if (model === 'veo3.1' || model === 'veo3.1-pro') {
+    // Veo3.1 需要提示词，如果没有提供，使用默认提示词
+    const finalPrompt = text || 'Generate a video from the image with smooth motion and natural transitions.'
+    
+    // Veo3.1 仅支持 16:9 和 9:16，根据分辨率推断宽高比
+    let aspectRatio = '16:9'
+    if (resolution === '9:16' || resolution.includes('9:16')) {
+      aspectRatio = '9:16'
+    }
+    
+    return await generateVideoWithVeo3(imageUrl, {
+      model,
+      prompt: finalPrompt,
+      enhancePrompt: true,
+      aspectRatio,
+    })
+  }
+
+  // 如果是 Vidu V2 模型（viduq2-turbo 或其他 Vidu 模型），使用专门的服务
+  if (model === 'viduq2-turbo' || model === 'viduq2-pro' || model === 'viduq1' || 
+      model === 'vidu2.0' || model === 'vidu1.5' || model === 'vidu1.0') {
+    // Vidu V2 支持 base64 和 HTTP URL
+    return await generateVideoWithViduV2(imageUrl, {
+      model,
+      resolution,
+      duration,
+      prompt: text,
+      movementAmplitude: 'auto',
+      bgm: false,
+    })
+  }
+
   // 如果是豆包 Seedance 模型，使用专门的服务
-  if (model === 'doubao-seedance-1-5-pro-251215') {
+  if (model === 'doubao-seedance-1-5-pro-251215' || model === 'doubao-seedance-1-0-lite-i2v-250428') {
     // 豆包 Seedance 需要可访问的HTTP/HTTPS URL，不能是base64
     let finalImageUrl = imageUrl
     
@@ -76,6 +141,7 @@ export async function generateVideoFromImage(imageUrl, options = {}) {
     
     // 调用豆包 Seedance API
     return await generateVideoWithSeedance(finalImageUrl, {
+      model, // 传递模型参数（支持 doubao-seedance-1-5-pro-251215 和 doubao-seedance-1-0-lite-i2v-250428）
       resolution,
       ratio,
       duration,
@@ -388,10 +454,31 @@ export async function generateVideoFromImage(imageUrl, options = {}) {
  * @returns {Promise<Object>} 返回任务状态和视频信息
  */
 export async function getVideoTaskStatus(taskId, model = 'wan2.2-i2v-flash') {
+  // 如果是 MiniMax Hailuo 模型，使用专门的服务
+  if (model === 'minimax-hailuo-02' || model === 'minimax-hailuo-2.3' || model === 'minimax-hailuo-2.3-fast') {
+    return await getHailuoTaskStatus(taskId)
+  }
+
+  // 如果是 Veo3.1 模型，使用专门的服务
+  if (model === 'veo3.1' || model === 'veo3.1-pro') {
+    return await getVeo3TaskStatus(taskId, model)
+  }
+
+  // 如果是 Vidu V2 模型，使用专门的服务
+  if (model === 'viduq2-turbo' || model === 'viduq2-pro' || model === 'viduq1' || 
+      model === 'vidu2.0' || model === 'vidu1.5' || model === 'vidu1.0') {
+    return await getViduV2TaskStatus(taskId)
+  }
+
   // 如果是豆包 Seedance 模型，使用专门的服务
-  if (model === 'doubao-seedance-1-5-pro-251215') {
+  if (model === 'doubao-seedance-1-5-pro-251215' || model === 'doubao-seedance-1-0-lite-i2v-250428') {
     const { getSeedanceTaskStatus } = await import('./doubaoSeedanceService.js')
     return await getSeedanceTaskStatus(taskId)
+  }
+
+  // 如果是 Vidu HD 模型（upscale），使用专门的服务
+  if (model === 'vidu-hd-upscale') {
+    return await getViduHdTaskStatus(taskId)
   }
 
   // 否则使用阿里云通义万相API

@@ -12,41 +12,28 @@ function TestPage() {
 
   // 示例剧本
   const exampleScript = `第一场
-
-日/内 医院诊室
+医院诊室
 
 （医生坐在诊桌前，傅北川坐在对面）
-
 医生：根据检查结果，你的情况不太乐观。这种药很贵，但能延长你的生命。
-
 傅北川：（沉默片刻）多少钱？
 
 医生：一个疗程需要十万。
-
 （傅北川起身离开）
-
 第二场
-
-日/外 公司门口
+公司门口
 
 （苏绵绵站在公司门口，看到傅北川出来）
-
 苏绵绵：北川，你还好吗？
 
 傅北川：没事，我们走吧。
-
 （两人走向咖啡厅）
-
 第三场
-
-日/内 咖啡厅
-
+咖啡厅
 （傅北川和苏绵绵坐在窗边，桌上放着两杯咖啡）
-
 苏绵绵：你真的要放弃治疗吗？
 
 傅北川：（看着窗外的街道）我不想拖累任何人。
-
 （傅北川拿出手机，看着屏幕上的照片）`
 
   const handleAnalyzeText = async () => {
@@ -116,17 +103,17 @@ function TestPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white p-6">
+    <div className="min-h-screen bg-white text-gray-900 p-6">
       <div className="max-w-6xl mx-auto">
         <div className="mb-6">
           <h1 className="text-3xl font-bold mb-2">剧本分析测试页面</h1>
-          <p className="text-gray-400">测试剧本分析功能，自动提取角色、场景、物品</p>
+          <p className="text-gray-600">测试剧本分析功能，自动提取角色、场景、物品</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* 左侧：输入区域 */}
           <div className="space-y-4">
-            <div className="bg-[#1a1a1a] rounded-lg p-6 border border-gray-800">
+            <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
               <h2 className="text-xl font-semibold mb-4">输入剧本</h2>
 
               {/* 剧本标题 */}
@@ -137,7 +124,7 @@ function TestPage() {
                   value={scriptTitle}
                   onChange={(e) => setScriptTitle(e.target.value)}
                   placeholder="测试剧本"
-                  className="w-full px-4 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg focus:outline-none focus:border-purple-500"
+                  className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500"
                 />
               </div>
 
@@ -155,7 +142,7 @@ function TestPage() {
                   />
                   <label
                     htmlFor="file-upload"
-                    className={`flex items-center gap-2 px-4 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg cursor-pointer hover:border-purple-500 ${
+                    className={`flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg cursor-pointer hover:border-purple-500 ${
                       isAnalyzing ? 'opacity-50 cursor-not-allowed' : ''
                     }`}
                   >
@@ -173,15 +160,15 @@ function TestPage() {
                   onChange={(e) => setScriptContent(e.target.value)}
                   placeholder="请输入剧本内容，或点击下方按钮加载示例..."
                   rows={15}
-                  className="w-full px-4 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg focus:outline-none focus:border-purple-500 resize-none font-mono text-sm"
+                  className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 resize-none font-mono text-sm"
                 />
                 <div className="flex justify-between items-center mt-2">
-                  <span className="text-gray-400 text-xs">
+                  <span className="text-gray-600 text-xs">
                     {scriptContent.length} 字符
                   </span>
                   <button
                     onClick={loadExample}
-                    className="text-purple-400 hover:text-purple-300 text-sm"
+                    className="text-purple-600 hover:text-purple-700 text-sm"
                   >
                     加载示例剧本
                   </button>
@@ -213,7 +200,7 @@ function TestPage() {
                 </button>
                 <button
                   onClick={clearAll}
-                  className="px-4 py-3 bg-[#2a2a2a] text-white rounded-lg hover:bg-[#3a3a3a] transition-colors"
+                  className="px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
                 >
                   清空
                 </button>
@@ -225,18 +212,18 @@ function TestPage() {
           <div className="space-y-4">
             {/* 错误提示 */}
             {error && (
-              <div className="bg-red-900 bg-opacity-30 border border-red-700 rounded-lg p-4">
-                <div className="flex items-center gap-2 text-red-300">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex items-center gap-2 text-red-700">
                   <XCircle size={20} />
                   <span className="font-semibold">错误</span>
                 </div>
-                <p className="mt-2 text-red-200">{error}</p>
+                <p className="mt-2 text-red-600">{error}</p>
               </div>
             )}
 
             {/* 分析结果 */}
             {result && (
-              <div className="bg-[#1a1a1a] rounded-lg p-6 border border-gray-800">
+              <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
                 <div className="flex items-center gap-2 mb-4">
                   <CheckCircle className="text-green-500" size={24} />
                   <h2 className="text-xl font-semibold">分析结果</h2>
@@ -244,7 +231,7 @@ function TestPage() {
 
                 {/* 角色 */}
                 <div className="mb-6">
-                  <h3 className="text-lg font-semibold mb-3 text-purple-400">
+                  <h3 className="text-lg font-semibold mb-3 text-purple-600">
                     角色 ({result.characters.length})
                   </h3>
                   {result.characters.length > 0 ? (
@@ -252,20 +239,20 @@ function TestPage() {
                       {result.characters.map((char, index) => (
                         <div
                           key={index}
-                          className="px-3 py-2 bg-[#0a0a0a] border border-gray-700 rounded text-sm"
+                          className="px-3 py-2 bg-white border border-gray-300 rounded text-sm"
                         >
                           {char.name}
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-gray-400 text-sm">未识别到角色</p>
+                    <p className="text-gray-600 text-sm">未识别到角色</p>
                   )}
                 </div>
 
                 {/* 场景 */}
                 <div className="mb-6">
-                  <h3 className="text-lg font-semibold mb-3 text-blue-400">
+                  <h3 className="text-lg font-semibold mb-3 text-blue-600">
                     场景 ({result.scenes.length})
                   </h3>
                   {result.scenes.length > 0 ? (
@@ -273,20 +260,20 @@ function TestPage() {
                       {result.scenes.map((scene, index) => (
                         <div
                           key={index}
-                          className="px-3 py-2 bg-[#0a0a0a] border border-gray-700 rounded text-sm"
+                          className="px-3 py-2 bg-white border border-gray-300 rounded text-sm"
                         >
                           {scene.name}
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-gray-400 text-sm">未识别到场景</p>
+                    <p className="text-gray-600 text-sm">未识别到场景</p>
                   )}
                 </div>
 
                 {/* 物品 */}
                 <div>
-                  <h3 className="text-lg font-semibold mb-3 text-green-400">
+                  <h3 className="text-lg font-semibold mb-3 text-green-600">
                     物品 ({result.items.length})
                   </h3>
                   {result.items.length > 0 ? (
@@ -294,23 +281,23 @@ function TestPage() {
                       {result.items.map((item, index) => (
                         <div
                           key={index}
-                          className="px-3 py-2 bg-[#0a0a0a] border border-gray-700 rounded text-sm"
+                          className="px-3 py-2 bg-white border border-gray-300 rounded text-sm"
                         >
                           {item.name}
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-gray-400 text-sm">未识别到物品</p>
+                    <p className="text-gray-600 text-sm">未识别到物品</p>
                   )}
                 </div>
 
                 {/* JSON 显示 */}
                 <details className="mt-6">
-                  <summary className="cursor-pointer text-sm text-gray-400 hover:text-gray-300">
+                  <summary className="cursor-pointer text-sm text-gray-600 hover:text-gray-700">
                     查看原始JSON数据
                   </summary>
-                  <pre className="mt-2 p-4 bg-[#0a0a0a] border border-gray-700 rounded text-xs overflow-auto max-h-64">
+                  <pre className="mt-2 p-4 bg-white border border-gray-300 rounded text-xs overflow-auto max-h-64">
                     {JSON.stringify(result, null, 2)}
                   </pre>
                 </details>
@@ -319,9 +306,9 @@ function TestPage() {
 
             {/* 空状态 */}
             {!result && !error && !isAnalyzing && (
-              <div className="bg-[#1a1a1a] rounded-lg p-6 border border-gray-800 text-center">
+              <div className="bg-gray-50 rounded-lg p-6 border border-gray-200 text-center">
                 <FileText className="mx-auto mb-4 text-gray-500" size={48} />
-                <p className="text-gray-400">
+                <p className="text-gray-600">
                   输入剧本内容或上传文件，然后点击"开始分析"
                 </p>
               </div>
@@ -330,8 +317,8 @@ function TestPage() {
         </div>
 
         {/* API状态提示 */}
-        <div className="mt-6 bg-[#1a1a1a] rounded-lg p-4 border border-gray-800">
-          <p className="text-sm text-gray-400">
+        <div className="mt-6 bg-gray-50 rounded-lg p-4 border border-gray-200">
+          <p className="text-sm text-gray-600">
             💡 提示：确保后端服务已启动（http://localhost:3002），并且已配置正确的API密钥
           </p>
         </div>
@@ -341,4 +328,3 @@ function TestPage() {
 }
 
 export default TestPage
-

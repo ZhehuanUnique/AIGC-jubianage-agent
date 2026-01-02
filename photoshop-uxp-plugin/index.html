@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>AIGC Photoshop 自动化</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1e1e1e;
+      color: #ffffff;
+    }
+    
+    .container {
+      max-width: 400px;
+      margin: 0 auto;
+    }
+    
+    h1 {
+      font-size: 18px;
+      margin-bottom: 20px;
+      color: #ffffff;
+    }
+    
+    .status {
+      padding: 10px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+      background: #2d2d2d;
+    }
+    
+    .status.running {
+      background: #1e3a1e;
+      color: #4ade80;
+    }
+    
+    .status.stopped {
+      background: #3a1e1e;
+      color: #f87171;
+    }
+    
+    button {
+      padding: 10px 20px;
+      background: #6366f1;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-right: 10px;
+      margin-bottom: 10px;
+    }
+    
+    button:hover {
+      background: #4f46e5;
+    }
+    
+    button:disabled {
+      background: #4b5563;
+      cursor: not-allowed;
+    }
+    
+    .info {
+      margin-top: 20px;
+      padding: 10px;
+      background: #2d2d2d;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #9ca3af;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>AIGC Photoshop 自动化插件</h1>
+    
+    <div id="status" class="status stopped">
+      <strong>状态：</strong><span id="statusText">未运行</span>
+    </div>
+    
+    <div>
+      <button id="startBtn">启动服务器</button>
+      <button id="stopBtn" disabled>停止服务器</button>
+    </div>
+    
+    <div class="info">
+      <p><strong>服务器地址：</strong>http://localhost:3003</p>
+      <p><strong>功能：</strong></p>
+      <ul>
+        <li>创建新文档</li>
+        <li>导入图片到最上层图层</li>
+        <li>一键创建并导入</li>
+      </ul>
+    </div>
+  </div>
+  
+  <script>
+    const statusEl = document.getElementById('status')
+    const statusTextEl = document.getElementById('statusText')
+    const startBtn = document.getElementById('startBtn')
+    const stopBtn = document.getElementById('stopBtn')
+    
+    // 检查服务器状态
+    async function checkStatus() {
+      try {
+        const response = await fetch('http://localhost:3003/health')
+        if (response.ok) {
+          statusEl.className = 'status running'
+          statusTextEl.textContent = '运行中'
+          startBtn.disabled = true
+          stopBtn.disabled = false
+        } else {
+          statusEl.className = 'status stopped'
+          statusTextEl.textContent = '未运行'
+          startBtn.disabled = false
+          stopBtn.disabled = true
+        }
+      } catch (error) {
+        statusEl.className = 'status stopped'
+        statusTextEl.textContent = '未运行'
+        startBtn.disabled = false
+        stopBtn.disabled = true
+      }
+    }
+    
+    startBtn.addEventListener('click', () => {
+      // 注意：UXP 插件中不能直接启动 Node.js 服务器
+      // 服务器应该在 main.js 中自动启动
+      checkStatus()
+    })
+    
+    stopBtn.addEventListener('click', () => {
+      // 注意：UXP 插件中不能直接停止 Node.js 服务器
+      // 这需要调用 main.js 中的 stopLocalServer 函数
+      checkStatus()
+    })
+    
+    // 定期检查状态
+    setInterval(checkStatus, 2000)
+    checkStatus()
+  </script>
+</body>
+</html>
+
+
+
+

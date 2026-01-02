@@ -20,17 +20,17 @@ export async function initDatabase() {
     const dbUrl = process.env.DATABASE_URL || 
       `postgresql://${process.env.DB_USER || 'postgres'}:${process.env.DB_PASSWORD || ''}@${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || 5432}/${process.env.DB_NAME || 'aigc_db'}`
     
-    // 提取数据库名（从 DATABASE_URL 中提取，支持带连字符的数据库名）
+    // 提取数据库名
     let dbName = process.env.DB_NAME
     if (!dbName) {
-      // 从连接字符串中提取数据库名（最后一个 / 后面的部分）
       const urlParts = dbUrl.split('/')
-      dbName = urlParts[urlParts.length - 1].split('?')[0] // 移除查询参数
+      dbName = urlParts[urlParts.length - 1].split('?')[0]
       if (!dbName || dbName === '') {
         dbName = 'aigc_db'
       }
     }
     console.log(`📌 目标数据库名: ${dbName}`)
+    
     // 构建连接到 postgres 数据库的连接字符串
     const postgresUrl = dbUrl.replace(/\/[^\/\?]+(\?|$)/, '/postgres$1')
     
@@ -64,73 +64,168 @@ export async function initDatabase() {
     // 读取SQL文件
     const schemaPath = join(__dirname, 'schema.sql')
     const schemaSQL = readFileSync(schemaPath, 'utf-8')
+    
+    // 读取用户表SQL文件
+    const userSchemaPath = join(__dirname, 'userSchema.sql')
+    let userSchemaSQL = ''
+    try {
+      userSchemaSQL = readFileSync(userSchemaPath, 'utf-8')
+      console.log('📋 读取用户表结构文件...')
+    } catch (error) {
+      console.warn('⚠️  用户表结构文件不存在，跳过:', userSchemaPath)
+    }
+    
+    // 合并SQL
+    const combinedSQL = schemaSQL + '\n\n' + userSchemaSQL
 
-    // 使用更可靠的方法：先处理函数定义块，然后分割其他语句
-    // 1. 提取所有函数定义（使用 $$ 分隔符，需要匹配多行）
-    const functionBlocks = []
-    // 匹配从 CREATE FUNCTION 到 $$ language 'plpgsql' 的完整函数定义
+    // 按照正确顺序执行SQL：函数 -> 表 -> 索引 -> 触发器
+    const statements = {
+      functions: [],
+      tables: [],
+      indexes: [],
+      triggers: []
+    }
+
+    // 移除注释
+    let cleanedSQL = combinedSQL
+      .replace(/--[^\n]*/g, '') // 移除单行注释
+      .replace(/\/\*[\s\S]*?\*\//g, '') // 移除多行注释
+      .trim()
+
+    // 1. 提取函数定义（使用更精确的正则，匹配 $$...$$ 语法）
     const functionRegex = /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION[^$]*\$\$[\s\S]*?\$\$\s+language\s+['"]plpgsql['"]/gi
-    let functionIndex = 0
-    let processedSQL = schemaSQL.replace(functionRegex, (match) => {
-      const placeholder = `__FUNCTION_${functionIndex}__`
-      functionBlocks.push(match.trim())
-      functionIndex++
-      return placeholder
-    })
-    
-    // 2. 按分号分割剩余SQL（不包含函数定义）
-    const rawStatements = processedSQL
-      .split(';')
-      .map(s => s.trim())
-      .filter(s => s.length > 0 && !s.startsWith('--'))
-    
-    // 3. 恢复函数定义并构建完整语句列表
-    const allStatements = []
-    
-    // 先添加函数定义
-    functionBlocks.forEach(func => {
-      allStatements.push(func)
-    })
-    
-    // 再添加其他语句（恢复函数占位符）
-    rawStatements.forEach(stmt => {
-      // 检查是否包含函数占位符
-      const functionMatch = stmt.match(/__FUNCTION_(\d+)__/)
-      if (functionMatch) {
-        // 这个占位符已经在函数列表中，跳过
-        return
-      }
-      // 普通语句，直接添加
-      if (stmt && !stmt.startsWith('--')) {
-        allStatements.push(stmt)
-      }
-    })
+    let processedSQL = cleanedSQL
+    let functionMatch
+    while ((functionMatch = functionRegex.exec(cleanedSQL)) !== null) {
+      statements.functions.push(functionMatch[0].trim())
+      processedSQL = processedSQL.replace(functionMatch[0], '')
+    }
 
-    console.log(`📝 开始执行 ${allStatements.length} 条SQL语句...`)
-
-    for (let i = 0; i < allStatements.length; i++) {
-      const statement = allStatements[i]
-      try {
-        await pool.query(statement)
-        // 只对前几个语句显示详细信息
-        if (i < 5) {
-          const preview = statement.substring(0, 50).replace(/\s+/g, ' ')
-          console.log(`  ✓ 执行语句 ${i + 1}: ${preview}...`)
+    // 2. 智能分割SQL语句（处理括号嵌套）
+    function splitSQLStatements(sql) {
+      const statements = []
+      let current = ''
+      let depth = 0
+      let inString = false
+      let stringChar = null
+      
+      for (let i = 0; i < sql.length; i++) {
+        const char = sql[i]
+        const nextChar = sql[i + 1]
+        
+        // 处理字符串
+        if ((char === '"' || char === "'") && (i === 0 || sql[i - 1] !== '\\')) {
+          if (!inString) {
+            inString = true
+            stringChar = char
+          } else if (char === stringChar) {
+            inString = false
+            stringChar = null
+          }
         }
+        
+        if (!inString) {
+          // 处理括号
+          if (char === '(') depth++
+          if (char === ')') depth--
+          
+          // 处理分号（语句结束）
+          if (char === ';' && depth === 0) {
+            current += char
+            const trimmed = current.trim()
+            if (trimmed.length > 0) {
+              statements.push(trimmed)
+            }
+            current = ''
+            continue
+          }
+        }
+        
+        current += char
+      }
+      
+      // 添加最后一个语句（如果没有分号）
+      const trimmed = current.trim()
+      if (trimmed.length > 0) {
+        statements.push(trimmed)
+      }
+      
+      return statements
+    }
+
+    const allStatements = splitSQLStatements(processedSQL)
+
+    // 3. 分类语句
+    allStatements.forEach(stmt => {
+      const upperStmt = stmt.toUpperCase().trim()
+      
+      if (upperStmt.startsWith('CREATE TABLE')) {
+        statements.tables.push(stmt)
+      } else if (upperStmt.startsWith('CREATE') && upperStmt.includes('INDEX')) {
+        statements.indexes.push(stmt)
+      } else if (upperStmt.startsWith('CREATE TRIGGER')) {
+        statements.triggers.push(stmt)
+      }
+    })
+
+    console.log(`📝 开始执行SQL语句...`)
+    console.log(`  - 函数: ${statements.functions.length} 个`)
+    console.log(`  - 表: ${statements.tables.length} 个`)
+    console.log(`  - 索引: ${statements.indexes.length} 个`)
+    console.log(`  - 触发器: ${statements.triggers.length} 个`)
+
+    // 4. 按顺序执行：函数 -> 表 -> 索引 -> 触发器
+    let executedCount = 0
+
+    // 执行函数
+    for (const func of statements.functions) {
+      try {
+        await pool.query(func)
+        executedCount++
       } catch (error) {
-        // 忽略已存在的表/索引/函数错误
-        if (!error.message.includes('already exists') && 
-            !error.message.includes('duplicate') &&
-            !error.message.includes('已存在')) {
-          console.warn(`⚠️ SQL执行警告 (语句 ${i + 1}):`, error.message)
-          // 显示有问题的语句前50个字符
-          const preview = statement.substring(0, 50).replace(/\s+/g, ' ')
-          console.warn(`   语句内容: ${preview}...`)
+        if (!error.message.includes('already exists') && !error.message.includes('已存在')) {
+          console.warn(`⚠️ 函数执行警告:`, error.message.substring(0, 100))
         }
       }
     }
 
-    console.log('✅ 数据库初始化完成')
+    // 执行表创建
+    for (const table of statements.tables) {
+      try {
+        await pool.query(table)
+        executedCount++
+      } catch (error) {
+        if (!error.message.includes('already exists') && !error.message.includes('已存在')) {
+          console.warn(`⚠️ 表创建警告:`, error.message.substring(0, 100))
+        }
+      }
+    }
+
+    // 执行索引创建
+    for (const index of statements.indexes) {
+      try {
+        await pool.query(index)
+        executedCount++
+      } catch (error) {
+        if (!error.message.includes('already exists') && !error.message.includes('已存在') && !error.message.includes('不存在')) {
+          console.warn(`⚠️ 索引创建警告:`, error.message.substring(0, 100))
+        }
+      }
+    }
+
+    // 执行触发器创建
+    for (const trigger of statements.triggers) {
+      try {
+        await pool.query(trigger)
+        executedCount++
+      } catch (error) {
+        if (!error.message.includes('already exists') && !error.message.includes('已存在') && !error.message.includes('不存在')) {
+          console.warn(`⚠️ 触发器创建警告:`, error.message.substring(0, 100))
+        }
+      }
+    }
+
+    console.log(`✅ 数据库初始化完成 (共执行 ${executedCount} 条语句)`)
     return true
   } catch (error) {
     console.error('❌ 数据库初始化失败:', error)
@@ -139,7 +234,6 @@ export async function initDatabase() {
 }
 
 // 如果直接运行此文件，执行初始化
-// 检查是否是直接运行（不是被导入）
 const isMainModule = import.meta.url === `file://${process.argv[1]}` || 
                      process.argv[1] && process.argv[1].endsWith('init.js')
 
@@ -156,5 +250,3 @@ if (isMainModule || process.argv[1]?.includes('init.js')) {
       process.exit(1)
     })
 }
-
-

@@ -1,21 +1,29 @@
-import { useState } from 'react'
-import { X, Check, ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Check, ChevronLeft, ChevronRight } from 'lucide-react'
 
 interface VideoEditModalProps {
   isOpen: boolean
   onClose: () => void
   videoId: number
+  videoPrompt?: string // 视频提示词（从 RAG 库生成）
 }
 
-function VideoEditModal({ isOpen, onClose, videoId }: VideoEditModalProps) {
+function VideoEditModal({ isOpen, onClose, videoId, videoPrompt }: VideoEditModalProps) {
   const [selectedImage, setSelectedImage] = useState<number | null>(1)
   const [model, setModel] = useState('即梦AI-视频生成3.0')
   const [duration, setDuration] = useState(5)
   const [resolution, setResolution] = useState('720p')
   const [quantity, setQuantity] = useState(1)
   const [prompt, setPrompt] = useState(
-    '真人电影风格,风轻轻吹拂,两人的长发和衣角微微飘动。她们静静地站着,没有任何交流,气氛沉静而压抑。镜头缓慢从两人身后向前推进,越过她们的肩膀,展现下方的宫城全貌。'
+    videoPrompt || '真人电影风格，风轻轻吹过，两人的长发和衣角微微飘动。她们静静地站着，没有任何交流，气氛沉静而压抑。镜头缓慢从两人身后向前推进，越过她们的肩膀，展现下方的宫城全貌。'
   )
+  
+  // 当 videoPrompt prop 变化时，更新 prompt
+  useEffect(() => {
+    if (videoPrompt) {
+      setPrompt(videoPrompt)
+    }
+  }, [videoPrompt])
 
   const images = Array.from({ length: 5 }, (_, i) => i + 1)
 
@@ -28,25 +36,31 @@ function VideoEditModal({ isOpen, onClose, videoId }: VideoEditModalProps) {
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-[#1a1a1a] rounded-lg w-[90vw] h-[90vh] flex flex-col border border-gray-800">
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white rounded-lg w-[90vw] h-[90vh] flex flex-col border border-gray-200"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* 头部 */}
-        <div className="flex justify-between items-center p-4 border-b border-gray-800">
-          <h2 className="text-xl font-semibold">× 第{videoId}行</h2>
+        <div className="flex justify-between items-center p-4 border-b border-gray-200">
+          <h2 className="text-xl font-semibold">× 第{videoId}个</h2>
           <div className="text-lg font-semibold">视频素材</div>
         </div>
 
         {/* 内容区域 */}
         <div className="flex-1 flex overflow-hidden">
           {/* 左侧列表 */}
-          <div className="w-64 border-r border-gray-800 overflow-y-auto p-4">
+          <div className="w-64 border-r border-gray-200 overflow-y-auto p-4">
             <h3 className="text-sm font-semibold mb-4">视频编辑</h3>
             <div className="space-y-2">
               {[1, 2, 3].map((item) => (
                 <div
                   key={item}
                   className={`p-2 rounded cursor-pointer ${
-                    item === videoId ? 'bg-purple-600' : 'bg-[#0a0a0a] hover:bg-[#2a2a2a]'
+                    item === videoId ? 'bg-purple-600' : 'bg-white hover:bg-gray-100'
                   }`}
                 >
                   <div className="w-full h-16 bg-gradient-to-r from-purple-600 to-purple-700 rounded mb-2 flex items-center justify-center">
@@ -57,7 +71,7 @@ function VideoEditModal({ isOpen, onClose, videoId }: VideoEditModalProps) {
                       <p className="text-xs text-white">正在生成...</p>
                     </div>
                   </div>
-                  <div className="text-xs text-center">序号 {item}</div>
+                  <div className={`text-xs text-center ${item === videoId ? 'text-white' : 'text-gray-700'}`}>序号 {item}</div>
                 </div>
               ))}
             </div>
@@ -70,16 +84,16 @@ function VideoEditModal({ isOpen, onClose, videoId }: VideoEditModalProps) {
               <div className="w-full h-64 bg-gradient-to-r from-purple-600 to-purple-700 rounded-lg flex items-center justify-center">
                 <div className="text-center">
                   <div className="w-20 h-20 bg-white bg-opacity-20 rounded-full flex items-center justify-center mb-4 mx-auto">
-                    <span className="text-4xl">▶</span>
+                    <span className="text-4xl">🎬</span>
                   </div>
                   <p className="text-white">您无需停留等待 正在生成第{videoId}个视频...</p>
                 </div>
               </div>
               <button className="absolute left-4 top-1/2 -translate-y-1/2 bg-black bg-opacity-50 p-2 rounded-full hover:bg-opacity-70">
-                <ChevronLeft size={20} />
+                <ChevronLeft size={20} className="text-white" />
               </button>
               <button className="absolute right-4 top-1/2 -translate-y-1/2 bg-black bg-opacity-50 p-2 rounded-full hover:bg-opacity-70">
-                <ChevronRight size={20} />
+                <ChevronRight size={20} className="text-white" />
               </button>
             </div>
 
@@ -92,7 +106,7 @@ function VideoEditModal({ isOpen, onClose, videoId }: VideoEditModalProps) {
                 <select
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
-                  className="w-full px-4 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg focus:outline-none focus:border-purple-500"
+                  className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500"
                 >
                   <option>即梦AI-视频生成3.0</option>
                 </select>
@@ -106,7 +120,7 @@ function VideoEditModal({ isOpen, onClose, videoId }: VideoEditModalProps) {
                   <select
                     value={duration}
                     onChange={(e) => setDuration(parseInt(e.target.value))}
-                    className="w-full px-4 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg focus:outline-none focus:border-purple-500"
+                    className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500"
                   >
                     <option value={5}>5s</option>
                     <option value={10}>10s</option>
@@ -119,7 +133,7 @@ function VideoEditModal({ isOpen, onClose, videoId }: VideoEditModalProps) {
                   <select
                     value={resolution}
                     onChange={(e) => setResolution(e.target.value)}
-                    className="w-full px-4 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg focus:outline-none focus:border-purple-500"
+                    className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500"
                   >
                     <option>720p</option>
                   </select>
@@ -131,7 +145,7 @@ function VideoEditModal({ isOpen, onClose, videoId }: VideoEditModalProps) {
                   <select
                     value={quantity}
                     onChange={(e) => setQuantity(parseInt(e.target.value))}
-                    className="w-full px-4 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg focus:outline-none focus:border-purple-500"
+                    className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500"
                   >
                     <option value={1}>1</option>
                     <option value={2}>2</option>
@@ -146,10 +160,10 @@ function VideoEditModal({ isOpen, onClose, videoId }: VideoEditModalProps) {
                     <div
                       key={imgId}
                       onClick={() => setSelectedImage(imgId)}
-                      className={`relative w-24 h-16 bg-[#0a0a0a] border-2 rounded cursor-pointer ${
+                      className={`relative w-24 h-16 bg-white border-2 rounded cursor-pointer ${
                         selectedImage === imgId
                           ? 'border-purple-500'
-                          : 'border-gray-700 hover:border-gray-600'
+                          : 'border-gray-300 hover:border-gray-600'
                       }`}
                     >
                       <div className="absolute inset-0 flex items-center justify-center">
@@ -166,18 +180,18 @@ function VideoEditModal({ isOpen, onClose, videoId }: VideoEditModalProps) {
               </div>
 
               <div>
-                <label className="block text-sm mb-2">提示词</label>
+                <label className="block text-sm mb-2">视频提示词</label>
                 <textarea
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
-                  className="w-full px-4 py-2 bg-[#0a0a0a] border border-gray-700 rounded-lg focus:outline-none focus:border-purple-500 resize-none"
+                  className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 resize-none"
                   rows={6}
                 />
                 <div className="flex gap-2 mt-2">
-                  <button className="px-4 py-1 bg-[#2a2a2a] text-white rounded text-sm hover:bg-[#3a3a3a]">
+                  <button className="px-4 py-1 bg-gray-100 text-gray-700 rounded text-sm hover:bg-gray-200">
                     一键填入提示词框架
                   </button>
-                  <button className="px-4 py-1 bg-[#2a2a2a] text-white rounded text-sm hover:bg-[#3a3a3a]">
+                  <button className="px-4 py-1 bg-gray-100 text-gray-700 rounded text-sm hover:bg-gray-200">
                     恢复提示词
                   </button>
                 </div>
@@ -187,10 +201,10 @@ function VideoEditModal({ isOpen, onClose, videoId }: VideoEditModalProps) {
         </div>
 
         {/* 底部按钮 */}
-        <div className="flex justify-between items-center p-4 border-t border-gray-800">
+        <div className="flex justify-between items-center p-4 border-t border-gray-200">
           <button
             onClick={onClose}
-            className="px-6 py-2 bg-[#2a2a2a] text-white rounded-lg hover:bg-[#3a3a3a]"
+            className="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
           >
             关闭
           </button>
@@ -207,4 +221,3 @@ function VideoEditModal({ isOpen, onClose, videoId }: VideoEditModalProps) {
 }
 
 export default VideoEditModal
-

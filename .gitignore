@@ -35,3 +35,23 @@ server/uploads/
 
 # Git
 .git/
+
+# Cursor MCP (contains sensitive tokens)
+.cursor/
+
+# Large files and directories (should not be in Git)
+USB Files/
+Chiefavefan/
+Models/*.safetensors
+Models/*.ckpt
+Models/*.pt
+*.mp4
+*.mov
+*.avi
+*.zip
+*.apk
+*.psd
+milvus/volumes/
+*.safetensors
+*.ckpt
+*.pt

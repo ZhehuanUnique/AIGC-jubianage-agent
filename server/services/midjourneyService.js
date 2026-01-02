@@ -237,3 +237,85 @@ export async function getMidjourneyTaskStatus(taskId, options = {}) {
     throw new Error(`查询任务状态失败: ${error.message || '未知错误'}`)
   }
 }
+
+/**
+ * 提交 Midjourney Upscale 任务
+ * @param {Object} button - 按钮信息（包含 customId 或 label）
+ * @param {string} resultUrl - 302.ai 的查询URL（可选）
+ * @returns {Promise<Object>} 返回任务ID和状态
+ */
+export async function submitMidjourneyUpscale(button, resultUrl = null) {
+  const apiKey = process.env.MIDJOURNEY_API_KEY
+  const apiHost = process.env.MIDJOURNEY_API_HOST || 'https://api.302.ai'
+
+  if (!apiKey) {
+    throw new Error('MIDJOURNEY_API_KEY 环境变量未设置，请检查 .env 文件')
+  }
+
+  try {
+    // 获取按钮的 customId（U1, U2, U3, U4）
+    const customId = button.customId || button.label || ''
+    
+    console.log('📸 提交 Midjourney Upscale 任务:', {
+      customId,
+      button: JSON.stringify(button, null, 2),
+    })
+
+    // 构建请求体
+    const requestBody = {
+      customId: customId,
+      notifyHook: '',
+      state: '',
+    }
+
+    // 如果提供了 resultUrl，添加到请求中
+    if (resultUrl) {
+      requestBody.resultUrl = resultUrl
+    }
+
+    // 调用 Midjourney Change 接口（用于 Upscale）
+    const response = await fetch(`${apiHost}/mj/submit/change`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'mj-api-secret': apiKey,
+      },
+      body: JSON.stringify(requestBody),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      const errorMessage = errorData.description || errorData.message || `HTTP ${response.status}`
+      
+      if (response.status === 401) {
+        throw new Error('API密钥无效，请检查 MIDJOURNEY_API_KEY 环境变量')
+      }
+      
+      throw new Error(`Midjourney Upscale API调用失败: ${errorMessage}`)
+    }
+
+    const data = await response.json()
+    
+    console.log('✅ Midjourney Upscale API响应:', JSON.stringify(data, null, 2))
+
+    // 解析响应
+    // code: 1(提交成功), 22(排队中), other(错误)
+    if (data.code === 1 || data.code === 22) {
+      return {
+        taskId: data.result,
+        status: data.code === 1 ? 'submitted' : 'queued',
+        message: data.description || 'Upscale 任务已提交',
+      }
+    } else {
+      throw new Error(data.description || 'Upscale 任务提交失败')
+    }
+  } catch (error) {
+    console.error('❌ Midjourney Upscale API调用错误:', error)
+    
+    if (error instanceof Error) {
+      throw error
+    }
+    
+    throw new Error(`Midjourney Upscale 调用失败: ${error.message || '未知错误'}`)
+  }
+}
