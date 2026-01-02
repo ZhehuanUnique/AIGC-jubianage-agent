@@ -29,10 +29,30 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const checkAuth = async () => {
+      // 先检查是否有 token
+      const token = AuthService.getToken()
+      if (!token) {
+        setIsAuthenticated(false)
+        return
+      }
+      
+      // 验证 token
       const authenticated = await AuthService.verifyToken()
       setIsAuthenticated(authenticated)
     }
+    
     checkAuth()
+    
+    // 监听登录状态变化
+    const handleAuthChange = () => {
+      checkAuth()
+    }
+    
+    window.addEventListener('auth-changed', handleAuthChange)
+    
+    return () => {
+      window.removeEventListener('auth-changed', handleAuthChange)
+    }
   }, [])
 
   if (isAuthenticated === null) {

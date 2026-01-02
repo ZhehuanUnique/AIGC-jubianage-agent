@@ -16,11 +16,29 @@ function Home() {
       setIsAuthenticated(authenticated)
     }
     checkAuth()
+    
+    // 监听登录状态变化
+    const handleAuthChange = () => {
+      checkAuth()
+    }
+    
+    window.addEventListener('auth-changed', handleAuthChange)
+    
+    return () => {
+      window.removeEventListener('auth-changed', handleAuthChange)
+    }
   }, [])
 
-  const handleClick = () => {
-    // 点击按钮时总是弹出登录模态框
-    setShowLoginModal(true)
+  const handleClick = async () => {
+    // 先检查是否已登录
+    const authenticated = await AuthService.verifyToken()
+    if (authenticated) {
+      // 如果已登录，直接跳转到任务列表
+      navigate('/tasks')
+    } else {
+      // 如果未登录，显示登录模态框
+      setShowLoginModal(true)
+    }
   }
 
   const handleLoginSuccess = () => {
