@@ -48,14 +48,21 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
   }
 
   // 加载积分余额（添加防重复请求机制）
-  const loadBalance = async (force = false) => {
+  const loadBalance = async (force = false, silent = false) => {
     // 如果正在加载中且不是强制刷新，则跳过
     if (isLoadingBalanceRef.current && !force) {
       return
     }
     
+    // 如果已有余额且是静默刷新，不显示"加载中..."
+    const hasExistingBalance = lastBalanceRef.current && lastBalanceRef.current !== ''
+    const shouldShowLoading = !silent || !hasExistingBalance
+    
     isLoadingBalanceRef.current = true
-    setIsLoadingBalance(true)
+    if (shouldShowLoading) {
+      setIsLoadingBalance(true)
+    }
+    
     try {
       const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002'
       const token = AuthService.getToken()
@@ -100,7 +107,9 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
         lastBalanceRef.current = '0'
       }
     } finally {
-      setIsLoadingBalance(false)
+      if (shouldShowLoading) {
+        setIsLoadingBalance(false)
+      }
       isLoadingBalanceRef.current = false
     }
   }
@@ -140,7 +149,10 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
         
         // 只有在认证状态改变或用户改变时才加载余额
         if (authStateChanged || userChanged) {
-          loadBalance(true) // 强制刷新
+          loadBalance(true, false) // 强制刷新，显示"加载中..."
+        } else if (lastBalanceRef.current === '') {
+          // 如果还没有余额，静默加载一次
+          loadBalance(false, true)
         }
       } else {
         setUser(null)
@@ -169,10 +181,11 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
     window.addEventListener('auth-changed', handleAuthChange)
     
     // 定期刷新积分余额（如果已登录，且不在加载中）
+    // 使用静默模式，避免显示"加载中..."
     const interval = setInterval(() => {
       const token = AuthService.getToken()
       if (token && !isLoadingBalanceRef.current) {
-        loadBalance() // 定期刷新时不强制，避免与正在进行的请求冲突
+        loadBalance(false, true) // 静默刷新，不显示"加载中..."
       }
     }, 30000) // 每30秒刷新一次
     
