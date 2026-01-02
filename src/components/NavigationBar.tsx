@@ -119,49 +119,60 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
   useEffect(() => {
     let lastAuthState = false // 记录上次的认证状态
     let lastUserId: number | null = null // 记录上次的用户ID
+    let isChecking = false // 防止重复检查
     
     const checkAuth = async () => {
-      const token = AuthService.getToken()
-      
-      // 如果没有 token，直接设置为未登录
-      if (!token) {
-        setIsAuthenticated(false)
-        setUser(null)
-        setBalance('')
-        lastAuthState = false
-        lastUserId = null
+      // 如果正在检查中，跳过
+      if (isChecking) {
         return
       }
       
-      // 验证 token
-      const authenticated = await AuthService.verifyToken()
-      const currentUser = AuthService.getCurrentUser()
-      const currentUserId = currentUser?.id || null
-      
-      // 只有在认证状态或用户真正改变时才更新
-      const authStateChanged = authenticated !== lastAuthState
-      const userChanged = currentUserId !== lastUserId
-      
-      setIsAuthenticated(authenticated)
-      
-      if (authenticated && currentUser) {
-        setUser(currentUser)
-        lastUserId = currentUserId
+      isChecking = true
+      try {
+        const token = AuthService.getToken()
         
-        // 只有在认证状态改变或用户改变时才加载余额
-        if (authStateChanged || userChanged) {
-          loadBalance(true, false) // 强制刷新，显示"加载中..."
-        } else if (lastBalanceRef.current === '') {
-          // 如果还没有余额，静默加载一次
-          loadBalance(false, true)
+        // 如果没有 token，直接设置为未登录
+        if (!token) {
+          setIsAuthenticated(false)
+          setUser(null)
+          setBalance('')
+          lastAuthState = false
+          lastUserId = null
+          return
         }
-      } else {
-        setUser(null)
-        setBalance('')
-        lastUserId = null
+        
+        // 验证 token（不触发事件，避免循环）
+        const authenticated = await AuthService.verifyToken()
+        const currentUser = AuthService.getCurrentUser()
+        const currentUserId = currentUser?.id || null
+        
+        // 只有在认证状态或用户真正改变时才更新
+        const authStateChanged = authenticated !== lastAuthState
+        const userChanged = currentUserId !== lastUserId
+        
+        setIsAuthenticated(authenticated)
+        
+        if (authenticated && currentUser) {
+          setUser(currentUser)
+          lastUserId = currentUserId
+          
+          // 只有在认证状态改变或用户改变时才加载余额
+          if (authStateChanged || userChanged) {
+            loadBalance(true, false) // 强制刷新，显示"加载中..."
+          } else if (lastBalanceRef.current === '') {
+            // 如果还没有余额，静默加载一次
+            loadBalance(false, true)
+          }
+        } else {
+          setUser(null)
+          setBalance('')
+          lastUserId = null
+        }
+        
+        lastAuthState = authenticated
+      } finally {
+        isChecking = false
       }
-      
-      lastAuthState = authenticated
     }
     
     checkAuth()
@@ -169,13 +180,21 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
     // 监听登录状态变化（包括同窗口的 localStorage 变化）
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'auth_token' || e.key === 'auth_user') {
-        checkAuth()
+        // 延迟执行，避免与当前检查冲突
+        setTimeout(checkAuth, 100)
       }
     }
     
     // 监听自定义事件（用于同窗口内的登录状态变化）
+    // 添加防抖，避免频繁触发
+    let authChangeTimeout: NodeJS.Timeout | null = null
     const handleAuthChange = () => {
-      checkAuth()
+      if (authChangeTimeout) {
+        clearTimeout(authChangeTimeout)
+      }
+      authChangeTimeout = setTimeout(() => {
+        checkAuth()
+      }, 200) // 200ms 防抖
     }
     
     window.addEventListener('storage', handleStorageChange)
@@ -185,7 +204,7 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
     // 使用静默模式，避免显示"加载中..."
     const interval = setInterval(() => {
       const token = AuthService.getToken()
-      if (token && !isLoadingBalanceRef.current) {
+      if (token && !isLoadingBalanceRef.current && !isChecking) {
         loadBalance(false, true) // 静默刷新，不显示"加载中..."
       }
     }, 30000) // 每30秒刷新一次
@@ -194,6 +213,9 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
       window.removeEventListener('storage', handleStorageChange)
       window.removeEventListener('auth-changed', handleAuthChange)
       clearInterval(interval)
+      if (authChangeTimeout) {
+        clearTimeout(authChangeTimeout)
+      }
     }
   }, []) // 只在组件挂载时执行一次
 
@@ -279,13 +301,10 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
               👤
             </div>
             <span className="text-gray-700">
-              {user.displayName || user.username || '用户'}
+              {user.username === 'Chiefavefan' || user.username === 'jubian888' 
+                ? getUserRoleDisplay(user.username)
+                : (user.displayName || user.username || '用户')}
             </span>
-            {(user.username === 'Chiefavefan' || user.username === 'jubian888') && (
-              <span className="text-xs text-gray-500 ml-1">
-                ({getUserRoleDisplay(user.username)})
-              </span>
-            )}
           </div>
         </div>
       )}

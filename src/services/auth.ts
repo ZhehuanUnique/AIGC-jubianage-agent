@@ -19,6 +19,7 @@ export interface LoginResponse {
 export class AuthService {
   private static readonly TOKEN_KEY = 'auth_token'
   private static readonly USER_KEY = 'auth_user'
+  private static isVerifying = false // 防止重复验证
 
   /**
    * 用户登录（带重试机制）
@@ -115,13 +116,19 @@ export class AuthService {
    * 验证token是否有效
    */
   static async verifyToken(): Promise<boolean> {
+    // 如果正在验证中，直接返回当前状态，避免重复调用
+    if (this.isVerifying) {
+      const user = this.getCurrentUser()
+      return !!user && !!this.getToken()
+    }
+
     const token = this.getToken()
     if (!token) {
-      // 确保清除用户信息
-      this.logout()
+      // 如果没有token，直接返回false，不触发logout（避免循环）
       return false
     }
 
+    this.isVerifying = true
     try {
       const response = await fetch(`${API_BASE_URL}/api/auth/verify`, {
         headers: {
@@ -131,32 +138,36 @@ export class AuthService {
 
       // 如果响应不是 200，说明 token 无效
       if (!response.ok) {
-        this.logout()
-        // 触发自定义事件通知其他组件
-        window.dispatchEvent(new Event('auth-changed'))
+        // 清除token和用户信息，但不触发事件（避免循环）
+        localStorage.removeItem(this.TOKEN_KEY)
+        localStorage.removeItem(this.USER_KEY)
         return false
       }
 
       const data = await response.json()
       if (data.success && data.user) {
         // 更新用户信息
+        const oldUser = this.getCurrentUser()
         localStorage.setItem(this.USER_KEY, JSON.stringify(data.user))
-        // 触发自定义事件通知其他组件
-        window.dispatchEvent(new Event('auth-changed'))
+        
+        // 只有用户信息真正改变时才触发事件
+        const newUser = data.user
+        if (!oldUser || oldUser.id !== newUser.id || oldUser.username !== newUser.username) {
+          window.dispatchEvent(new Event('auth-changed'))
+        }
         return true
       }
 
       // token无效，清除
-      this.logout()
-      // 触发自定义事件通知其他组件
-      window.dispatchEvent(new Event('auth-changed'))
+      localStorage.removeItem(this.TOKEN_KEY)
+      localStorage.removeItem(this.USER_KEY)
       return false
     } catch (error) {
       console.error('验证token失败:', error)
-      this.logout()
-      // 触发自定义事件通知其他组件
-      window.dispatchEvent(new Event('auth-changed'))
+      // 网络错误时不清除token，只返回false
       return false
+    } finally {
+      this.isVerifying = false
     }
   }
 
