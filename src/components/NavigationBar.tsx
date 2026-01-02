@@ -42,7 +42,7 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
       return '超级管理员'
     }
     if (username === 'jubian888') {
-      return '普通管理员'
+      return '超级管理员'
     }
     return '普通用户'
   }

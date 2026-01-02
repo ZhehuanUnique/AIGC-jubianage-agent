@@ -191,10 +191,10 @@ export class UserService {
           throw new Error('不能删除超级管理员')
         }
       }
-      // 普通管理员只能删除普通用户
+      // 超级管理员只能删除普通用户
       else if (currentUserRole === 'admin') {
         if (targetUserRole === 'superadmin' || targetUserRole === 'admin') {
-          throw new Error('普通管理员不能删除其他管理员')
+          throw new Error('超级管理员不能删除其他管理员')
         }
       }
       // 普通用户不能删除任何人

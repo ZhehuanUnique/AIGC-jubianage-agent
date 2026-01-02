@@ -1613,7 +1613,7 @@ app.get('/api/user/balance', authenticateToken, async (req, res) => {
       })
     }
     
-    // 检查是否为管理员（超级管理员或普通管理员）
+    // 检查是否为管理员（超级管理员）
     const isSuperAdmin = username === 'Chiefavefan'
     const isAdmin = username === 'Chiefavefan' || username === 'jubian888'
     

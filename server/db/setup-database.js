@@ -18,7 +18,7 @@ async function setupDatabase() {
     console.log('🎉 数据库设置完成！')
     console.log('\n📋 默认管理员账号:')
     console.log('  超级管理员: Chiefavefan / 246859CFF')
-    console.log('  普通管理员: jubian888 / 8888')
+    console.log('  超级管理员: jubian888 / 8888')
     
     process.exit(0)
   } catch (error) {
