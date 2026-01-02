@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
-import { X, Plus, Users, Trash2, UserPlus, Loader2 } from 'lucide-react'
+import { X, Plus, Users, Trash2, UserPlus, Loader2, Edit2 } from 'lucide-react'
+import { alertSuccess, alertError } from '../utils/alert'
+import { AuthService } from '../services/auth'
 
 interface Group {
   id: number
@@ -35,12 +37,20 @@ function GroupManagement({ users, onUpdate }: GroupManagementProps) {
   const [loading, setLoading] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showAddMemberModal, setShowAddMemberModal] = useState(false)
+  const [showDetailModal, setShowDetailModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null)
   const [groupMembers, setGroupMembers] = useState<GroupMember[]>([])
+  const [currentUser, setCurrentUser] = useState<{ username: string } | null>(null)
   
   const [newGroupName, setNewGroupName] = useState('')
   const [newGroupDescription, setNewGroupDescription] = useState('')
+  const [editGroupName, setEditGroupName] = useState('')
+  const [editGroupDescription, setEditGroupDescription] = useState('')
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null)
+
+  // 检查是否是管理员
+  const isAdmin = currentUser?.username === 'Chiefavefan' || currentUser?.username === 'jubian888'
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002'
 
@@ -88,6 +98,11 @@ function GroupManagement({ users, onUpdate }: GroupManagementProps) {
 
   useEffect(() => {
     loadGroups()
+    // 获取当前用户信息
+    const user = AuthService.getCurrentUser()
+    if (user) {
+      setCurrentUser({ username: user.username })
+    }
   }, [])
 
   // 创建小组
@@ -112,18 +127,18 @@ function GroupManagement({ users, onUpdate }: GroupManagementProps) {
 
       const result = await response.json()
       if (result.success) {
-        alert('小组创建成功！')
+        alertSuccess('小组创建成功！')
         setShowCreateModal(false)
         setNewGroupName('')
         setNewGroupDescription('')
         loadGroups()
         if (onUpdate) onUpdate()
       } else {
-        alert(`创建失败: ${result.error}`)
+        alertError(`创建失败: ${result.error}`)
       }
     } catch (error) {
       console.error('创建小组失败:', error)
-      alert('创建小组失败，请稍后重试')
+      alertError('创建小组失败，请稍后重试')
     }
   }
 
@@ -148,18 +163,18 @@ function GroupManagement({ users, onUpdate }: GroupManagementProps) {
 
       const result = await response.json()
       if (result.success) {
-        alert('用户已添加到小组！')
+        alertSuccess('用户已添加到小组！')
         setShowAddMemberModal(false)
         setSelectedUserId(null)
         loadGroupMembers(selectedGroup.id)
         loadGroups()
         if (onUpdate) onUpdate()
       } else {
-        alert(`添加失败: ${result.error}`)
+        alertError(`添加失败: ${result.error}`)
       }
     } catch (error) {
       console.error('添加用户到小组失败:', error)
-      alert('添加用户失败，请稍后重试')
+      alertError('添加用户失败，请稍后重试')
     }
   }
 
@@ -179,16 +194,67 @@ function GroupManagement({ users, onUpdate }: GroupManagementProps) {
 
       const result = await response.json()
       if (result.success) {
-        alert('用户已从小组移除')
+        alertSuccess('用户已从小组移除')
         loadGroupMembers(groupId)
         loadGroups()
         if (onUpdate) onUpdate()
       } else {
-        alert(`移除失败: ${result.error}`)
+        alertError(`移除失败: ${result.error}`)
       }
     } catch (error) {
       console.error('移除用户失败:', error)
-      alert('移除用户失败，请稍后重试')
+      alertError('移除用户失败，请稍后重试')
+    }
+  }
+
+  // 查看小组详情
+  const handleViewDetail = async (group: Group) => {
+    setSelectedGroup(group)
+    await loadGroupMembers(group.id)
+    setShowDetailModal(true)
+  }
+
+  // 编辑小组
+  const handleEditGroup = (group: Group) => {
+    setSelectedGroup(group)
+    setEditGroupName(group.name)
+    setEditGroupDescription(group.description || '')
+    setShowEditModal(true)
+  }
+
+  // 保存编辑
+  const handleSaveEdit = async () => {
+    if (!selectedGroup || !editGroupName.trim()) {
+      alertError('请输入小组名称')
+      return
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/groups/${selectedGroup.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${getToken()}`,
+        },
+        body: JSON.stringify({
+          name: editGroupName.trim(),
+          description: editGroupDescription.trim() || undefined,
+        }),
+      })
+
+      const result = await response.json()
+      if (result.success) {
+        alertSuccess('小组信息已更新！')
+        setShowEditModal(false)
+        setSelectedGroup(null)
+        loadGroups()
+        if (onUpdate) onUpdate()
+      } else {
+        alertError(`更新失败: ${result.error}`)
+      }
+    } catch (error) {
+      console.error('更新小组失败:', error)
+      alertError('更新小组失败，请稍后重试')
     }
   }
 
@@ -208,15 +274,15 @@ function GroupManagement({ users, onUpdate }: GroupManagementProps) {
 
       const result = await response.json()
       if (result.success) {
-        alert('小组已删除')
+        alertSuccess('小组已删除')
         loadGroups()
         if (onUpdate) onUpdate()
       } else {
-        alert(`删除失败: ${result.error}`)
+        alertError(`删除失败: ${result.error}`)
       }
     } catch (error) {
       console.error('删除小组失败:', error)
-      alert('删除小组失败，请稍后重试')
+      alertError('删除小组失败，请稍后重试')
     }
   }
 
@@ -254,10 +320,11 @@ function GroupManagement({ users, onUpdate }: GroupManagementProps) {
             groups.map((group) => (
               <div
                 key={group.id}
-                className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => handleViewDetail(group)}
               >
                 <div className="flex justify-between items-start mb-3">
-                  <div>
+                  <div className="flex-1">
                     <h4 className="font-semibold text-lg">{group.name}</h4>
                     {group.description && (
                       <p className="text-sm text-gray-600 mt-1">{group.description}</p>
@@ -267,7 +334,16 @@ function GroupManagement({ users, onUpdate }: GroupManagementProps) {
                       成员数: {group.member_count || 0}
                     </p>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                    {isAdmin && (
+                      <button
+                        onClick={() => handleEditGroup(group)}
+                        className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 flex items-center gap-1"
+                      >
+                        <Edit2 size={14} />
+                        编辑
+                      </button>
+                    )}
                     <button
                       onClick={() => {
                         setSelectedGroup(group)
@@ -288,38 +364,6 @@ function GroupManagement({ users, onUpdate }: GroupManagementProps) {
                     </button>
                   </div>
                 </div>
-
-                {/* 成员列表 */}
-                {showAddMemberModal && selectedGroup?.id === group.id && groupMembers.length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-gray-200">
-                    <p className="text-sm font-medium mb-2">小组成员：</p>
-                    <div className="space-y-1">
-                      {groupMembers.map((member) => (
-                        <div
-                          key={member.user_id}
-                          className="flex justify-between items-center text-sm"
-                        >
-                          <span>
-                            {member.display_name || member.username}
-                            {member.role === 'owner' && (
-                              <span className="ml-2 px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs">
-                                组长
-                              </span>
-                            )}
-                          </span>
-                          {member.role !== 'owner' && (
-                            <button
-                              onClick={() => handleRemoveMember(group.id, member.user_id)}
-                              className="text-red-600 hover:text-red-700"
-                            >
-                              移除
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
             ))
           )}
@@ -371,6 +415,137 @@ function GroupManagement({ users, onUpdate }: GroupManagementProps) {
                   className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
                 >
                   创建
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 小组详情弹窗 */}
+      {showDetailModal && selectedGroup && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowDetailModal(false)}>
+          <div className="bg-white rounded-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">小组详情</h3>
+              <button onClick={() => setShowDetailModal(false)}>
+                <X size={24} />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <h4 className="font-semibold text-lg mb-2">{selectedGroup.name}</h4>
+                {selectedGroup.description && (
+                  <p className="text-sm text-gray-600 mb-2">{selectedGroup.description}</p>
+                )}
+                <p className="text-xs text-gray-500">
+                  创建者: {selectedGroup.creator_username || '未知'}
+                </p>
+              </div>
+              <div className="border-t pt-4">
+                <p className="text-sm font-medium mb-3">小组成员：</p>
+                {groupMembers.length === 0 ? (
+                  <p className="text-sm text-gray-500">暂无成员</p>
+                ) : (
+                  <div className="space-y-2">
+                    {groupMembers.map((member) => (
+                      <div
+                        key={member.user_id}
+                        className="flex justify-between items-center text-sm p-2 bg-gray-50 rounded"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span>{member.display_name || member.username}</span>
+                          {member.role === 'owner' && (
+                            <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs font-medium">
+                              组长
+                            </span>
+                          )}
+                          {member.role === 'member' && (
+                            <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">
+                              组员
+                            </span>
+                          )}
+                        </div>
+                        {member.role !== 'owner' && (
+                          <button
+                            onClick={() => {
+                              handleRemoveMember(selectedGroup.id, member.user_id)
+                              loadGroupMembers(selectedGroup.id)
+                            }}
+                            className="text-red-600 hover:text-red-700 text-xs"
+                          >
+                            移除
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="flex justify-end">
+                <button
+                  onClick={() => setShowDetailModal(false)}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                >
+                  关闭
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 编辑小组弹窗 */}
+      {showEditModal && selectedGroup && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">编辑小组</h3>
+              <button onClick={() => {
+                setShowEditModal(false)
+                setSelectedGroup(null)
+              }}>
+                <X size={24} />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm mb-2">
+                  <span className="text-red-500">*</span> 小组名称
+                </label>
+                <input
+                  type="text"
+                  value={editGroupName}
+                  onChange={(e) => setEditGroupName(e.target.value)}
+                  placeholder="请输入小组名称"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm mb-2">小组描述</label>
+                <textarea
+                  value={editGroupDescription}
+                  onChange={(e) => setEditGroupDescription(e.target.value)}
+                  placeholder="请输入小组描述（可选）"
+                  rows={3}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 resize-none"
+                />
+              </div>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => {
+                    setShowEditModal(false)
+                    setSelectedGroup(null)
+                  }}
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleSaveEdit}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                >
+                  保存
                 </button>
               </div>
             </div>

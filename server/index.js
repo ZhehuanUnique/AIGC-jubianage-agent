@@ -5595,6 +5595,79 @@ async function startServer() {
     }
   })
 
+  // 更新小组信息（管理员或组长）
+  app.put('/api/groups/:groupId', authenticateToken, async (req, res) => {
+    try {
+      const { groupId } = req.params
+      const { name, description } = req.body
+      const currentUserId = req.user?.id
+      
+      if (!name || !name.trim()) {
+        return res.status(400).json({
+          success: false,
+          error: '小组名称不能为空'
+        })
+      }
+      
+      const pool = await import('./db/connection.js')
+      const db = pool.default
+      
+      // 检查小组是否存在
+      const groupResult = await db.query('SELECT * FROM groups WHERE id = $1', [groupId])
+      if (groupResult.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: '小组不存在'
+        })
+      }
+      
+      // 检查当前用户是否有权限（必须是管理员或组长）
+      const currentUser = await db.query('SELECT username FROM users WHERE id = $1', [currentUserId])
+      const isSuperAdmin = currentUser.rows.length > 0 && currentUser.rows[0].username === 'Chiefavefan'
+      const isAdmin = isSuperAdmin || (currentUser.rows.length > 0 && currentUser.rows[0].username === 'jubian888')
+      
+      if (!isAdmin) {
+        // 检查是否是组长
+        const userGroup = await db.query(
+          'SELECT role FROM user_groups WHERE user_id = $1 AND group_id = $2',
+          [currentUserId, groupId]
+        )
+        if (userGroup.rows.length === 0 || userGroup.rows[0].role !== 'owner') {
+          return res.status(403).json({
+            success: false,
+            error: '无权操作，只有管理员或组长可以编辑小组'
+          })
+        }
+      }
+      
+      // 检查小组名称是否已被其他小组使用
+      const existing = await db.query('SELECT id FROM groups WHERE name = $1 AND id != $2', [name.trim(), groupId])
+      if (existing.rows.length > 0) {
+        return res.status(400).json({
+          success: false,
+          error: '小组名称已存在'
+        })
+      }
+      
+      // 更新小组信息
+      const result = await db.query(
+        'UPDATE groups SET name = $1, description = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3 RETURNING *',
+        [name.trim(), description || null, groupId]
+      )
+      
+      res.json({
+        success: true,
+        data: result.rows[0]
+      })
+    } catch (error) {
+      console.error('更新小组失败:', error)
+      res.status(500).json({
+        success: false,
+        error: error.message || '更新小组失败'
+      })
+    }
+  })
+
   // 删除小组
   app.delete('/api/groups/:groupId', authenticateToken, async (req, res) => {
     try {
