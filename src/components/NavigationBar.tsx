@@ -55,8 +55,9 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
     }
     
     // 如果已有余额且是静默刷新，不显示"加载中..."
-    const hasExistingBalance = lastBalanceRef.current && lastBalanceRef.current !== ''
-    const shouldShowLoading = !silent || !hasExistingBalance
+    const hasExistingBalance = lastBalanceRef.current && lastBalanceRef.current !== '' && lastBalanceRef.current !== '0'
+    // 显示"加载中..."的条件：不是静默模式，或者没有已有余额，或者是强制刷新
+    const shouldShowLoading = !silent || !hasExistingBalance || force
     
     isLoadingBalanceRef.current = true
     if (shouldShowLoading) {
