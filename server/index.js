@@ -70,8 +70,19 @@ console.log('  COS_BUCKET:', process.env.COS_BUCKET || '❌ 未设置')
 const app = express()
 const PORT = process.env.PORT || 3002
 
-// 中间件
-app.use(cors())
+// 中间件 - CORS 配置
+app.use(cors({
+  origin: [
+    'https://jubianai.cn',
+    'https://www.jubianai.cn',
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'http://127.0.0.1:5173'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}))
 // 增加 JSON 请求体大小限制（用于处理 base64 图片）
 app.use(express.json({ limit: '50mb' }))
 app.use(express.urlencoded({ extended: true, limit: '50mb' }))
@@ -127,6 +138,11 @@ const uploadVideo = multer({
 
 // 健康检查
 app.get('/health', (req, res) => {
+  res.json({ status: 'ok', message: '服务运行正常' })
+})
+
+// API 健康检查（前端使用）
+app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: '服务运行正常' })
 })
 
@@ -1584,6 +1600,110 @@ app.get('/api/suno/credits', authenticateToken, async (req, res) => {
   }
 })
 
+// 获取用户积分余额（支持组内共享和管理员）
+app.get('/api/user/balance', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.id
+    const username = req.user?.username
+    
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: '未登录，请先登录',
+      })
+    }
+    
+    // 检查是否为管理员（超级管理员或普通管理员）
+    const isSuperAdmin = username === 'Chiefavefan'
+    const isAdmin = username === 'Chiefavefan' || username === 'jubian888'
+    
+    // 如果是管理员，返回无穷符号
+    if (isAdmin) {
+      return res.json({
+        success: true,
+        balance: Infinity,
+        isAdmin: true,
+        displayBalance: '∞'
+      })
+    }
+    
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+    
+    // 获取用户所在的所有小组ID
+    const userGroupsResult = await db.query(
+      'SELECT group_id FROM user_groups WHERE user_id = $1',
+      [userId]
+    )
+    const groupIds = userGroupsResult.rows.map(row => row.group_id)
+    
+    // 如果用户在小组中，获取小组所有成员的积分余额总和
+    if (groupIds.length > 0) {
+      // 获取小组所有成员的ID
+      const groupMembersResult = await db.query(
+        `SELECT DISTINCT user_id 
+         FROM user_groups 
+         WHERE group_id = ANY($1::integer[])`,
+        [groupIds]
+      )
+      const memberIds = groupMembersResult.rows.map(row => row.user_id)
+      
+      // 计算小组所有成员的总积分余额（从 Suno API 获取）
+      let totalBalance = 0
+      try {
+        const sunoCredits = await SunoService.getCredits()
+        if (sunoCredits.success && sunoCredits.data) {
+          // 这里假设每个成员的积分余额相同（共享账户）
+          // 实际应该从每个成员的操作日志中计算剩余积分
+          // 暂时使用 Suno API 返回的积分作为共享余额
+          totalBalance = sunoCredits.data.credits || 0
+        }
+      } catch (error) {
+        console.warn('获取 Suno 积分失败，使用默认值:', error)
+        totalBalance = 0
+      }
+      
+      return res.json({
+        success: true,
+        balance: totalBalance,
+        isAdmin: false,
+        isGroupShared: true,
+        groupIds: groupIds,
+        displayBalance: totalBalance.toLocaleString('zh-CN')
+      })
+    }
+    
+    // 如果用户不在小组中，获取个人积分余额
+    try {
+      const sunoCredits = await SunoService.getCredits()
+      const balance = sunoCredits.success && sunoCredits.data ? (sunoCredits.data.credits || 0) : 0
+      
+      return res.json({
+        success: true,
+        balance: balance,
+        isAdmin: false,
+        isGroupShared: false,
+        displayBalance: balance.toLocaleString('zh-CN')
+      })
+    } catch (error) {
+      console.error('获取个人积分失败:', error)
+      return res.json({
+        success: true,
+        balance: 0,
+        isAdmin: false,
+        isGroupShared: false,
+        displayBalance: '0'
+      })
+    }
+  } catch (error) {
+    console.error('获取用户积分余额失败:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '获取积分余额失败',
+    })
+  }
+})
+
 // ==================== MusicGPT API 路由 ====================
 // 生成音乐（通过MusicGPT）
 app.post('/api/musicgpt/generate', authenticateToken, async (req, res) => {
@@ -2306,7 +2426,7 @@ app.post('/api/upload-character-image', authenticateToken, uploadImage.single('i
   }
 })
 
-// 获取所有项目列表（按用户隔离）
+// 获取所有项目列表（按用户和小组隔离）
 app.get('/api/projects', authenticateToken, async (req, res) => {
   try {
     const userId = req.user?.id
@@ -2321,51 +2441,23 @@ app.get('/api/projects', authenticateToken, async (req, res) => {
     const pool = await import('./db/connection.js')
     const db = pool.default
     
-    const result = await db.query(
-      'SELECT id, name, script_title, work_style, work_background, created_at, updated_at FROM projects WHERE user_id = $1 ORDER BY created_at DESC',
+    // 获取用户所在的所有小组ID
+    const userGroupsResult = await db.query(
+      'SELECT group_id FROM user_groups WHERE user_id = $1',
       [userId]
     )
+    const groupIds = userGroupsResult.rows.map(row => row.group_id)
     
-    res.json({
-      success: true,
-      data: result.rows.map(row => ({
-        id: row.id,
-        name: row.name,
-        scriptTitle: row.script_title,
-        workStyle: row.work_style,
-        workBackground: row.work_background,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
-      }))
-    })
-  } catch (error) {
-    console.error('获取项目列表失败:', error)
-    res.status(500).json({
-      success: false,
-      error: error.message || '获取项目列表失败'
-    })
-  }
-})
-
-// 获取所有项目列表（按用户隔离）
-app.get('/api/projects', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user?.id
+    // 构建查询：项目属于该用户 OR 项目属于该用户所在的小组
+    let query = `
+      SELECT DISTINCT p.id, p.name, p.script_title, p.work_style, p.work_background, p.created_at, p.updated_at
+      FROM projects p
+      WHERE (p.user_id = $1 OR (p.group_id IS NOT NULL AND p.group_id = ANY($2::integer[])))
+      ORDER BY p.created_at DESC
+    `
     
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        error: '未登录，请先登录',
-      })
-    }
-    
-    const pool = await import('./db/connection.js')
-    const db = pool.default
-    
-    const result = await db.query(
-      'SELECT id, name, script_title, work_style, work_background, created_at, updated_at FROM projects WHERE user_id = $1 ORDER BY created_at DESC',
-      [userId]
-    )
+    const params = groupIds.length > 0 ? [userId, groupIds] : [userId, [null]]
+    const result = await db.query(query, params)
     
     res.json({
       success: true,
@@ -2490,10 +2582,13 @@ app.post('/api/projects', authenticateToken, async (req, res) => {
         console.warn(`⚠️ 创建项目文件夹失败（不影响项目更新）:`, folderError.message)
       }
     } else {
-      // 创建新项目（自动关联到当前用户）
+      // 创建新项目（自动关联到当前用户或小组）
+      // 如果指定了 groupId，项目属于小组；否则属于个人
+      const { groupId } = req.body
+      
       const result = await db.query(
-        `INSERT INTO projects (name, script_title, script_content, work_style, work_background, analysis_result, user_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `INSERT INTO projects (name, script_title, script_content, work_style, work_background, analysis_result, user_id, group_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          RETURNING *`,
         [
           name,
@@ -2502,7 +2597,8 @@ app.post('/api/projects', authenticateToken, async (req, res) => {
           workStyle || null,
           workBackground || null,
           analysisResult ? JSON.stringify(analysisResult) : null,
-          userId,
+          groupId ? null : userId, // 如果属于小组，user_id 为 null
+          groupId || null,
         ]
       )
       project = result.rows[0]
@@ -2900,6 +2996,77 @@ app.put('/api/projects/:projectId', authenticateToken, async (req, res) => {
     res.status(500).json({
       success: false,
       error: error.message || '更新项目名称失败',
+    })
+  }
+})
+
+// 删除项目
+app.delete('/api/projects/:projectId', authenticateToken, async (req, res) => {
+  try {
+    const { projectId } = req.params
+    const userId = req.user?.id
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: '未登录，请先登录',
+      })
+    }
+
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+
+    // 检查项目是否存在且属于当前用户
+    const project = await db.query(
+      'SELECT id, name FROM projects WHERE id = $1 AND user_id = $2',
+      [parseInt(projectId), userId]
+    )
+
+    if (project.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: '项目不存在或无权访问',
+      })
+    }
+
+    const projectName = project.rows[0].name
+
+    // 删除项目相关的所有数据（级联删除）
+    // 注意：根据数据库外键约束，可能需要先删除关联数据
+    await db.query('DELETE FROM shots WHERE project_id = $1', [parseInt(projectId)])
+    await db.query('DELETE FROM characters WHERE project_id = $1', [parseInt(projectId)])
+    await db.query('DELETE FROM scenes WHERE project_id = $1', [parseInt(projectId)])
+    await db.query('DELETE FROM items WHERE project_id = $1', [parseInt(projectId)])
+    await db.query('DELETE FROM fragments WHERE project_id = $1', [parseInt(projectId)])
+    
+    // 删除项目本身
+    await db.query('DELETE FROM projects WHERE id = $1 AND user_id = $2', [parseInt(projectId), userId])
+
+    // 尝试删除项目文件夹（如果存在）
+    try {
+      const path = await import('path')
+      const os = await import('os')
+      const fs = await import('fs')
+      const homeDir = os.homedir()
+      const projectFolder = path.join(homeDir, 'Documents', 'AIGC-Projects', projectName)
+      
+      if (await fs.promises.access(projectFolder).then(() => true).catch(() => false)) {
+        await fs.promises.rm(projectFolder, { recursive: true, force: true })
+        console.log(`✅ 项目文件夹已删除: ${projectName}`)
+      }
+    } catch (folderError) {
+      console.warn(`⚠️ 删除项目文件夹失败（不影响项目删除）:`, folderError.message)
+    }
+
+    res.json({
+      success: true,
+      message: '项目已删除',
+    })
+  } catch (error) {
+    console.error('删除项目失败:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '删除项目失败',
     })
   }
 })
@@ -3404,6 +3571,105 @@ app.get('/api/projects/:projectId/fragments', authenticateToken, async (req, res
     res.status(500).json({
       success: false,
       error: error.message || '获取片段列表失败'
+    })
+  }
+})
+
+// 删除片段（删除对应的分镜）
+app.delete('/api/fragments/:fragmentId', authenticateToken, async (req, res) => {
+  try {
+    const { fragmentId } = req.params
+    const userId = req.user?.id
+    
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: '未登录，请先登录',
+      })
+    }
+    
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+    
+    // 检查分镜是否存在且属于当前用户的项目
+    const shot = await db.query(
+      `SELECT s.id, s.thumbnail_image_url, p.user_id 
+       FROM shots s 
+       JOIN projects p ON s.project_id = p.id 
+       WHERE s.id = $1 AND p.user_id = $2`,
+      [parseInt(fragmentId), userId]
+    )
+    
+    if (shot.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: '片段不存在或无权访问',
+      })
+    }
+    
+    // 删除关联的视频文件（从 files 表）
+    const videoFiles = await db.query(
+      `SELECT f.cos_key, f.cos_url
+       FROM files f
+       WHERE f.project_id = (SELECT project_id FROM shots WHERE id = $1)
+         AND f.file_type = 'video'
+         AND f.metadata->>'shot_id' = $2::text`,
+      [parseInt(fragmentId), fragmentId]
+    )
+    
+    // 删除COS中的视频文件
+    if (videoFiles.rows.length > 0) {
+      try {
+        const { deleteFile } = await import('./services/cosService.js')
+        for (const file of videoFiles.rows) {
+          if (file.cos_key) {
+            await deleteFile(file.cos_key).catch(err => {
+              console.warn('删除COS视频文件失败:', err)
+            })
+          }
+        }
+      } catch (cosError) {
+        console.warn('删除COS文件失败（继续删除数据库记录）:', cosError)
+      }
+    }
+    
+    // 删除缩略图（如果存在）
+    if (shot.rows[0].thumbnail_image_url) {
+      try {
+        const { deleteFile } = await import('./services/cosService.js')
+        const url = shot.rows[0].thumbnail_image_url
+        const match = url.match(/https?:\/\/[^\/]+\/(.+)/)
+        if (match) {
+          await deleteFile(match[1]).catch(err => {
+            console.warn('删除COS缩略图失败:', err)
+          })
+        }
+      } catch (cosError) {
+        console.warn('删除COS缩略图失败（继续删除数据库记录）:', cosError)
+      }
+    }
+    
+    // 删除关联的视频文件记录
+    await db.query(
+      `DELETE FROM files 
+       WHERE project_id = (SELECT project_id FROM shots WHERE id = $1)
+         AND file_type = 'video'
+         AND metadata->>'shot_id' = $2::text`,
+      [parseInt(fragmentId), fragmentId]
+    )
+    
+    // 删除分镜记录（级联删除会处理关联表）
+    await db.query('DELETE FROM shots WHERE id = $1', [parseInt(fragmentId)])
+    
+    res.json({
+      success: true,
+      message: '片段已删除',
+    })
+  } catch (error) {
+    console.error('删除片段失败:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '删除片段失败',
     })
   }
 })
@@ -5061,6 +5327,351 @@ async function startServer() {
     console.warn('💡 提示：请确保已安装PostgreSQL并配置正确的连接信息')
   }
 
+  // ==================== 小组管理 API ====================
+
+  // 获取所有小组列表
+  app.get('/api/groups', authenticateToken, async (req, res) => {
+    try {
+      const pool = await import('./db/connection.js')
+      const db = pool.default
+      
+      const result = await db.query(`
+        SELECT 
+          g.id,
+          g.name,
+          g.description,
+          g.created_by,
+          u.username as creator_username,
+          g.created_at,
+          g.updated_at,
+          COUNT(DISTINCT ug.user_id) as member_count
+        FROM groups g
+        LEFT JOIN users u ON g.created_by = u.id
+        LEFT JOIN user_groups ug ON g.id = ug.group_id
+        GROUP BY g.id, g.name, g.description, g.created_by, u.username, g.created_at, g.updated_at
+        ORDER BY g.created_at DESC
+      `)
+      
+      res.json({
+        success: true,
+        data: result.rows
+      })
+    } catch (error) {
+      console.error('获取小组列表失败:', error)
+      res.status(500).json({
+        success: false,
+        error: error.message || '获取小组列表失败'
+      })
+    }
+  })
+
+  // 创建小组
+  app.post('/api/groups', authenticateToken, async (req, res) => {
+    try {
+      const { name, description } = req.body
+      const userId = req.user?.id
+      
+      if (!name || !name.trim()) {
+        return res.status(400).json({
+          success: false,
+          error: '小组名称不能为空'
+        })
+      }
+      
+      const pool = await import('./db/connection.js')
+      const db = pool.default
+      
+      // 检查小组名称是否已存在
+      const existing = await db.query('SELECT id FROM groups WHERE name = $1', [name.trim()])
+      if (existing.rows.length > 0) {
+        return res.status(400).json({
+          success: false,
+          error: '小组名称已存在'
+        })
+      }
+      
+      // 创建小组
+      const result = await db.query(
+        'INSERT INTO groups (name, description, created_by) VALUES ($1, $2, $3) RETURNING *',
+        [name.trim(), description || null, userId]
+      )
+      
+      const group = result.rows[0]
+      
+      // 自动将创建者添加到小组（作为组长）
+      await db.query(
+        'INSERT INTO user_groups (user_id, group_id, role) VALUES ($1, $2, $3)',
+        [userId, group.id, 'owner']
+      )
+      
+      res.json({
+        success: true,
+        data: group
+      })
+    } catch (error) {
+      console.error('创建小组失败:', error)
+      res.status(500).json({
+        success: false,
+        error: error.message || '创建小组失败'
+      })
+    }
+  })
+
+  // 获取小组详情（包括成员列表）
+  app.get('/api/groups/:groupId', authenticateToken, async (req, res) => {
+    try {
+      const { groupId } = req.params
+      const pool = await import('./db/connection.js')
+      const db = pool.default
+      
+      // 获取小组信息
+      const groupResult = await db.query(`
+        SELECT 
+          g.*,
+          u.username as creator_username
+        FROM groups g
+        LEFT JOIN users u ON g.created_by = u.id
+        WHERE g.id = $1
+      `, [groupId])
+      
+      if (groupResult.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: '小组不存在'
+        })
+      }
+      
+      // 获取小组成员
+      const membersResult = await db.query(`
+        SELECT 
+          ug.user_id,
+          ug.role,
+          ug.joined_at,
+          u.username,
+          u.display_name
+        FROM user_groups ug
+        JOIN users u ON ug.user_id = u.id
+        WHERE ug.group_id = $1
+        ORDER BY ug.joined_at ASC
+      `, [groupId])
+      
+      res.json({
+        success: true,
+        data: {
+          ...groupResult.rows[0],
+          members: membersResult.rows
+        }
+      })
+    } catch (error) {
+      console.error('获取小组详情失败:', error)
+      res.status(500).json({
+        success: false,
+        error: error.message || '获取小组详情失败'
+      })
+    }
+  })
+
+  // 添加用户到小组
+  app.post('/api/groups/:groupId/members', authenticateToken, async (req, res) => {
+    try {
+      const { groupId } = req.params
+      const { userId } = req.body
+      const currentUserId = req.user?.id
+      
+      if (!userId) {
+        return res.status(400).json({
+          success: false,
+          error: '用户ID不能为空'
+        })
+      }
+      
+      const pool = await import('./db/connection.js')
+      const db = pool.default
+      
+      // 检查当前用户是否有权限（必须是小组的组长或管理员）
+      const userGroup = await db.query(
+        'SELECT role FROM user_groups WHERE user_id = $1 AND group_id = $2',
+        [currentUserId, groupId]
+      )
+      
+      if (userGroup.rows.length === 0 || userGroup.rows[0].role !== 'owner') {
+        // 检查是否是超级管理员
+        const currentUser = await db.query('SELECT username FROM users WHERE id = $1', [currentUserId])
+        if (currentUser.rows.length === 0 || currentUser.rows[0].username !== 'Chiefavefan') {
+          return res.status(403).json({
+            success: false,
+            error: '无权操作，只有组长或超级管理员可以添加成员'
+          })
+        }
+      }
+      
+      // 检查用户是否已在小组中
+      const existing = await db.query(
+        'SELECT id FROM user_groups WHERE user_id = $1 AND group_id = $2',
+        [userId, groupId]
+      )
+      
+      if (existing.rows.length > 0) {
+        return res.status(400).json({
+          success: false,
+          error: '用户已在该小组中'
+        })
+      }
+      
+      // 添加用户到小组
+      await db.query(
+        'INSERT INTO user_groups (user_id, group_id, role) VALUES ($1, $2, $3)',
+        [userId, groupId, 'member']
+      )
+      
+      res.json({
+        success: true,
+        message: '用户已添加到小组'
+      })
+    } catch (error) {
+      console.error('添加用户到小组失败:', error)
+      res.status(500).json({
+        success: false,
+        error: error.message || '添加用户到小组失败'
+      })
+    }
+  })
+
+  // 从小组移除用户
+  app.delete('/api/groups/:groupId/members/:userId', authenticateToken, async (req, res) => {
+    try {
+      const { groupId, userId } = req.params
+      const currentUserId = req.user?.id
+      
+      const pool = await import('./db/connection.js')
+      const db = pool.default
+      
+      // 检查当前用户是否有权限
+      const userGroup = await db.query(
+        'SELECT role FROM user_groups WHERE user_id = $1 AND group_id = $2',
+        [currentUserId, groupId]
+      )
+      
+      if (userGroup.rows.length === 0 || userGroup.rows[0].role !== 'owner') {
+        // 检查是否是超级管理员
+        const currentUser = await db.query('SELECT username FROM users WHERE id = $1', [currentUserId])
+        if (currentUser.rows.length === 0 || currentUser.rows[0].username !== 'Chiefavefan') {
+          return res.status(403).json({
+            success: false,
+            error: '无权操作，只有组长或超级管理员可以移除成员'
+          })
+        }
+      }
+      
+      // 不能移除组长
+      const targetUser = await db.query(
+        'SELECT role FROM user_groups WHERE user_id = $1 AND group_id = $2',
+        [userId, groupId]
+      )
+      
+      if (targetUser.rows.length > 0 && targetUser.rows[0].role === 'owner') {
+        return res.status(400).json({
+          success: false,
+          error: '不能移除组长'
+        })
+      }
+      
+      // 从小组移除用户
+      await db.query(
+        'DELETE FROM user_groups WHERE user_id = $1 AND group_id = $2',
+        [userId, groupId]
+      )
+      
+      res.json({
+        success: true,
+        message: '用户已从小组移除'
+      })
+    } catch (error) {
+      console.error('从小组移除用户失败:', error)
+      res.status(500).json({
+        success: false,
+        error: error.message || '从小组移除用户失败'
+      })
+    }
+  })
+
+  // 删除小组
+  app.delete('/api/groups/:groupId', authenticateToken, async (req, res) => {
+    try {
+      const { groupId } = req.params
+      const currentUserId = req.user?.id
+      
+      const pool = await import('./db/connection.js')
+      const db = pool.default
+      
+      // 检查当前用户是否有权限（必须是小组的创建者或超级管理员）
+      const group = await db.query('SELECT created_by FROM groups WHERE id = $1', [groupId])
+      
+      if (group.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: '小组不存在'
+        })
+      }
+      
+      const currentUser = await db.query('SELECT username FROM users WHERE id = $1', [currentUserId])
+      if (currentUser.rows.length === 0 || 
+          (group.rows[0].created_by !== currentUserId && currentUser.rows[0].username !== 'Chiefavefan')) {
+        return res.status(403).json({
+          success: false,
+          error: '无权删除该小组'
+        })
+      }
+      
+      // 删除小组（会自动删除关联的 user_groups 记录，但不会删除项目）
+      await db.query('DELETE FROM groups WHERE id = $1', [groupId])
+      
+      res.json({
+        success: true,
+        message: '小组已删除'
+      })
+    } catch (error) {
+      console.error('删除小组失败:', error)
+      res.status(500).json({
+        success: false,
+        error: error.message || '删除小组失败'
+      })
+    }
+  })
+
+  // 获取用户所在的小组
+  app.get('/api/users/:userId/groups', authenticateToken, async (req, res) => {
+    try {
+      const { userId } = req.params
+      const pool = await import('./db/connection.js')
+      const db = pool.default
+      
+      const result = await db.query(`
+        SELECT 
+          g.id,
+          g.name,
+          g.description,
+          ug.role,
+          ug.joined_at
+        FROM user_groups ug
+        JOIN groups g ON ug.group_id = g.id
+        WHERE ug.user_id = $1
+        ORDER BY ug.joined_at ASC
+      `, [userId])
+      
+      res.json({
+        success: true,
+        data: result.rows
+      })
+    } catch (error) {
+      console.error('获取用户小组列表失败:', error)
+      res.status(500).json({
+        success: false,
+        error: error.message || '获取用户小组列表失败'
+      })
+    }
+  })
+
   app.listen(PORT, () => {
     console.log(`🚀 服务器运行在 http://localhost:${PORT}`)
     console.log(`📝 剧本分析服务已启动`)
@@ -5070,6 +5681,7 @@ async function startServer() {
     console.log(`🎤 IndexTTS2.5音色创作API已启动`)
     console.log(`🗄️  任务管理API已启动`)
     console.log(`👤 用户认证和管理API已启动`)
+    console.log(`👥 小组管理API已启动`)
     console.log(`\n💡 提示：`)
     console.log(`   - 初始化数据库: npm run init-db`)
     console.log(`   - 检查环境变量: npm run check-env`)
