@@ -52,6 +52,8 @@ export class AuthService {
           // 保存token和用户信息
           localStorage.setItem(this.TOKEN_KEY, data.token)
           localStorage.setItem(this.USER_KEY, JSON.stringify(data.user))
+          // 触发自定义事件通知其他组件登录状态变化
+          window.dispatchEvent(new Event('auth-changed'))
           return { success: true, token: data.token, user: data.user }
         }
 
@@ -85,6 +87,8 @@ export class AuthService {
   static logout(): void {
     localStorage.removeItem(this.TOKEN_KEY)
     localStorage.removeItem(this.USER_KEY)
+    // 触发自定义事件通知其他组件登录状态变化
+    window.dispatchEvent(new Event('auth-changed'))
   }
 
   /**
@@ -112,7 +116,11 @@ export class AuthService {
    */
   static async verifyToken(): Promise<boolean> {
     const token = this.getToken()
-    if (!token) return false
+    if (!token) {
+      // 确保清除用户信息
+      this.logout()
+      return false
+    }
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/auth/verify`, {
@@ -121,19 +129,33 @@ export class AuthService {
         },
       })
 
+      // 如果响应不是 200，说明 token 无效
+      if (!response.ok) {
+        this.logout()
+        // 触发自定义事件通知其他组件
+        window.dispatchEvent(new Event('auth-changed'))
+        return false
+      }
+
       const data = await response.json()
       if (data.success && data.user) {
         // 更新用户信息
         localStorage.setItem(this.USER_KEY, JSON.stringify(data.user))
+        // 触发自定义事件通知其他组件
+        window.dispatchEvent(new Event('auth-changed'))
         return true
       }
 
       // token无效，清除
       this.logout()
+      // 触发自定义事件通知其他组件
+      window.dispatchEvent(new Event('auth-changed'))
       return false
     } catch (error) {
       console.error('验证token失败:', error)
       this.logout()
+      // 触发自定义事件通知其他组件
+      window.dispatchEvent(new Event('auth-changed'))
       return false
     }
   }

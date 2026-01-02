@@ -30,9 +30,20 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
   const navigate = useNavigate()
   const location = useLocation()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [user, setUser] = useState<{ displayName: string } | null>(null)
+  const [user, setUser] = useState<{ username: string; displayName: string } | null>(null)
   const [balance, setBalance] = useState<string>('')
   const [isLoadingBalance, setIsLoadingBalance] = useState(false)
+
+  // 获取用户角色显示名称
+  const getUserRoleDisplay = (username: string): string => {
+    if (username === 'Chiefavefan') {
+      return '超级管理员'
+    }
+    if (username === 'jubian888') {
+      return '普通管理员'
+    }
+    return '普通用户'
+  }
 
   // 加载积分余额
   const loadBalance = async () => {
@@ -73,15 +84,33 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
   // 检查登录状态
   useEffect(() => {
     const checkAuth = async () => {
+      const token = AuthService.getToken()
+      
+      // 如果没有 token，直接设置为未登录
+      if (!token) {
+        setIsAuthenticated(false)
+        setUser(null)
+        setBalance('')
+        return
+      }
+      
+      // 验证 token
       const authenticated = await AuthService.verifyToken()
       setIsAuthenticated(authenticated)
       
       if (authenticated) {
+        // 从 verifyToken 返回的用户信息更新（确保是最新的）
         const currentUser = AuthService.getCurrentUser()
-        setUser(currentUser)
-        
-        // 获取积分余额
-        loadBalance()
+        if (currentUser) {
+          setUser(currentUser)
+          // 获取积分余额
+          loadBalance()
+        } else {
+          // 如果获取不到用户信息，说明 token 无效
+          setIsAuthenticated(false)
+          setUser(null)
+          setBalance('')
+        }
       } else {
         setUser(null)
         setBalance('')
@@ -90,12 +119,20 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
     
     checkAuth()
     
-    // 监听登录状态变化
-    const handleStorageChange = () => {
+    // 监听登录状态变化（包括同窗口的 localStorage 变化）
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'auth_token' || e.key === 'auth_user') {
+        checkAuth()
+      }
+    }
+    
+    // 监听自定义事件（用于同窗口内的登录状态变化）
+    const handleAuthChange = () => {
       checkAuth()
     }
     
     window.addEventListener('storage', handleStorageChange)
+    window.addEventListener('auth-changed', handleAuthChange)
     
     // 定期刷新积分余额（如果已登录）
     const interval = setInterval(() => {
@@ -107,6 +144,7 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
     
     return () => {
       window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('auth-changed', handleAuthChange)
       clearInterval(interval)
     }
   }, []) // 只在组件挂载时执行一次
@@ -192,7 +230,14 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
             <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-700 text-xs">
               👤
             </div>
-            <span className="text-gray-700">{user.displayName || '用户'}</span>
+            <span className="text-gray-700">
+              {user.displayName || user.username || '用户'}
+            </span>
+            {(user.username === 'Chiefavefan' || user.username === 'jubian888') && (
+              <span className="text-xs text-gray-500 ml-1">
+                ({getUserRoleDisplay(user.username)})
+              </span>
+            )}
           </div>
         </div>
       )}
