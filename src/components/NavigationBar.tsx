@@ -1,6 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, Settings } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import SettingsModal from './SettingsModal'
 import { AuthService } from '../services/auth'
 
@@ -33,6 +33,8 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
   const [user, setUser] = useState<{ username: string; displayName: string } | null>(null)
   const [balance, setBalance] = useState<string>('')
   const [isLoadingBalance, setIsLoadingBalance] = useState(false)
+  const isLoadingBalanceRef = useRef(false) // 用于防止重复请求
+  const lastBalanceRef = useRef<string>('') // 记录上次的余额，避免不必要的更新
 
   // 获取用户角色显示名称
   const getUserRoleDisplay = (username: string): string => {
@@ -45,8 +47,14 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
     return '普通用户'
   }
 
-  // 加载积分余额
-  const loadBalance = async () => {
+  // 加载积分余额（添加防重复请求机制）
+  const loadBalance = async (force = false) => {
+    // 如果正在加载中且不是强制刷新，则跳过
+    if (isLoadingBalanceRef.current && !force) {
+      return
+    }
+    
+    isLoadingBalanceRef.current = true
     setIsLoadingBalance(true)
     try {
       const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002'
@@ -54,6 +62,7 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
       
       if (!token) {
         setBalance('')
+        lastBalanceRef.current = ''
         return
       }
       
@@ -66,23 +75,41 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
       if (response.ok) {
         const result = await response.json()
         if (result.success) {
-          setBalance(result.displayBalance || '0')
+          const newBalance = result.displayBalance || '0'
+          // 只有余额真正改变时才更新，避免不必要的重新渲染
+          if (newBalance !== lastBalanceRef.current) {
+            setBalance(newBalance)
+            lastBalanceRef.current = newBalance
+          }
         } else {
-          setBalance('0')
+          if (lastBalanceRef.current !== '0') {
+            setBalance('0')
+            lastBalanceRef.current = '0'
+          }
         }
       } else {
-        setBalance('0')
+        if (lastBalanceRef.current !== '0') {
+          setBalance('0')
+          lastBalanceRef.current = '0'
+        }
       }
     } catch (error) {
       console.error('获取积分余额失败:', error)
-      setBalance('0')
+      if (lastBalanceRef.current !== '0') {
+        setBalance('0')
+        lastBalanceRef.current = '0'
+      }
     } finally {
       setIsLoadingBalance(false)
+      isLoadingBalanceRef.current = false
     }
   }
 
   // 检查登录状态
   useEffect(() => {
+    let lastAuthState = false // 记录上次的认证状态
+    let lastUserId: number | null = null // 记录上次的用户ID
+    
     const checkAuth = async () => {
       const token = AuthService.getToken()
       
@@ -91,30 +118,37 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
         setIsAuthenticated(false)
         setUser(null)
         setBalance('')
+        lastAuthState = false
+        lastUserId = null
         return
       }
       
       // 验证 token
       const authenticated = await AuthService.verifyToken()
+      const currentUser = AuthService.getCurrentUser()
+      const currentUserId = currentUser?.id || null
+      
+      // 只有在认证状态或用户真正改变时才更新
+      const authStateChanged = authenticated !== lastAuthState
+      const userChanged = currentUserId !== lastUserId
+      
       setIsAuthenticated(authenticated)
       
-      if (authenticated) {
-        // 从 verifyToken 返回的用户信息更新（确保是最新的）
-        const currentUser = AuthService.getCurrentUser()
-        if (currentUser) {
-          setUser(currentUser)
-          // 获取积分余额
-          loadBalance()
-        } else {
-          // 如果获取不到用户信息，说明 token 无效
-          setIsAuthenticated(false)
-          setUser(null)
-          setBalance('')
+      if (authenticated && currentUser) {
+        setUser(currentUser)
+        lastUserId = currentUserId
+        
+        // 只有在认证状态改变或用户改变时才加载余额
+        if (authStateChanged || userChanged) {
+          loadBalance(true) // 强制刷新
         }
       } else {
         setUser(null)
         setBalance('')
+        lastUserId = null
       }
+      
+      lastAuthState = authenticated
     }
     
     checkAuth()
@@ -134,11 +168,11 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
     window.addEventListener('storage', handleStorageChange)
     window.addEventListener('auth-changed', handleAuthChange)
     
-    // 定期刷新积分余额（如果已登录）
+    // 定期刷新积分余额（如果已登录，且不在加载中）
     const interval = setInterval(() => {
       const token = AuthService.getToken()
-      if (token) {
-        loadBalance()
+      if (token && !isLoadingBalanceRef.current) {
+        loadBalance() // 定期刷新时不强制，避免与正在进行的请求冲突
       }
     }, 30000) // 每30秒刷新一次
     
