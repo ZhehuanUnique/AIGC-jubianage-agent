@@ -14,7 +14,7 @@ function Analytics() {
   
   // 检查当前用户是否为超级管理员
   const isSuperAdmin = currentUser?.username === 'Chiefavefan'
-  // 检查当前用户是否为管理员（超级管理员）
+  // 检查当前用户是否为管理员（超级管理员或高级管理员）
   const isAdmin = currentUser?.username === 'Chiefavefan' || currentUser?.username === 'jubian888'
   
   // 用户管理状态
@@ -117,13 +117,13 @@ function Analytics() {
       return user.username !== 'Chiefavefan'
     }
     
-    // 超级管理员只能删除普通用户，不能删除其他管理员
+    // 高级管理员只能删除普通用户，不能删除其他管理员
     if (isAdmin) {
       // 不能删除超级管理员
       if (user.username === 'Chiefavefan') {
         return false
       }
-      // 不能删除其他超级管理员
+      // 不能删除高级管理员
       if (user.username === 'jubian888') {
         return false
       }

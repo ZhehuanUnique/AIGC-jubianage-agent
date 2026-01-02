@@ -548,7 +548,7 @@ node db/check-users.js
 #### 默认管理员账号
 
 - **超级管理员**：`Chiefavefan` / `246859CFF`
-- **超级管理员**：`jubian888` / `8888`
+- **高级管理员**：`jubian888` / `8888`
 
 #### 常见问题
 
@@ -1314,7 +1314,7 @@ npm run setup-db
 
 **默认管理员账号：**
 - 超级管理员：`Chiefavefan` / `246859CFF`
-- 超级管理员：`jubian888` / `8888`
+- 高级管理员：`jubian888` / `8888`
 
 ### PowerShell 执行策略问题
 

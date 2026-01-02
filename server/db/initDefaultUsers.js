@@ -29,7 +29,7 @@ async function initDefaultUsers() {
       {
         username: 'jubian888',
         password: '8888',
-        displayName: '超级管理员',
+        displayName: '高级管理员',
       },
     ]
 
