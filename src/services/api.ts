@@ -1634,3 +1634,55 @@ export async function exportVideosToDesktop(
     throw new Error('网络错误，请检查服务器连接')
   }
 }
+
+// 首尾帧生视频相关 API
+export async function generateFirstLastFrameVideo(formData: FormData): Promise<{ success: boolean; data?: { taskId: string }; error?: string }> {
+  const token = AuthService.getToken()
+  if (!token) {
+    return { success: false, error: '未登录，请先登录' }
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/first-last-frame-video/generate`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        // FormData 会自动设置 Content-Type: multipart/form-data
+      },
+      body: formData,
+    })
+
+    const data = await response.json()
+    if (!response.ok) {
+      return { success: false, error: data.error || '生成首尾帧视频失败' }
+    }
+    return { success: true, data: data.data }
+  } catch (error: any) {
+    console.error('调用首尾帧视频生成API失败:', error)
+    return { success: false, error: error.message || '生成首尾帧视频失败' }
+  }
+}
+
+export async function getFirstLastFrameVideoStatus(taskId: string, projectId: string): Promise<{ success: boolean; data?: { status: string; videoUrl?: string; errorMessage?: string }; error?: string }> {
+  const token = AuthService.getToken()
+  if (!token) {
+    return { success: false, error: '未登录，请先登录' }
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/first-last-frame-video/status/${taskId}?projectId=${projectId}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+
+    const data = await response.json()
+    if (!response.ok) {
+      return { success: false, error: data.error || '查询首尾帧视频状态失败' }
+    }
+    return { success: true, data: data.data }
+  } catch (error: any) {
+    console.error('查询首尾帧视频状态API失败:', error)
+    return { success: false, error: error.message || '查询首尾帧视频状态失败' }
+  }
+}
