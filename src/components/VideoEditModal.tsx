@@ -10,7 +10,7 @@ interface VideoEditModalProps {
 
 function VideoEditModal({ isOpen, onClose, videoId, videoPrompt }: VideoEditModalProps) {
   const [selectedImage, setSelectedImage] = useState<number | null>(1)
-  const [model, setModel] = useState('即梦AI-视频生成3.0')
+  const [model, setModel] = useState('即梦AI-视频生成3.0pro')
   const [duration, setDuration] = useState(5)
   const [resolution, setResolution] = useState('720p')
   const [quantity, setQuantity] = useState(1)
@@ -108,7 +108,7 @@ function VideoEditModal({ isOpen, onClose, videoId, videoPrompt }: VideoEditModa
                   onChange={(e) => setModel(e.target.value)}
                   className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500"
                 >
-                  <option>即梦AI-视频生成3.0</option>
+                  <option>即梦AI-视频生成3.0pro</option>
                 </select>
               </div>
 

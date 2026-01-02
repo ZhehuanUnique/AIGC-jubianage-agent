@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS shots (
   style VARCHAR(100),
   scene_description TEXT,
   visual_focus TEXT,
-  model VARCHAR(100) DEFAULT '即梦AI-视频生成3.0',
+  model VARCHAR(100) DEFAULT '即梦AI-视频生成3.0pro',
   aspect_ratio VARCHAR(20) DEFAULT '16:9',
   quantity INTEGER DEFAULT 1,
   is_expanded BOOLEAN DEFAULT FALSE,

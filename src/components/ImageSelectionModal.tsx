@@ -125,7 +125,7 @@ function ImageSelectionModal({ isOpen, onClose, rowId }: ImageSelectionModalProp
               <div>
                 <label className="block text-sm mb-2">模型</label>
                 <select className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500">
-                  <option>即梦AI-视频生成3.0</option>
+                  <option>即梦AI-视频生成3.0pro</option>
                 </select>
               </div>
 

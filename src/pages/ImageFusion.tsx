@@ -1342,8 +1342,8 @@ function ImageFusion() {
                 <option value="wan2.2-i2v-flash">wan2.2-i2v-flash</option>
                 <option value="wan2.5-i2v-preview">wan2.5-i2v-preview</option>
                 <option value="wan2.6-i2v">wan2.6-i2v</option>
-                <option value="doubao-seedance-1-0-lite-i2v-250428">即梦AI-视频生成3.0</option>
-                <option value="doubao-seedance-1-5-pro-251215">即梦AI-视频生成3.5</option>
+                <option value="doubao-seedance-1-0-lite-i2v-250428">即梦AI-视频生成3.0pro</option>
+                <option value="doubao-seedance-1-5-pro-251215">即梦AI-视频生成3.5pro</option>
                 <option value="viduq2-turbo">ViduQ2-Turbo</option>
                 <option value="veo3.1">Google Veo3.1</option>
                 <option value="veo3.1-pro">Google Veo3.1-Pro</option>
@@ -1498,8 +1498,8 @@ function ImageFusion() {
                       <option value="wan2.2-i2v-flash">wan2.2-i2v-flash</option>
                       <option value="wan2.5-i2v-preview">wan2.5-i2v-preview</option>
                       <option value="wan2.6-i2v">wan2.6-i2v</option>
-                      <option value="doubao-seedance-1-0-lite-i2v-250428">即梦AI-视频生成3.0</option>
-                      <option value="doubao-seedance-1-5-pro-251215">即梦AI-视频生成3.5</option>
+                      <option value="doubao-seedance-1-0-lite-i2v-250428">即梦AI-视频生成3.0pro</option>
+                      <option value="doubao-seedance-1-5-pro-251215">即梦AI-视频生成3.5pro</option>
                       <option value="viduq2-turbo">ViduQ2-Turbo</option>
                       <option value="veo3.1">Google Veo3.1</option>
                       <option value="veo3.1-pro">Google Veo3.1-Pro</option>
