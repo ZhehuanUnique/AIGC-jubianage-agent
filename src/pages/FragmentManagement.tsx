@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import SidebarNavigation from '../components/SidebarNavigation'
-import { Plus, MoreVertical, BarChart3, ArrowLeft, RefreshCw } from 'lucide-react'
+import { Plus, MoreVertical, Trash2, ArrowLeft, RefreshCw } from 'lucide-react'
 import CreateFragmentModal from '../components/CreateFragmentModal'
 import { getProjectFragments } from '../services/api'
+import { alert } from '../utils/alert'
 
 interface Fragment {
   id: string
@@ -110,6 +111,43 @@ function FragmentManagement() {
     loadFragments()
   }
 
+  // 删除片段
+  const handleDeleteFragment = async (fragmentId: string) => {
+    if (!confirm('确定要删除这个片段吗？删除后无法恢复。')) {
+      return
+    }
+
+    try {
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002'
+      const token = localStorage.getItem('auth_token')
+      
+      if (!token) {
+        alert('请先登录', 'warning')
+        return
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/fragments/${fragmentId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+
+      const result = await response.json()
+      
+      if (result.success) {
+        alert('片段已删除', 'success')
+        // 重新加载片段列表
+        loadFragments()
+      } else {
+        alert(`删除失败: ${result.error}`, 'error')
+      }
+    } catch (error) {
+      console.error('删除片段失败:', error)
+      alert('删除片段失败，请稍后重试', 'error')
+    }
+  }
+
   return (
     <div className="min-h-screen bg-white text-gray-900 flex">
       <SidebarNavigation activeTab="fragments" />
@@ -162,9 +200,17 @@ function FragmentManagement() {
                   <MoreVertical size={14} />
                 </button>
               </div>
-              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button className="w-6 h-6 flex items-center justify-center text-gray-600 hover:text-gray-900">
-                  <BarChart3 size={14} />
+              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    e.preventDefault()
+                    handleDeleteFragment(fragment.id)
+                  }}
+                  className="w-6 h-6 flex items-center justify-center text-red-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                  title="删除片段"
+                >
+                  <Trash2 size={14} />
                 </button>
               </div>
               <div className="flex-1 flex items-center justify-center mb-2">

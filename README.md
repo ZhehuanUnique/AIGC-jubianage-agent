@@ -1378,6 +1378,125 @@ npm.cmd install
 - 端口被占用
 - 环境变量配置错误
 
+## 🚀 部署和更新
+
+### 提交代码到 GitHub
+
+**Windows 用户：**
+```powershell
+.\提交代码到GitHub.ps1
+```
+
+**Linux/Mac 用户：**
+```bash
+bash 提交代码到GitHub.sh
+```
+
+### 更新线上部署
+
+#### 方法一：通过 SSH 脚本更新（推荐，Windows）
+
+**快速更新（默认）：**
+```powershell
+.\快速更新服务器.ps1
+```
+
+**完整更新（包含依赖检查）：**
+```powershell
+.\快速更新服务器.ps1 -UpdateType "full"
+```
+
+**指定服务器 IP：**
+```powershell
+.\快速更新服务器.ps1 -ServerIP "你的服务器IP"
+```
+
+**注意**：如果已配置 SSH 密钥，脚本会自动使用密钥连接，无需输入密码。
+
+#### 方法二：在服务器上直接执行
+
+**完整更新（推荐）：**
+```bash
+cd /var/www/aigc-agent
+bash 更新线上部署.sh
+```
+
+**快速更新：**
+```bash
+cd /var/www/aigc-agent
+bash 快速更新线上部署.sh
+```
+
+**手动更新：**
+```bash
+cd /var/www/aigc-agent
+git pull origin main
+cd server && pm2 restart aigc-agent && cd ..
+rm -rf dist node_modules/.vite
+npm run build
+sudo chown -R ubuntu:ubuntu dist/
+sudo systemctl reload nginx
+```
+
+### 服务器部署
+
+详细部署步骤请参考 `skill/skill.md` 中的"部署方案"章节。
+
+**快速部署命令：**
+```bash
+# 1. 安装环境
+sudo apt update && sudo apt upgrade -y
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+source ~/.bashrc
+nvm install 20 && nvm use 20
+npm install -g pm2
+sudo apt install nginx git -y
+
+# 2. 部署应用
+cd /var/www
+sudo mkdir -p aigc-agent && sudo chown ubuntu:ubuntu aigc-agent
+cd aigc-agent
+git clone https://github.com/ZhehuanUnique/AIGC-jubianage-agent.git .
+npm install
+cd server && npm install && cd ..
+
+# 3. 配置环境变量
+cd server
+cp .env.example .env
+nano .env  # 编辑配置文件
+
+# 4. 构建和启动
+cd ..
+npm run build
+cd server
+pm2 start index.js --name aigc-agent
+pm2 save
+pm2 startup
+
+# 5. 配置 Nginx（参考 skill/skill.md）
+```
+
+### 后端服务 24 小时运行
+
+使用 PM2 确保后端服务稳定运行：
+
+```bash
+# 查看服务状态
+pm2 status
+
+# 查看日志
+pm2 logs aigc-agent
+
+# 重启服务
+pm2 restart aigc-agent
+
+# 设置开机自启
+pm2 startup
+pm2 save
+```
+
+详细配置请参考 `skill/skill.md` 中的"PM2 管理"章节。
+
 ## 📄 许可证
 
 MIT License

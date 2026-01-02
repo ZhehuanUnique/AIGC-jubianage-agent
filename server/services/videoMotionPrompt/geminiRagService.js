@@ -9,7 +9,7 @@
 
 import dotenv from 'dotenv'
 import { fileURLToPath } from 'url'
-import { dirname, join } from 'path'
+import { dirname, join, resolve } from 'path'
 import { existsSync } from 'fs'
 import { clipService } from './clipService.js'
 
@@ -29,7 +29,8 @@ let GoogleGenerativeAIEmbeddings = null
 try {
   // 尝试导入 Chroma
   const chromadb = await import('chromadb')
-  ChromaClient = chromadb.ChromaClient
+  // 对于本地持久化存储，使用 PersistentClient
+  ChromaClient = chromadb.PersistentClient || chromadb.ChromaClient
 } catch (error) {
   console.warn('⚠️ ChromaDB 未安装，Chroma 功能将不可用')
 }
@@ -60,7 +61,10 @@ class GeminiRAGService {
     
     // 向量数据库配置
     this.vectorDbType = process.env.VECTOR_DB_TYPE || 'chroma' // 'chroma' 或 'milvus'
-    this.vectorDbPath = process.env.GEMINI_RAG_VECTOR_DB_PATH || './data/gemini_rag_vectors'
+    // 将相对路径转换为绝对路径（Chroma 需要绝对路径）
+    // __dirname 指向 services/videoMotionPrompt/，所以需要回到 server 目录
+    const rawPath = process.env.GEMINI_RAG_VECTOR_DB_PATH || './data/gemini_rag_vectors'
+    this.vectorDbPath = resolve(join(__dirname, '../../'), rawPath)
     this.milvusHost = process.env.MILVUS_HOST || 'localhost'
     this.milvusPort = parseInt(process.env.MILVUS_PORT || '19530')
     
@@ -122,10 +126,30 @@ class GeminiRAGService {
       return
     }
 
-    // 初始化 Chroma 客户端
-    this.chromaClient = new ChromaClient({
-      path: this.vectorDbPath, // 本地 Chroma 数据库路径
-    })
+    try {
+      // 对于本地持久化存储，使用 path 参数
+      // 确保路径是绝对路径且目录存在
+      const { existsSync, mkdirSync } = await import('fs')
+      if (!existsSync(this.vectorDbPath)) {
+        mkdirSync(this.vectorDbPath, { recursive: true })
+      }
+
+      // 初始化 Chroma 客户端（本地持久化模式）
+      // PersistentClient 用于本地文件存储
+      const chromadb = await import('chromadb')
+      if (chromadb.PersistentClient) {
+        this.chromaClient = new chromadb.PersistentClient({
+          path: this.vectorDbPath,
+        })
+      } else {
+        // 兼容旧版本，使用 ChromaClient
+        this.chromaClient = new ChromaClient({
+          path: this.vectorDbPath,
+        })
+      }
+    } catch (error) {
+      throw new Error(`Chroma 初始化失败: ${error.message}`)
+    }
   }
 
   /**

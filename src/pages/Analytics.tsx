@@ -4,11 +4,12 @@ import { Users, TrendingUp, Plus, Trash2, Loader2 } from 'lucide-react'
 import { UserApi, type User, type ConsumptionRanking } from '../services/userApi'
 import DailyConsumptionChart from '../components/DailyConsumptionChart'
 import UserLogsModal from '../components/UserLogsModal'
+import GroupManagement from '../components/GroupManagement'
 import { AuthService } from '../services/auth'
 import { alert, alertError, alertWarning } from '../utils/alert'
 
 function Analytics() {
-  const [activeTab, setActiveTab] = useState<'users' | 'consumption'>('users')
+  const [activeTab, setActiveTab] = useState<'users' | 'groups' | 'consumption'>('users')
   const [currentUser, setCurrentUser] = useState<{ username: string } | null>(null)
   
   // 检查当前用户是否为超级管理员
@@ -233,6 +234,19 @@ function Analytics() {
               <Users size={18} />
               用户管理
             </button>
+            {isAdmin && (
+              <button
+                onClick={() => setActiveTab('groups')}
+                className={`px-4 py-2 flex items-center gap-2 ${
+                  activeTab === 'groups'
+                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <Users size={18} />
+                小组管理
+              </button>
+            )}
             <button
               onClick={() => setActiveTab('consumption')}
               className={`px-4 py-2 flex items-center gap-2 ${
@@ -245,6 +259,16 @@ function Analytics() {
               消耗统计
             </button>
           </div>
+
+          {/* 小组管理 */}
+          {activeTab === 'groups' && isAdmin && (
+            <GroupManagement
+              users={users}
+              onUpdate={() => {
+                // 可以在这里刷新用户列表或其他数据
+              }}
+            />
+          )}
 
           {/* 用户管理 */}
           {activeTab === 'users' && (

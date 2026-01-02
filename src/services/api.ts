@@ -201,6 +201,41 @@ export async function createOrUpdateProject(params: {
 }
 
 /**
+ * 删除项目
+ */
+export async function deleteProject(projectId: number | string): Promise<void> {
+  try {
+    const token = AuthService.getToken()
+    if (!token) {
+      throw new Error('未登录，请先登录')
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || '删除项目失败')
+    }
+
+    const result = await response.json()
+    if (!result.success) {
+      throw new Error(result.error || '删除项目失败')
+    }
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('网络错误，请检查服务器连接')
+  }
+}
+
+/**
  * 创建任务
  */
 export async function createTask(params: {

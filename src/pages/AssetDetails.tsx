@@ -184,7 +184,7 @@ function AssetDetails() {
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), 3000) // 3秒超时
         
-        const response = await fetch(`${API_BASE_URL}/health`, {
+        const response = await fetch(`${API_BASE_URL}/api/health`, {
           method: 'GET',
           signal: controller.signal,
         })

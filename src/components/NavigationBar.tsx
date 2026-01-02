@@ -1,7 +1,8 @@
 import { useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, Settings } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import SettingsModal from './SettingsModal'
+import { AuthService } from '../services/auth'
 
 interface NavigationBarProps {
   showBackButton?: boolean
@@ -28,6 +29,87 @@ function SettingsButton() {
 function NavigationBar({ showBackButton = false, activeTab = 'home' }: NavigationBarProps) {
   const navigate = useNavigate()
   const location = useLocation()
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [user, setUser] = useState<{ displayName: string } | null>(null)
+  const [balance, setBalance] = useState<string>('')
+  const [isLoadingBalance, setIsLoadingBalance] = useState(false)
+
+  // 加载积分余额
+  const loadBalance = async () => {
+    setIsLoadingBalance(true)
+    try {
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002'
+      const token = AuthService.getToken()
+      
+      if (!token) {
+        setBalance('')
+        return
+      }
+      
+      const response = await fetch(`${API_BASE_URL}/api/user/balance`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+      
+      if (response.ok) {
+        const result = await response.json()
+        if (result.success) {
+          setBalance(result.displayBalance || '0')
+        } else {
+          setBalance('0')
+        }
+      } else {
+        setBalance('0')
+      }
+    } catch (error) {
+      console.error('获取积分余额失败:', error)
+      setBalance('0')
+    } finally {
+      setIsLoadingBalance(false)
+    }
+  }
+
+  // 检查登录状态
+  useEffect(() => {
+    const checkAuth = async () => {
+      const authenticated = await AuthService.verifyToken()
+      setIsAuthenticated(authenticated)
+      
+      if (authenticated) {
+        const currentUser = AuthService.getCurrentUser()
+        setUser(currentUser)
+        
+        // 获取积分余额
+        loadBalance()
+      } else {
+        setUser(null)
+        setBalance('')
+      }
+    }
+    
+    checkAuth()
+    
+    // 监听登录状态变化
+    const handleStorageChange = () => {
+      checkAuth()
+    }
+    
+    window.addEventListener('storage', handleStorageChange)
+    
+    // 定期刷新积分余额（如果已登录）
+    const interval = setInterval(() => {
+      const token = AuthService.getToken()
+      if (token) {
+        loadBalance()
+      }
+    }, 30000) // 每30秒刷新一次
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      clearInterval(interval)
+    }
+  }, []) // 只在组件挂载时执行一次
 
   const handleBack = () => {
     // 如果在项目相关页面，返回到项目管理
@@ -95,21 +177,25 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
         </nav>
       </div>
 
-      {/* 右侧 */}
-      <div className="flex items-center gap-4">
-        <button className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2">
-          <span className="text-lg">¥</span>
-          积分充值
-        </button>
-        <span className="text-gray-700">积分余额: 4,348</span>
-        <SettingsButton />
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-700 text-xs">
-            👤
+      {/* 右侧 - 仅在登录时显示 */}
+      {isAuthenticated && user && (
+        <div className="flex items-center gap-4">
+          <button className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2">
+            <span className="text-lg">¥</span>
+            积分充值
+          </button>
+          <span className="text-gray-700">
+            积分余额: {isLoadingBalance ? '加载中...' : balance}
+          </span>
+          <SettingsButton />
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-700 text-xs">
+              👤
+            </div>
+            <span className="text-gray-700">{user.displayName || '用户'}</span>
           </div>
-          <span className="text-gray-700">剧变时代</span>
         </div>
-      </div>
+      )}
     </div>
   )
 }

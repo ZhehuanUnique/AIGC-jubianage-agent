@@ -3,8 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import NavigationBar from '../components/NavigationBar'
 import { MoreVertical, Menu, Plus, X, CheckCircle, Trash2, Edit, Copy, Scissors } from 'lucide-react'
 import CreateProjectModal from '../components/CreateProjectModal'
-import { getAllProjects, createProject, deleteProject, Project } from '../services/projectStorage'
-import { getProjects, createOrUpdateProject } from '../services/api'
+import { getAllProjects, createProject, Project } from '../services/projectStorage'
+import { deleteProject as deleteProjectApi, getProjects, createOrUpdateProject } from '../services/api'
 import { alertError, alertInfo, alertSuccess } from '../utils/alert'
 
 interface LocationState {
@@ -42,86 +42,95 @@ function ProjectManagement() {
     updatedAt?: string
   }>>([])
 
-  // 从API加载项目列表
+  // 从API加载项目列表（按用户过滤）
   useEffect(() => {
     const loadProjects = async () => {
       try {
         const projects = await getProjects()
+        // 只使用 API 返回的数据，确保按用户过滤
         setApiProjects(projects)
+        // 清空本地项目列表，避免显示旧数据
+        setProjects([])
       } catch (error) {
         console.error('加载项目列表失败:', error)
-        // 如果API失败，回退到localStorage
-        const loadedProjects = getAllProjects()
-        if (loadedProjects.length > 0) {
-          setProjects(loadedProjects)
-        }
+        // API 失败时显示空列表，不回退到 localStorage
+        setApiProjects([])
+        setProjects([])
       }
     }
     loadProjects()
   }, [])
 
-  // 从localStorage加载项目列表（作为备用）
-  useEffect(() => {
-    if (apiProjects.length === 0) {
-      const loadedProjects = getAllProjects()
-      // 如果没有项目，使用默认数据
-      if (loadedProjects.length === 0) {
-        const defaultProjects: Project[] = [
-          { id: '1', name: '百年剑仙', createdAt: new Date().toISOString() },
-          { id: '2', name: '1', createdAt: new Date().toISOString() },
-          { id: '3', name: '神话机甲', createdAt: new Date().toISOString() },
-          { id: '4', name: '岁满玉宁', createdAt: new Date().toISOString() },
-          { id: '5', name: '复刻', createdAt: new Date().toISOString() },
-          { id: '6', name: '我掌控千万诡异卡点前', createdAt: new Date().toISOString() },
-        ]
-        setProjects(defaultProjects)
-      } else {
-        setProjects(loadedProjects)
-      }
-    }
-  }, [apiProjects])
-
   // 处理自动创建项目（只执行一次）
   useEffect(() => {
     if (state?.autoCreateProject && state.projectName && state.analysisResult && !hasProcessedAutoCreate) {
-      // 检查是否已存在同名项目
-      const existingProjects = getAllProjects()
-      const projectExists = existingProjects.some(p => p.name === state.projectName)
+      // 检查是否已存在同名项目（使用 API 数据）
+      const projectExists = apiProjects.some(p => p.name === state.projectName)
       
       if (!projectExists) {
-        const newProject = createProject(state.projectName, state.analysisResult)
-        setProjects(prev => [...prev, newProject])
-        
-        // 显示提示消息
-        setNotification({
-          message: '已自动创建项目文件',
-          projectName: state.projectName,
+        // 调用 API 创建项目
+        createOrUpdateProject({
+          name: state.projectName,
+          analysisResult: state.analysisResult,
+        }).then(() => {
+          // 重新加载项目列表
+          return getProjects()
+        }).then((projects) => {
+          setApiProjects(projects)
+          
+          // 显示提示消息
+          setNotification({
+            message: '已自动创建项目文件',
+            projectName: state.projectName,
+          })
+
+          // 5秒后自动关闭提示
+          const timer = setTimeout(() => {
+            setNotification(null)
+          }, 5000)
+
+          setHasProcessedAutoCreate(true)
+          // 清除路由state，避免刷新时重复创建
+          window.history.replaceState({}, document.title)
+
+          return () => clearTimeout(timer)
+        }).catch((error) => {
+          console.error('自动创建项目失败:', error)
         })
-
-        // 5秒后自动关闭提示
-        const timer = setTimeout(() => {
-          setNotification(null)
-        }, 5000)
-
+      } else {
         setHasProcessedAutoCreate(true)
-        // 清除路由state，避免刷新时重复创建
         window.history.replaceState({}, document.title)
-
-        return () => clearTimeout(timer)
       }
     }
-  }, [state, hasProcessedAutoCreate])
+  }, [state, hasProcessedAutoCreate, apiProjects])
 
   const handleDeleteClick = (e: React.MouseEvent, project: Project) => {
     e.stopPropagation() // 阻止点击事件冒泡到卡片
     setDeleteConfirmProject(project)
   }
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (deleteConfirmProject) {
-      deleteProject(deleteConfirmProject.id)
-      setProjects(prev => prev.filter(p => p.id !== deleteConfirmProject.id))
-      setDeleteConfirmProject(null)
+      try {
+        // 调用后端 API 删除项目
+        await deleteProjectApi(deleteConfirmProject.id)
+        
+        // 从本地状态中移除
+        setApiProjects(prev => prev.filter(p => p.id !== deleteConfirmProject.id))
+        
+        // 同时从 localStorage 删除（如果存在）
+        const { deleteProject: deleteLocalProject } = await import('../services/projectStorage')
+        deleteLocalProject(String(deleteConfirmProject.id))
+        
+        setDeleteConfirmProject(null)
+        
+        // 重新加载项目列表以确保同步
+        const projects = await getProjects()
+        setApiProjects(projects)
+      } catch (error) {
+        console.error('删除项目失败:', error)
+        alert(error instanceof Error ? error.message : '删除项目失败，请稍后重试')
+      }
     }
   }
 
@@ -222,10 +231,8 @@ function ProjectManagement() {
     if (!copySourceProject) return
 
     try {
-      const sourceProject = apiProjects.find(p => p.id === copySourceProject) || 
-                            projects.find(p => p.id === copySourceProject)
-      const targetProject = apiProjects.find(p => p.id === targetProjectId) || 
-                            projects.find(p => p.id === targetProjectId)
+      const sourceProject = apiProjects.find(p => p.id === copySourceProject)
+      const targetProject = apiProjects.find(p => p.id === targetProjectId)
 
       if (!sourceProject || !targetProject) {
         alertError('找不到源项目或目标项目', '错误')
@@ -284,10 +291,8 @@ function ProjectManagement() {
     if (!cutSourceProject) return
 
     try {
-      const sourceProject = apiProjects.find(p => p.id === cutSourceProject) || 
-                            projects.find(p => p.id === cutSourceProject)
-      const targetProject = apiProjects.find(p => p.id === targetProjectId) || 
-                            projects.find(p => p.id === targetProjectId)
+      const sourceProject = apiProjects.find(p => p.id === cutSourceProject)
+      const targetProject = apiProjects.find(p => p.id === targetProjectId)
 
       if (!sourceProject || !targetProject) {
         alertError('找不到源项目或目标项目', '错误')
@@ -367,7 +372,7 @@ function ProjectManagement() {
           </div>
 
           {/* 项目文件夹卡片 - 优先显示API项目 */}
-          {(apiProjects.length > 0 ? apiProjects : projects).map((project) => {
+          {apiProjects.map((project) => {
             // 安全地获取 projectId
             let projectId: number | string
             if (typeof project.id === 'number') {
@@ -512,7 +517,20 @@ function ProjectManagement() {
       </div>
 
       {/* 创建项目模态框 */}
-      {showCreateModal && <CreateProjectModal onClose={() => setShowCreateModal(false)} />}
+      {showCreateModal && (
+        <CreateProjectModal
+          onClose={() => setShowCreateModal(false)}
+          onProjectCreated={async () => {
+            // 重新加载项目列表
+            try {
+              const projects = await getProjects()
+              setApiProjects(projects)
+            } catch (error) {
+              console.error('刷新项目列表失败:', error)
+            }
+          }}
+        />
+      )}
 
       {/* 重命名确认模态框 */}
       {renameProject && (

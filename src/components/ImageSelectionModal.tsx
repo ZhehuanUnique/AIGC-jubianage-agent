@@ -9,7 +9,7 @@ interface ImageSelectionModalProps {
 
 function ImageSelectionModal({ isOpen, onClose, rowId }: ImageSelectionModalProps) {
   const [selectedImages, setSelectedImages] = useState<number[]>([])
-  const [_currentImageIndex, setCurrentImageIndex] = useState(0)
+  const [currentImageIndex, setCurrentImageIndex] = useState(0)
 
   // 模拟图片数据
   const images = Array.from({ length: 10 }, (_, i) => ({

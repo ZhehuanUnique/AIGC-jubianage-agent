@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, Upload, HelpCircle, Loader2, Trash2 } from 'lucide-react'
+import { X, Upload, HelpCircle, Loader2, Trash2, Eye } from 'lucide-react'
 import { getAllProjects } from '../services/projectStorage'
 import { alert, alertError, alertInfo } from '../utils/alert'
 import { generateImage, getImageTaskStatus, GenerateImageRequest, ImageTaskStatus, uploadAssetImage } from '../services/api'
@@ -78,6 +78,7 @@ function CreateCharacterModal({ onClose, projectName, alwaysShowRightPanel = fal
   const [generationMode, setGenerationMode] = useState<'model' | 'upload'>('model')
   const [selectedModel, setSelectedModel] = useState<string | null>(null)
   const [uploadedImage, setUploadedImage] = useState<string | null>(null)
+  const [previewImage, setPreviewImage] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [hasExistingProject, setHasExistingProject] = useState(false)
   const [projectCharacters, setProjectCharacters] = useState<Array<{ id: string; name: string; image?: string }>>([])
@@ -338,9 +339,14 @@ function CreateCharacterModal({ onClose, projectName, alwaysShowRightPanel = fal
             })
           }
         }, 500)
+        
+        // 上传图片模式：不显示提示框，静默完成
       } else {
         // 开始轮询任务状态
         startPollingTask(task)
+        
+        // 模型生成模式：显示提示框
+        alert('任务已提交，正在生成中...', 'success')
       }
 
       // 重置表单
@@ -356,8 +362,6 @@ function CreateCharacterModal({ onClose, projectName, alwaysShowRightPanel = fal
       if (referenceImageInputRef.current) {
         referenceImageInputRef.current.value = ''
       }
-
-      alert('任务已提交，正在生成中...', 'success')
     } catch (error) {
       console.error('提交任务失败:', error)
       alert(error instanceof Error ? error.message : '提交任务失败，请稍后重试', 'error')
@@ -739,10 +743,25 @@ function CreateCharacterModal({ onClose, projectName, alwaysShowRightPanel = fal
                         alert('请上传 JPG、JPEG 或 PNG 格式的图片', 'warning')
                         return
                       }
+                      
+                      // 自动识别文件名并填入角色名称（如果角色名称为空）
+                      if (!characterName.trim()) {
+                        const fileName = file.name
+                        // 去掉扩展名
+                        const nameWithoutExt = fileName.replace(/\.[^/.]+$/, '')
+                        // 如果文件名看起来像标准命名（不包含特殊字符，长度合理），自动填入
+                        if (nameWithoutExt && 
+                            nameWithoutExt.length <= 50 && 
+                            /^[\u4e00-\u9fa5a-zA-Z0-9_\-\s]+$/.test(nameWithoutExt)) {
+                          setCharacterName(nameWithoutExt.trim())
+                        }
+                      }
+                      
                       // 读取文件并转换为 base64
                       const reader = new FileReader()
                       reader.onload = (event) => {
                         setUploadedImage(event.target?.result as string)
+                        // 上传成功，不显示提示框
                       }
                       reader.readAsDataURL(file)
                     }
@@ -750,15 +769,50 @@ function CreateCharacterModal({ onClose, projectName, alwaysShowRightPanel = fal
                 />
                 <div
                   onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-purple-500 transition-colors"
+                  className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-purple-500 transition-colors"
                 >
                   {uploadedImage ? (
                     <div className="space-y-2">
-                      <img
-                        src={uploadedImage}
-                        alt="上传的图片"
-                        className="max-w-full max-h-48 mx-auto rounded-lg"
-                      />
+                      <div 
+                        className="relative mx-auto rounded-lg overflow-hidden"
+                        style={{ 
+                          width: '100%',
+                          aspectRatio: '9/16',
+                          maxWidth: '300px'
+                        }}
+                        onMouseEnter={(e) => {
+                          // 鼠标悬停时显示眼睛图标
+                          const eyeIcon = e.currentTarget.querySelector('.preview-eye-icon')
+                          if (eyeIcon) {
+                            eyeIcon.classList.remove('opacity-0')
+                            eyeIcon.classList.add('opacity-100')
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          // 鼠标离开时隐藏眼睛图标
+                          const eyeIcon = e.currentTarget.querySelector('.preview-eye-icon')
+                          if (eyeIcon) {
+                            eyeIcon.classList.remove('opacity-100')
+                            eyeIcon.classList.add('opacity-0')
+                          }
+                        }}
+                      >
+                        <img
+                          src={uploadedImage}
+                          alt="上传的图片"
+                          className="w-full h-full object-cover"
+                        />
+                        {/* 眼睛图标 - 鼠标悬停时显示 */}
+                        <div
+                          className="preview-eye-icon absolute inset-0 flex items-center justify-center bg-black bg-opacity-40 opacity-0 transition-opacity duration-200 cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation() // 阻止触发文件选择
+                            setPreviewImage(uploadedImage)
+                          }}
+                        >
+                          <Eye className="text-white" size={32} />
+                        </div>
+                      </div>
                       <p className="text-gray-600 text-sm">点击更换图片</p>
                     </div>
                   ) : (
@@ -899,7 +953,7 @@ function CreateCharacterModal({ onClose, projectName, alwaysShowRightPanel = fal
                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 }`}
               >
-                提交任务 (消耗10积分)
+                {generationMode === 'model' ? '提交任务 (消耗10积分)' : '提交任务'}
               </button>
             </div>
           </div>
@@ -1069,6 +1123,34 @@ function CreateCharacterModal({ onClose, projectName, alwaysShowRightPanel = fal
           </div>
         </div>
       </div>
+      )}
+
+      {/* 图片预览模态框 - 全屏黑色背景，右上角有X */}
+      {previewImage && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-95 z-50 flex items-center justify-center"
+          onClick={() => setPreviewImage(null)}
+        >
+          {/* 关闭按钮 - 右上角 */}
+          <button
+            onClick={() => setPreviewImage(null)}
+            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white bg-opacity-20 hover:bg-opacity-30 border border-white border-opacity-30 text-white flex items-center justify-center transition-all z-10"
+          >
+            <X size={24} />
+          </button>
+          
+          {/* 图片容器 - 居中，最大尺寸限制 */}
+          <div 
+            className="relative max-w-[90vw] max-h-[90vh] flex items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={previewImage}
+              alt="预览图片"
+              className="max-w-full max-h-[90vh] object-contain"
+            />
+          </div>
+        </div>
       )}
     </div>
   )

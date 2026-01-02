@@ -606,15 +606,21 @@ npm run build
 
 ### PM2 相关（服务器上）
 
+#### 基本命令
+
 ```bash
 # 启动应用
 pm2 start index.js --name aigc-agent
+# 或使用配置文件
+pm2 start ecosystem.config.js
 
 # 查看状态
 pm2 status
 
 # 查看日志
 pm2 logs aigc-agent
+pm2 logs aigc-agent --lines 50  # 查看最近50行
+pm2 logs aigc-agent --err       # 只看错误日志
 
 # 重启应用
 pm2 restart aigc-agent
@@ -622,9 +628,202 @@ pm2 restart aigc-agent
 # 停止应用
 pm2 stop aigc-agent
 
-# 保存配置
+# 删除应用
+pm2 delete aigc-agent
+
+# 保存配置（开机自启）
 pm2 save
+pm2 startup  # 设置开机自启
 ```
+
+#### PM2 配置文件（ecosystem.config.js）
+
+```javascript
+module.exports = {
+  apps : [{
+    name: "aigc-agent",
+    script: "index.js",
+    cwd: "/var/www/aigc-agent/server",
+    instances: 1,
+    autorestart: true,
+    watch: false,
+    max_memory_restart: "1G",
+    env: {
+      NODE_ENV: "production",
+    },
+    log_file: "/home/ubuntu/.pm2/logs/aigc-agent-combined.log",
+    error_file: "/home/ubuntu/.pm2/logs/aigc-agent-error.log",
+    out_file: "/home/ubuntu/.pm2/logs/aigc-agent-out.log",
+    merge_logs: true,
+    log_date_format: "YYYY-MM-DD HH:mm:ss",
+  }]
+};
+```
+
+#### PM2 监控脚本（pm2-monitor.sh）
+
+创建监控脚本确保服务 24 小时运行：
+
+```bash
+#!/bin/bash
+# 位置：server/pm2-monitor.sh
+
+# 检查 PM2 服务状态
+if ! pm2 list | grep -q "aigc-agent.*online"; then
+    echo "$(date): 服务未运行，正在重启..."
+    cd /var/www/aigc-agent/server
+    pm2 restart aigc-agent || pm2 start ecosystem.config.js
+    pm2 save
+fi
+
+# 检查端口 3002
+if ! netstat -tuln | grep -q ":3002"; then
+    echo "$(date): 端口 3002 未监听，正在重启服务..."
+    cd /var/www/aigc-agent/server
+    pm2 restart aigc-agent
+fi
+```
+
+设置定时任务（每 5 分钟检查一次）：
+```bash
+# 添加 cron 任务
+crontab -e
+# 添加以下行：
+*/5 * * * * /var/www/aigc-agent/server/pm2-monitor.sh >> /home/ubuntu/.pm2/logs/monitor.log 2>&1
+```
+
+### Nginx 配置
+
+#### 基本配置
+
+```nginx
+server {
+    listen 80;
+    server_name jubianai.cn www.jubianai.cn;
+
+    # 前端静态文件
+    location / {
+        root /var/www/aigc-agent/dist;
+        try_files $uri $uri/ /index.html;
+        index index.html;
+    }
+
+    # 后端 API
+    location /api {
+        proxy_pass http://localhost:3002;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+        
+        # 超时设置
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+
+    # 健康检查（特殊处理）
+    location = /api/health {
+        rewrite ^/api/health$ /health break;
+        proxy_pass http://localhost:3002;
+    }
+
+    # 静态资源缓存
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        root /var/www/aigc-agent/dist;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+}
+```
+
+#### Nginx 管理命令
+
+```bash
+# 测试配置
+sudo nginx -t
+
+# 重新加载配置（不中断服务）
+sudo systemctl reload nginx
+
+# 重启 Nginx
+sudo systemctl restart nginx
+
+# 查看状态
+sudo systemctl status nginx
+
+# 查看日志
+sudo tail -f /var/log/nginx/error.log
+sudo tail -f /var/log/nginx/access.log
+```
+
+### 代码更新流程
+
+#### 1. 提交代码到 GitHub
+
+**Windows：**
+```powershell
+.\提交代码到GitHub.ps1
+```
+
+**Linux/Mac：**
+```bash
+bash 提交代码到GitHub.sh
+```
+
+#### 2. 服务器更新部署
+
+**完整更新（推荐）：**
+```bash
+cd /var/www/aigc-agent
+bash 更新线上部署.sh
+```
+
+**快速更新：**
+```bash
+cd /var/www/aigc-agent
+bash 快速更新线上部署.sh
+```
+
+**手动更新：**
+```bash
+cd /var/www/aigc-agent
+git pull origin main
+cd server && pm2 restart aigc-agent && cd ..
+rm -rf dist node_modules/.vite
+npm run build
+sudo chown -R ubuntu:ubuntu dist/
+sudo systemctl reload nginx
+```
+
+### 小组功能部署
+
+#### 数据库迁移
+
+```bash
+cd /var/www/aigc-agent/server
+node db/addGroupSupport.js
+```
+
+#### 功能说明
+
+- 在"数据分析" -> "用户管理" -> "小组管理"中创建小组
+- 将用户添加到小组
+- 小组内成员共享"项目管理"中的文件夹
+- 不同小组之间的文件夹不共享（组间过滤）
+
+#### API 端点
+
+- `GET /api/groups` - 获取所有小组
+- `POST /api/groups` - 创建小组
+- `GET /api/groups/:groupId` - 获取小组详情
+- `POST /api/groups/:groupId/members` - 添加用户到小组
+- `DELETE /api/groups/:groupId/members/:userId` - 从小组移除用户
+- `DELETE /api/groups/:groupId` - 删除小组
 
 ---
 
@@ -687,6 +886,59 @@ pm2 save
 3. 检查 PM2 进程是否运行：`pm2 status`
 4. 查看 Nginx 日志：`sudo tail -f /var/log/nginx/error.log`
 
+#### 7. Git pull 失败
+
+**问题**：`Permission denied` 或 `Authentication failed`
+
+**解决**：
+```bash
+# 检查 SSH 密钥配置
+ssh -T git@github.com
+
+# 或使用 HTTPS（需要输入用户名和密码）
+git remote set-url origin https://github.com/your-username/your-repo.git
+```
+
+#### 8. 构建失败
+
+**问题**：`npm run build` 失败
+
+**解决**：
+```bash
+# 清理并重新安装依赖
+rm -rf node_modules package-lock.json
+npm install
+npm run build
+```
+
+#### 9. 后端服务未启动
+
+**问题**：`pm2 status` 显示服务未运行
+
+**解决**：
+```bash
+# 查看错误日志
+pm2 logs aigc-agent --err
+
+# 手动启动
+cd /var/www/aigc-agent/server
+pm2 start ecosystem.config.js
+pm2 save
+```
+
+#### 10. Nginx 重新加载失败
+
+**问题**：`systemctl reload nginx` 失败
+
+**解决**：
+```bash
+# 检查 Nginx 配置
+sudo nginx -t
+
+# 如果配置有误，修复后重新加载
+sudo systemctl reload nginx
+```
+
 ---
 
 ## 注意事项
@@ -712,6 +964,106 @@ pm2 save
 
 ---
 
+## 用户和权限管理
+
+### 用户数据隔离
+
+- 所有项目、任务、角色、场景、物品等数据都按 `user_id` 隔离
+- 每个用户只能看到和操作自己的数据
+- 创建数据时自动关联当前登录用户
+
+### 小组功能
+
+- 在"数据分析" -> "用户管理" -> "小组管理"中创建小组
+- 将用户添加到小组后，小组成员可以共享"项目管理"中的文件夹
+- 不同小组之间的项目不共享（组间过滤）
+- 项目可以关联到小组（`group_id`），小组内所有成员可见
+
+### 管理员权限
+
+- **超级管理员**：`Chiefavefan` - 拥有所有权限
+- **普通管理员**：`jubian888` - 拥有管理权限
+- 管理员积分余额显示为无穷符号（∞）
+
+### 积分余额
+
+- 普通用户：显示实际积分余额
+- 小组内成员：共享积分余额
+- 管理员：显示无穷符号（∞）
+
+## SSH 连接和服务器更新
+
+### 通过 SSH 更新服务器
+
+项目提供了 PowerShell 脚本，可以通过 SSH 连接服务器并执行代码更新。
+
+#### 方法一：配置 SSH 密钥（推荐）
+
+**优点**：
+- ✅ 无需每次输入密码
+- ✅ 更安全
+- ✅ 可以自动化执行
+
+**配置步骤**：
+```powershell
+.\配置SSH密钥连接.ps1
+```
+
+#### 方法二：使用密码连接
+
+**快速更新**：
+```powershell
+.\快速更新服务器.ps1
+```
+
+**完整更新**：
+```powershell
+.\通过SSH更新服务器.ps1
+```
+
+**使用参数**：
+```powershell
+.\通过SSH更新服务器.ps1 -ServerIP "119.45.121.152" -Username "ubuntu" -UpdateType "full"
+```
+
+### 腾讯云 CVM MCP
+
+**当前状态**：暂无专门的腾讯云 CVM MCP 服务器。
+
+**替代方案**：
+1. **使用 SSH 脚本**（已提供）
+   - `通过SSH更新服务器.ps1` - 完整更新脚本
+   - `快速更新服务器.ps1` - 快速更新脚本
+   - `配置SSH密钥连接.ps1` - SSH 密钥配置
+
+2. **使用现有 MCP**
+   - 腾讯云 COS MCP（对象存储）
+   - Supabase MCP（数据库管理）
+
+3. **手动 SSH 连接**
+   ```powershell
+   ssh ubuntu@119.45.121.152
+   cd /var/www/aigc-agent
+   bash 更新线上部署.sh
+   ```
+
+### 服务器信息
+
+**默认配置**：
+- IP: `119.45.121.152`
+- 用户名: `ubuntu`
+- 项目路径: `/var/www/aigc-agent`
+
+**更新脚本位置**：
+- 服务器: `/var/www/aigc-agent/更新线上部署.sh`
+- 服务器: `/var/www/aigc-agent/快速更新线上部署.sh`
+
+### 详细文档
+
+更多信息请参考：`SSH连接和更新指南.md`
+
 ## 更新日志
 
+- **2026-01-02**：添加 SSH 连接和服务器更新功能
+- **2026-01-02**：整合部署、更新、服务器管理相关内容到技能文档
 - **2026-01-01**：整合所有通用功能文档，形成统一技能文档

@@ -1,15 +1,19 @@
 import { useState } from 'react'
 import { X, Upload } from 'lucide-react'
+import { createOrUpdateProject } from '../services/api'
+import { alertError, alertSuccess } from '../utils/alert'
 
 interface CreateProjectModalProps {
   onClose: () => void
+  onProjectCreated?: () => void // 项目创建成功后的回调
 }
 
-function CreateProjectModal({ onClose }: CreateProjectModalProps) {
+function CreateProjectModal({ onClose, onProjectCreated }: CreateProjectModalProps) {
   const [projectName, setProjectName] = useState('')
   const [projectDescription, setProjectDescription] = useState('')
   const [coverImage, setCoverImage] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -19,10 +23,40 @@ function CreateProjectModal({ onClose }: CreateProjectModalProps) {
     }
   }
 
-  const handleSubmit = () => {
-    // TODO: 实现创建项目逻辑
-    console.log('创建项目:', { projectName, projectDescription, coverImage })
-    onClose()
+  const handleSubmit = async () => {
+    // 验证项目名称
+    if (!projectName.trim()) {
+      alertError('请输入项目名称', '错误')
+      return
+    }
+
+    setIsSubmitting(true)
+
+    try {
+      // 调用 API 创建项目
+      await createOrUpdateProject({
+        name: projectName.trim(),
+        workBackground: projectDescription.trim() || undefined,
+      })
+
+      alertSuccess('项目创建成功！', '成功')
+      
+      // 调用回调刷新项目列表
+      if (onProjectCreated) {
+        onProjectCreated()
+      }
+      
+      // 关闭弹窗
+      onClose()
+    } catch (error) {
+      console.error('创建项目失败:', error)
+      alertError(
+        error instanceof Error ? error.message : '创建项目失败，请稍后重试',
+        '错误'
+      )
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -107,12 +141,20 @@ function CreateProjectModal({ onClose }: CreateProjectModalProps) {
           </div>
 
           {/* 提交按钮 */}
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-3">
+            <button
+              onClick={onClose}
+              disabled={isSubmitting}
+              className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              取消
+            </button>
             <button
               onClick={handleSubmit}
-              className="px-8 py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-lg hover:from-pink-600 hover:to-purple-700 transition-all"
+              disabled={isSubmitting || !projectName.trim()}
+              className="px-8 py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-lg hover:from-pink-600 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              创建项目
+              {isSubmitting ? '创建中...' : '创建项目'}
             </button>
           </div>
         </div>
