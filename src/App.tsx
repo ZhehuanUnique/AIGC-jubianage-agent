@@ -12,6 +12,7 @@ import VideoEditing from './pages/VideoEditing'
 import TestPage from './pages/TestPage'
 import ProjectManagement from './pages/ProjectManagement'
 import FragmentManagement from './pages/FragmentManagement'
+import FirstLastFrameVideo from './pages/FirstLastFrameVideo'
 import CharacterManagement from './pages/CharacterManagement'
 import SceneManagement from './pages/SceneManagement'
 import ItemManagement from './pages/ItemManagement'
@@ -141,6 +142,14 @@ function App() {
           element={
             <ProtectedRoute>
               <FragmentManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/project/:projectId/first-last-frame-video"
+          element={
+            <ProtectedRoute>
+              <FirstLastFrameVideo />
             </ProtectedRoute>
           }
         />

@@ -586,6 +586,214 @@ app.post('/api/generate-first-last-frame-video', uploadImage.fields([
   }
 })
 
+// ==================== 首尾帧生视频 API（保存到项目文件夹）====================
+// 生成首尾帧视频并保存到 projects/{projectId}/videos/
+app.post('/api/first-last-frame-video/generate', authenticateToken, uploadImage.fields([
+  { name: 'firstFrame', maxCount: 1 },
+  { name: 'lastFrame', maxCount: 1 }
+]), async (req, res) => {
+  try {
+    const userId = req.user?.id
+    const { 
+      projectId,
+      model = 'doubao-seedance-1-5-pro-251215', 
+      text = '', 
+      resolution = '720p', 
+      ratio = '16:9', 
+      duration = 5 
+    } = req.body
+
+    if (!projectId) {
+      return res.status(400).json({
+        success: false,
+        error: '项目ID不能为空'
+      })
+    }
+
+    // 验证项目是否存在且属于当前用户
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+    const projectResult = await db.query(
+      'SELECT id, name FROM projects WHERE id = $1 AND user_id = $2',
+      [projectId, userId]
+    )
+
+    if (projectResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: '项目不存在或无权限访问'
+      })
+    }
+
+    const project = projectResult.rows[0]
+
+    // 检查首帧图片
+    let firstFrameUrl
+    if (req.files && req.files.firstFrame && req.files.firstFrame[0]) {
+      const { uploadBuffer } = await import('./services/cosService.js')
+      const imageBuffer = req.files.firstFrame[0].buffer
+      const mimeType = req.files.firstFrame[0].mimetype
+      const ext = mimeType.includes('jpeg') || mimeType.includes('jpg') ? 'jpg' :
+                  mimeType.includes('png') ? 'png' :
+                  mimeType.includes('gif') ? 'gif' :
+                  mimeType.includes('webp') ? 'webp' : 'jpg'
+      const cosKey = `projects/${projectId}/images/first_frame_${Date.now()}.${ext}`
+      const uploadResult = await uploadBuffer(imageBuffer, cosKey, mimeType)
+      firstFrameUrl = uploadResult.url
+    } else {
+      return res.status(400).json({ 
+        success: false,
+        error: '请上传首帧图片' 
+      })
+    }
+
+    // 检查尾帧图片
+    let lastFrameUrl
+    if (req.files && req.files.lastFrame && req.files.lastFrame[0]) {
+      const { uploadBuffer } = await import('./services/cosService.js')
+      const imageBuffer = req.files.lastFrame[0].buffer
+      const mimeType = req.files.lastFrame[0].mimetype
+      const ext = mimeType.includes('jpeg') || mimeType.includes('jpg') ? 'jpg' :
+                  mimeType.includes('png') ? 'png' :
+                  mimeType.includes('gif') ? 'gif' :
+                  mimeType.includes('webp') ? 'webp' : 'jpg'
+      const cosKey = `projects/${projectId}/images/last_frame_${Date.now()}.${ext}`
+      const uploadResult = await uploadBuffer(imageBuffer, cosKey, mimeType)
+      lastFrameUrl = uploadResult.url
+    } else {
+      return res.status(400).json({ 
+        success: false,
+        error: '请上传尾帧图片' 
+      })
+    }
+
+    console.log('📹 收到首尾帧生视频请求（保存到项目文件夹）:', {
+      projectId,
+      projectName: project.name,
+      firstFrameUrl: firstFrameUrl.substring(0, 100) + '...',
+      lastFrameUrl: lastFrameUrl.substring(0, 100) + '...',
+      model,
+      resolution,
+      ratio,
+      duration,
+      hasText: !!text,
+    })
+
+    // 调用首尾帧生视频API
+    const { generateFirstLastFrameVideoWithSeedance } = await import('./services/doubaoSeedanceService.js')
+    const result = await generateFirstLastFrameVideoWithSeedance(firstFrameUrl, lastFrameUrl, {
+      model,
+      text,
+      resolution,
+      ratio,
+      duration: parseInt(duration),
+    })
+
+    res.json({
+      success: true,
+      data: {
+        taskId: result.taskId,
+        status: result.status,
+        message: result.message,
+      },
+    })
+  } catch (error) {
+    console.error('首尾帧生视频错误:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '首尾帧生视频失败，请稍后重试',
+    })
+  }
+})
+
+// 查询首尾帧生视频任务状态
+app.get('/api/first-last-frame-video/status/:taskId', authenticateToken, async (req, res) => {
+  try {
+    const { taskId } = req.params
+    const userId = req.user?.id
+
+    if (!taskId) {
+      return res.status(400).json({
+        success: false,
+        error: '任务ID不能为空'
+      })
+    }
+
+    // 查询任务状态
+    const { getSeedanceTaskStatus } = await import('./services/doubaoSeedanceService.js')
+    const result = await getSeedanceTaskStatus(taskId)
+
+    // 如果视频生成完成，下载并保存到项目文件夹
+    if (result.status === 'completed' && result.videoUrl) {
+      try {
+        const pool = await import('./db/connection.js')
+        const db = pool.default
+
+        // 从任务ID中提取项目ID（需要从请求参数或任务元数据中获取）
+        // 这里我们通过查询最近的任务来获取项目ID
+        // 更好的方式是前端在轮询时传递 projectId
+        const { projectId } = req.query
+        
+        if (projectId) {
+          // 验证项目权限
+          const projectResult = await db.query(
+            'SELECT id FROM projects WHERE id = $1 AND user_id = $2',
+            [projectId, userId]
+          )
+
+          if (projectResult.rows.length > 0) {
+            // 下载视频
+            const videoResponse = await fetch(result.videoUrl)
+            if (!videoResponse.ok) {
+              throw new Error('下载视频失败')
+            }
+            const videoBuffer = Buffer.from(await videoResponse.arrayBuffer())
+
+            // 保存到 projects/{projectId}/videos/
+            const { uploadBuffer } = await import('./services/cosService.js')
+            const timestamp = Date.now()
+            const cosKey = `projects/${projectId}/videos/first_last_frame_${timestamp}.mp4`
+            const uploadResult = await uploadBuffer(videoBuffer, cosKey, 'video/mp4')
+
+            console.log(`✅ 视频已保存到项目文件夹: ${uploadResult.url}`)
+
+            // 保存到 files 表
+            await db.query(
+              `INSERT INTO files (project_id, file_type, file_name, cos_key, cos_url, metadata)
+               VALUES ($1, 'video', $2, $3, $4, $5)
+               ON CONFLICT DO NOTHING`,
+              [
+                projectId,
+                `first_last_frame_${timestamp}.mp4`,
+                cosKey,
+                uploadResult.url,
+                JSON.stringify({ task_id: taskId, source: 'first_last_frame_video' })
+              ]
+            )
+
+            // 返回项目文件夹中的视频URL
+            result.videoUrl = uploadResult.url
+          }
+        }
+      } catch (saveError) {
+        console.error('保存视频到项目文件夹失败:', saveError)
+        // 不阻止返回结果，使用原始URL
+      }
+    }
+
+    res.json({
+      success: true,
+      data: result,
+    })
+  } catch (error) {
+    console.error('查询任务状态错误:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '查询任务状态失败，请稍后重试',
+    })
+  }
+})
+
 // ==================== 视频运动提示词生成 API ====================
 
 // 生成视频运动提示词

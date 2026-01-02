@@ -188,6 +188,19 @@ function FragmentManagement() {
             <span className="text-pink-600 font-medium">新建片段</span>
           </div>
 
+          {/* 首尾帧生视频卡片 */}
+          <div
+            onClick={() => navigate(`/project/${projectId}/first-last-frame-video`)}
+            className="w-64 h-48 bg-gray-50 border-2 border-dashed border-blue-500 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-blue-400 transition-all"
+          >
+            <div className="w-16 h-16 rounded-full bg-gradient-to-r from-blue-500 to-cyan-600 flex items-center justify-center mb-4">
+              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <span className="text-blue-600 font-medium">首尾帧生视频</span>
+          </div>
+
           {/* 片段卡片 */}
           {fragments.map((fragment) => (
             <div
