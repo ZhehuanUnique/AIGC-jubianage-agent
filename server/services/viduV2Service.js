@@ -199,10 +199,10 @@ export async function generateVideoWithViduV2(imageUrl, options = {}) {
     
     console.log('✅ Vidu V2 API响应:', JSON.stringify(data, null, 2))
 
-    // 返回任务ID
-    if (data.id) {
+    // 返回任务ID（Vidu V2 API 返回的是 task_id）
+    if (data.task_id || data.id) {
       return {
-        taskId: data.id,
+        taskId: data.task_id || data.id,
         status: data.state || 'pending',
         message: '视频生成任务已提交',
       }

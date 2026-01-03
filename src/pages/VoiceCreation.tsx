@@ -443,7 +443,12 @@ function VoiceCreation() {
         }
       }
 
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002'}/api/jianying/generate-draft`, {
+      const apiBaseUrl = (() => {
+        if (import.meta.env.VITE_API_BASE_URL !== undefined) return import.meta.env.VITE_API_BASE_URL
+        const isProduction = !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')
+        return isProduction ? '' : 'http://localhost:3002'
+      })()
+      const response = await fetch(`${apiBaseUrl}/api/jianying/generate-draft`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

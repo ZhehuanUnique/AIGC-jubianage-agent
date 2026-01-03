@@ -15,7 +15,7 @@ if (!existsSync(envPath)) {
   const defaultContent = `DASHSCOPE_API_KEY=${newApiKey}
 QWEN_MODEL=qwen-plus
 PORT=3002
-VIDEO_MODEL=wan2.2-i2v-flash
+VIDEO_MODEL=doubao-seedance-1-5-pro-251215
 `
   writeFileSync(envPath, defaultContent, 'utf-8')
   console.log('✅ .env 文件已创建')
@@ -36,7 +36,7 @@ VIDEO_MODEL=wan2.2-i2v-flash
   
   // 确保有VIDEO_MODEL配置
   if (!content.includes('VIDEO_MODEL=')) {
-    content += '\nVIDEO_MODEL=wan2.2-i2v-flash\n'
+    content += '\nVIDEO_MODEL=doubao-seedance-1-5-pro-251215\n'
   }
   
   writeFileSync(envPath, content, 'utf-8')

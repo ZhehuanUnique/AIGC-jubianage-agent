@@ -65,3 +65,7 @@ CREATE TRIGGER update_groups_updated_at
 -- SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('groups', 'user_groups');
 -- SELECT column_name FROM information_schema.columns WHERE table_name = 'projects' AND column_name = 'group_id';
 
+
+
+
+

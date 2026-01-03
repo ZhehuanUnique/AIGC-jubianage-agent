@@ -141,7 +141,12 @@ function CreateItemModal({ onClose, onItemSelect, projectName }: CreateItemModal
         return
       }
       
-      const projectsResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002'}/api/projects`, {
+      const apiBaseUrl = (() => {
+        if (import.meta.env.VITE_API_BASE_URL !== undefined) return import.meta.env.VITE_API_BASE_URL
+        const isProduction = !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')
+        return isProduction ? '' : 'http://localhost:3002'
+      })()
+      const projectsResponse = await fetch(`${apiBaseUrl}/api/projects`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },

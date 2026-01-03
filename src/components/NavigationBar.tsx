@@ -6,7 +6,7 @@ import { AuthService } from '../services/auth'
 
 interface NavigationBarProps {
   showBackButton?: boolean
-  activeTab?: 'home' | 'project' | 'works' | 'guide'
+  activeTab?: 'home' | 'project' | 'works' | 'guide' | 'recharge'
 }
 
 function SettingsButton() {
@@ -65,7 +65,12 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
     }
     
     try {
-      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002'
+      // 生产环境使用相对路径，开发环境使用完整URL
+      const API_BASE_URL = (() => {
+        if (import.meta.env.VITE_API_BASE_URL !== undefined) return import.meta.env.VITE_API_BASE_URL
+        const isProduction = !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')
+        return isProduction ? '' : 'http://localhost:3002'
+      })()
       const token = AuthService.getToken()
       
       if (!token) {
@@ -275,7 +280,7 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
             作品展示
           </button>
           <button
-            onClick={() => navigate('/guide')}
+            onClick={() => window.open('https://e60nf37yjb.feishu.cn/wiki/FRwpwbfB1inQbskzC7dcw4HxnuK', '_blank')}
             className={`px-4 py-2 rounded-lg transition-colors ${
               activeTab === 'guide' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-600 hover:text-gray-900'
             }`}
@@ -288,7 +293,14 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
       {/* 右侧 - 仅在登录时显示 */}
       {isAuthenticated && user && (
         <div className="flex items-center gap-4">
-          <button className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2">
+          <button
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              navigate('/credit-recharge')
+            }}
+            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2 transition-colors"
+          >
             <span className="text-lg">¥</span>
             积分充值
           </button>
@@ -296,14 +308,29 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
             积分余额: {isLoadingBalance ? '加载中...' : balance}
           </span>
           <SettingsButton />
-          <div className="flex items-center gap-2">
+          <div 
+            className="relative flex items-center gap-2 group cursor-pointer"
+            onMouseEnter={(e) => e.stopPropagation()}
+            onMouseLeave={(e) => e.stopPropagation()}
+          >
             <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-700 text-xs">
               👤
             </div>
-            <span className="text-gray-700">
+            <span className="text-gray-700 group-hover:hidden transition-opacity">
               {user.username === 'Chiefavefan' || user.username === 'jubian888' 
                 ? getUserRoleDisplay(user.username)
                 : (user.displayName || user.username || '用户')}
+            </span>
+            <span 
+              className="text-red-500 hidden group-hover:inline font-medium transition-opacity cursor-pointer"
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                AuthService.logout()
+                navigate('/login')
+              }}
+            >
+              退出登录
             </span>
           </div>
         </div>

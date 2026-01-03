@@ -29,7 +29,7 @@ function FirstLastFrameVideo() {
   const [firstFramePreview, setFirstFramePreview] = useState<string | null>(null)
   const [lastFramePreview, setLastFramePreview] = useState<string | null>(null)
   
-  const [videoVersion, setVideoVersion] = useState<'3.0pro' | '3.5pro'>('3.0pro')
+  const [videoVersion, setVideoVersion] = useState<'3.5pro'>('3.5pro')
   const [resolution, setResolution] = useState<'720p' | '1080p'>('720p')
   const [duration, setDuration] = useState(5)
   const [prompt, setPrompt] = useState('')
@@ -40,6 +40,8 @@ function FirstLastFrameVideo() {
   const [hoveredFrame, setHoveredFrame] = useState<'first' | 'last' | null>(null)
   const [isInputFocused, setIsInputFocused] = useState(false)
   const [isBottomBarCollapsed, setIsBottomBarCollapsed] = useState(false)
+  // 使用 ref 同步状态，避免不必要的更新
+  const isCollapsedRef = useRef(false)
   const [isBottomBarHovered, setIsBottomBarHovered] = useState(false)
   const [isBottomEdgeHovered, setIsBottomEdgeHovered] = useState(false)
   
@@ -84,10 +86,15 @@ function FirstLastFrameVideo() {
         const documentHeight = document.documentElement.scrollHeight
         const distanceFromBottom = documentHeight - (scrollY + windowHeight)
         
-        if (distanceFromBottom > 100) {
-          setIsBottomBarCollapsed(true)
+        // 只有当距离底部超过150px时才收缩，避免频繁切换
+        const shouldCollapse = distanceFromBottom > 150
+        
+        // 使用 ref 检查是否需要更新，避免不必要的状态更新
+        if (isCollapsedRef.current !== shouldCollapse) {
+          isCollapsedRef.current = shouldCollapse
+          setIsBottomBarCollapsed(shouldCollapse)
         }
-      }, 100)
+      }, 300) // 增加防抖时间到300ms，减少跳动
     }
     
     window.addEventListener('scroll', handleScroll, { passive: true })
@@ -102,6 +109,8 @@ function FirstLastFrameVideo() {
       }
     }
   }, [isInputFocused, isBottomBarHovered, isBottomEdgeHovered])
+
+  // 已移除3.0pro选项，只支持3.5pro
 
   // 处理首帧上传
   const triggerFirstFrameUpload = () => {
@@ -168,8 +177,8 @@ function FirstLastFrameVideo() {
       return
     }
 
-    if (!firstFrameFile || !lastFrameFile) {
-      alertError('请上传首帧和尾帧图片', '缺少文件')
+    if (!firstFrameFile) {
+      alertError('请上传首帧图片', '缺少文件')
       return
     }
 
@@ -182,9 +191,12 @@ function FirstLastFrameVideo() {
     try {
       const formData = new FormData()
       formData.append('firstFrame', firstFrameFile)
-      formData.append('lastFrame', lastFrameFile)
+      // 尾帧是可选的，如果有就添加
+      if (lastFrameFile) {
+        formData.append('lastFrame', lastFrameFile)
+      }
       formData.append('projectId', projectId)
-      formData.append('model', videoVersion === '3.5pro' ? 'doubao-seedance-1-5-pro-251215' : 'doubao-seedance-1-0-pro-250528')
+      formData.append('model', 'doubao-seedance-1-5-pro-251215')
       formData.append('resolution', resolution)
       formData.append('ratio', '16:9')
       formData.append('duration', duration.toString())
@@ -201,8 +213,8 @@ function FirstLastFrameVideo() {
           id: result.data.taskId,
           status: 'pending',
           firstFrameUrl: firstFramePreview || '',
-          lastFrameUrl: lastFramePreview || '',
-          model: videoVersion === '3.5pro' ? 'doubao-seedance-1-5-pro-251215' : 'doubao-seedance-1-0-pro-250528',
+          lastFrameUrl: lastFramePreview || undefined,
+          model: 'doubao-seedance-1-5-pro-251215',
           resolution,
           ratio: '16:9',
           duration,
@@ -282,13 +294,25 @@ function FirstLastFrameVideo() {
     setIsBottomEdgeHovered(isHovering)
     
     if (isHovering) {
-      setIsBottomBarCollapsed(false)
+      if (isCollapsedRef.current) {
+        isCollapsedRef.current = false
+        setIsBottomBarCollapsed(false)
+      }
     } else {
       bottomEdgeHoverTimeoutRef.current = setTimeout(() => {
         if (!isInputFocused && !isBottomBarHovered) {
-          setIsBottomBarCollapsed(true)
+          const scrollY = window.scrollY
+          const windowHeight = window.innerHeight
+          const documentHeight = document.documentElement.scrollHeight
+          const distanceFromBottom = documentHeight - (scrollY + windowHeight)
+          const shouldCollapse = distanceFromBottom > 150
+          
+          if (isCollapsedRef.current !== shouldCollapse) {
+            isCollapsedRef.current = shouldCollapse
+            setIsBottomBarCollapsed(shouldCollapse)
+          }
         }
-      }, 300)
+      }, 400)
     }
   }
 
@@ -301,20 +325,35 @@ function FirstLastFrameVideo() {
     setIsBottomBarHovered(isHovering)
     
     if (isHovering) {
-      setIsBottomBarCollapsed(false)
+      if (isCollapsedRef.current) {
+        isCollapsedRef.current = false
+        setIsBottomBarCollapsed(false)
+      }
     } else {
       bottomBarHoverTimeoutRef.current = setTimeout(() => {
         if (!isInputFocused && !isBottomEdgeHovered) {
-          setIsBottomBarCollapsed(true)
+          const scrollY = window.scrollY
+          const windowHeight = window.innerHeight
+          const documentHeight = document.documentElement.scrollHeight
+          const distanceFromBottom = documentHeight - (scrollY + windowHeight)
+          const shouldCollapse = distanceFromBottom > 150
+          
+          if (isCollapsedRef.current !== shouldCollapse) {
+            isCollapsedRef.current = shouldCollapse
+            setIsBottomBarCollapsed(shouldCollapse)
+          }
         }
-      }, 300)
+      }, 400)
     }
   }
 
   // 输入框焦点处理
   const handleInputFocus = () => {
     setIsInputFocused(true)
-    setIsBottomBarCollapsed(false)
+    if (isCollapsedRef.current) {
+      isCollapsedRef.current = false
+      setIsBottomBarCollapsed(false)
+    }
   }
 
   const handleInputBlur = () => {
@@ -326,11 +365,13 @@ function FirstLastFrameVideo() {
         const documentHeight = document.documentElement.scrollHeight
         const distanceFromBottom = documentHeight - (scrollY + windowHeight)
         
-        if (distanceFromBottom > 100) {
-          setIsBottomBarCollapsed(true)
+        const shouldCollapse = distanceFromBottom > 150
+        if (isCollapsedRef.current !== shouldCollapse) {
+          isCollapsedRef.current = shouldCollapse
+          setIsBottomBarCollapsed(shouldCollapse)
         }
       }
-    }, 200)
+    }, 300)
   }
 
   // 获取状态文本
@@ -462,7 +503,12 @@ function FirstLastFrameVideo() {
         }`}
         onMouseEnter={() => handleBottomEdgeHover(true)}
         onMouseLeave={() => handleBottomEdgeHover(false)}
-        onClick={() => setIsBottomBarCollapsed(false)}
+        onClick={() => {
+          if (isCollapsedRef.current) {
+            isCollapsedRef.current = false
+            setIsBottomBarCollapsed(false)
+          }
+        }}
       >
         {/* 收缩时显示提示条 */}
         {isBottomBarCollapsed && (
@@ -582,7 +628,7 @@ function FirstLastFrameVideo() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
                           </svg>
                         </div>
-                        <span className="text-xs text-gray-600 font-medium">尾帧</span>
+                        <span className="text-xs text-gray-600 font-medium">尾帧<span className="text-gray-400">（可选）</span></span>
                       </div>
                     )}
                     {lastFramePreview && (
@@ -622,24 +668,9 @@ function FirstLastFrameVideo() {
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-600 font-medium">版本:</span>
                   <button
-                    onClick={() => setVideoVersion('3.0pro')}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer ${
-                      videoVersion === '3.0pro'
-                        ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
+                    className="px-3 py-1.5 rounded-lg text-sm font-medium bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm cursor-default"
                   >
-                    3.0
-                  </button>
-                  <button
-                    onClick={() => setVideoVersion('3.5pro')}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer ${
-                      videoVersion === '3.5pro'
-                        ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    3.0_pro
+                    3.5pro
                   </button>
                 </div>
                 
@@ -697,9 +728,9 @@ function FirstLastFrameVideo() {
                 <button
                   type="button"
                   onClick={generateVideo}
-                  disabled={!prompt.trim() || isGenerating || !firstFrameFile || !lastFrameFile}
+                  disabled={!prompt.trim() || isGenerating || !firstFrameFile}
                   className={`px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg font-medium shadow-lg hover:shadow-xl hover:from-blue-600 hover:to-blue-700 active:scale-95 transition-all flex items-center gap-2 ${
-                    (!prompt.trim() || isGenerating || !firstFrameFile || !lastFrameFile) && 'opacity-50 cursor-not-allowed'
+                    (!prompt.trim() || isGenerating || !firstFrameFile) && 'opacity-50 cursor-not-allowed'
                   }`}
                 >
                   {isGenerating ? (

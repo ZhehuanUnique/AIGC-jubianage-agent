@@ -74,3 +74,7 @@ async function createFragmentsTable() {
 
 createFragmentsTable().catch(console.error)
 
+
+
+
+

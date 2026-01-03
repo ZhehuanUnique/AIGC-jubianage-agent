@@ -80,10 +80,31 @@ class GeminiRAGService {
     
     // 延迟初始化向量数据库（避免在模块加载时阻塞）
     // 使用 setImmediate 确保在模块加载完成后才初始化
+    // 使用更严格的错误处理，确保不会导致未捕获的 Promise 错误
     setImmediate(() => {
-      this.initializeVectorDb().catch(error => {
-        console.error('❌ Gemini RAG 服务初始化失败:', error.message)
-        console.warn('💡 提示：服务将以简化模式运行，部分功能可能不可用')
+      // 使用 Promise.resolve 包装，确保所有错误都被捕获
+      Promise.resolve().then(async () => {
+        try {
+          await this.initializeVectorDb()
+        } catch (error) {
+          const errorMessage = error?.message || String(error)
+          console.error('❌ Gemini RAG 服务初始化失败:', errorMessage)
+          console.warn('💡 提示：服务将以简化模式运行，部分功能可能不可用')
+          // 确保所有客户端都设置为 null，避免后续调用时出错
+          this.milvusClient = null
+          this.chromaClient = null
+        }
+        
+        // 初始化完成后的回调（可选）
+        if (!this.milvusClient && !this.chromaClient && this.vectorDbType === 'milvus') {
+          console.log('ℹ️  Gemini RAG 服务以简化模式运行（Milvus 不可用）')
+        }
+      }).catch(error => {
+        // 额外的错误捕获，确保不会导致未捕获的 Promise 错误
+        const errorMessage = error?.message || String(error)
+        console.error('❌ Gemini RAG 服务初始化异常:', errorMessage)
+        this.milvusClient = null
+        this.chromaClient = null
       })
     })
   }
@@ -94,22 +115,42 @@ class GeminiRAGService {
   async initializeVectorDb() {
     try {
       if (this.vectorDbType === 'milvus') {
-        await this.initializeMilvus()
+        // 使用 try-catch 确保 Milvus 初始化失败不会导致进程崩溃
+        try {
+          await this.initializeMilvus()
+        } catch (error) {
+          const errorMessage = error?.message || String(error)
+          console.warn(`⚠️ Milvus 初始化失败，将使用简化 RAG 实现:`, errorMessage)
+          console.warn('💡 提示：如果不需要 Milvus，请在 .env 中设置 VECTOR_DB_TYPE=chroma')
+          this.milvusClient = null
+        }
       } else {
-        await this.initializeChroma()
+        try {
+          await this.initializeChroma()
+        } catch (error) {
+          const errorMessage = error?.message || String(error)
+          console.warn(`⚠️ Chroma 初始化失败，将使用简化 RAG 实现:`, errorMessage)
+          this.chromaClient = null
+        }
       }
 
       // 初始化 Gemini Embeddings
       if (GoogleGenerativeAIEmbeddings && this.apiKey) {
-        this.embeddings = new GoogleGenerativeAIEmbeddings({
-          apiKey: this.apiKey,
-          modelName: 'models/embedding-001', // Gemini Embedding 模型
-        })
+        try {
+          this.embeddings = new GoogleGenerativeAIEmbeddings({
+            apiKey: this.apiKey,
+            modelName: 'models/embedding-001', // Gemini Embedding 模型
+          })
+        } catch (error) {
+          const errorMessage = error?.message || String(error)
+          console.warn('⚠️ Gemini Embeddings 初始化失败:', errorMessage)
+        }
       }
 
       console.log(`✅ Gemini RAG 服务初始化完成（使用 ${this.vectorDbType.toUpperCase()}）`)
     } catch (error) {
-      console.warn(`⚠️ ${this.vectorDbType.toUpperCase()} 初始化失败，使用简化 RAG 实现:`, error.message)
+      const errorMessage = error?.message || String(error)
+      console.warn(`⚠️ 向量数据库初始化失败，使用简化 RAG 实现:`, errorMessage)
       console.warn('💡 提示：如果不需要向量数据库，可以忽略此警告')
       // 确保即使初始化失败，服务仍然可用（使用简化模式）
       this.milvusClient = null
@@ -168,29 +209,54 @@ class GeminiRAGService {
       })
 
       // 测试连接（使用超时避免长时间等待）
+      // 使用 Promise.race 和更长的超时时间，给 Milvus 足够的启动时间
+      // 注意：hasCollection 调用可能会抛出未捕获的错误，需要更严格的错误处理
+      let connectionTest
       try {
-        await Promise.race([
-          this.milvusClient.hasCollection({
-            collection_name: 'test_connection',
+        connectionTest = Promise.race([
+          Promise.resolve().then(async () => {
+            try {
+              return await this.milvusClient.hasCollection({
+                collection_name: 'test_connection',
+              })
+            } catch (err) {
+              // 捕获 hasCollection 的错误，包括 gRPC 错误
+              throw err
+            }
           }),
           new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('连接超时')), 5000)
+            setTimeout(() => reject(new Error('连接超时')), 15000) // 增加到15秒，给 Milvus 足够的启动时间
           )
         ])
+      } catch (error) {
+        // 如果 Promise.race 本身出错，直接处理
+        const errorMessage = error?.message || String(error)
+        console.warn(`⚠️ Milvus 连接测试初始化失败:`, errorMessage)
+        this.milvusClient = null
+        return
+      }
+
+      try {
+        await connectionTest
         console.log('✅ Milvus 连接成功')
       } catch (error) {
         // 连接失败是正常的（如果集合不存在或服务未启动），但至少说明客户端已创建
-        if (error.message.includes('UNAVAILABLE') || error.message.includes('连接超时')) {
+        const errorMessage = error?.message || String(error)
+        const errorCode = error?.code || ''
+        if (errorCode === 14 || errorMessage.includes('UNAVAILABLE') || errorMessage.includes('连接超时') || errorMessage.includes('No connection')) {
           console.warn(`⚠️ Milvus 服务未运行或无法连接 (${this.milvusHost}:${this.milvusPort})`)
           console.warn('💡 提示：如果不需要 Milvus，请在 .env 中设置 VECTOR_DB_TYPE=chroma')
-          console.warn('💡 如果需要 Milvus，请确保 Docker 中的 Milvus 服务正在运行')
-          // 不设置 this.milvusClient = null，保留客户端对象以便后续重试
+          console.warn('💡 如果需要 Milvus，请等待 30-60 秒让 Milvus 完全启动后重试')
+          // 设置 this.milvusClient = null，避免后续调用时出错
+          this.milvusClient = null
         } else {
           console.log('✅ Milvus 客户端已创建（连接测试失败，但客户端可用）')
         }
       }
     } catch (error) {
-      console.error('❌ Milvus 客户端初始化失败:', error.message)
+      // 捕获所有初始化错误，确保不会导致进程崩溃
+      const errorMessage = error?.message || String(error)
+      console.error('❌ Milvus 客户端初始化失败:', errorMessage)
       console.warn('💡 提示：如果不需要 Milvus，请在 .env 中设置 VECTOR_DB_TYPE=chroma')
       console.warn('💡 如果需要 Milvus，请确保 Docker 中的 Milvus 服务正在运行')
       this.milvusClient = null

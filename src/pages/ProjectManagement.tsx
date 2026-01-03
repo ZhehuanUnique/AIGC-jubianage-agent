@@ -191,7 +191,12 @@ function ProjectManagement() {
       }
 
       const token = localStorage.getItem('token')
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002'}/api/projects/${numericProjectId}`, {
+      const apiBaseUrl = (() => {
+        if (import.meta.env.VITE_API_BASE_URL !== undefined) return import.meta.env.VITE_API_BASE_URL
+        const isProduction = !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')
+        return isProduction ? '' : 'http://localhost:3002'
+      })()
+      const response = await fetch(`${apiBaseUrl}/api/projects/${numericProjectId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -252,7 +257,12 @@ function ProjectManagement() {
 
       // 调用后端API复制项目
       const token = localStorage.getItem('token')
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002'}/api/projects/${sourceId}/copy`, {
+      const apiBaseUrl = (() => {
+        if (import.meta.env.VITE_API_BASE_URL !== undefined) return import.meta.env.VITE_API_BASE_URL
+        const isProduction = !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')
+        return isProduction ? '' : 'http://localhost:3002'
+      })()
+      const response = await fetch(`${apiBaseUrl}/api/projects/${sourceId}/copy`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -312,7 +322,12 @@ function ProjectManagement() {
 
       // 调用后端API移动项目
       const token = localStorage.getItem('token')
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002'}/api/projects/${sourceId}/move`, {
+      const apiBaseUrl = (() => {
+        if (import.meta.env.VITE_API_BASE_URL !== undefined) return import.meta.env.VITE_API_BASE_URL
+        const isProduction = !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')
+        return isProduction ? '' : 'http://localhost:3002'
+      })()
+      const response = await fetch(`${apiBaseUrl}/api/projects/${sourceId}/move`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

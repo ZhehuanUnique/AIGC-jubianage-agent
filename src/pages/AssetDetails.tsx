@@ -178,7 +178,12 @@ function AssetDetails() {
   useEffect(() => {
     const checkBackendHealth = async () => {
       try {
-        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002'
+        // 生产环境使用相对路径，开发环境使用完整URL
+        const API_BASE_URL = (() => {
+          if (import.meta.env.VITE_API_BASE_URL !== undefined) return import.meta.env.VITE_API_BASE_URL
+          const isProduction = !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')
+          return isProduction ? '' : 'http://localhost:3002'
+        })()
         
         // 使用 AbortController 实现超时
         const controller = new AbortController()

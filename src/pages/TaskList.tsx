@@ -24,7 +24,12 @@ function TaskList() {
   useEffect(() => {
     const checkBackendHealth = async () => {
       try {
-        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002'
+        // 生产环境使用相对路径，开发环境使用完整URL
+        const API_BASE_URL = (() => {
+          if (import.meta.env.VITE_API_BASE_URL !== undefined) return import.meta.env.VITE_API_BASE_URL
+          const isProduction = !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')
+          return isProduction ? '' : 'http://localhost:3002'
+        })()
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), 3000)
         
@@ -59,9 +64,26 @@ function TaskList() {
     }
   }, [backendStatus])
 
-  const loadTasks = async () => {
+  const loadTasks = async (silent = false) => {
     try {
-      setLoading(true)
+      // 乐观更新：先显示缓存数据
+      if (!silent) {
+        const cachedTasks = sessionStorage.getItem('taskList_tasks')
+        if (cachedTasks) {
+          try {
+            const parsed = JSON.parse(cachedTasks)
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setTasks(parsed)
+              setLoading(true) // 显示加载状态，但已有数据展示
+            }
+          } catch (e) {
+            console.warn('解析缓存任务失败:', e)
+          }
+        } else {
+          setLoading(true)
+        }
+      }
+      
       setError(null)
       const fetchedTasks = await getTasks()
       
@@ -81,7 +103,9 @@ function TaskList() {
           }
         })
       
+      // 更新状态和缓存
       setTasks(convertedTasks)
+      sessionStorage.setItem('taskList_tasks', JSON.stringify(convertedTasks))
     } catch (err) {
       console.error('加载任务失败:', err)
       let errorMessage = '加载任务失败'
@@ -96,7 +120,10 @@ function TaskList() {
         }
       }
       
-      setError(errorMessage)
+      // 如果加载失败但有缓存数据，不显示错误
+      if (tasks.length === 0) {
+        setError(errorMessage)
+      }
     } finally {
       setLoading(false)
     }

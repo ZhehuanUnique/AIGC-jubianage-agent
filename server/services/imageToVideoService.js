@@ -22,14 +22,14 @@ if (existsSync(envPath)) {
  * 调用通义万相图生视频API
  * @param {string} imageUrl - 图片URL或base64编码的图片
  * @param {Object} options - 配置选项
- * @param {string} options.model - 模型名称，默认 'wan2.2-i2v-flash'
+ * @param {string} options.model - 模型名称，默认 'doubao-seedance-1-5-pro-251215'
  * @param {string} options.resolution - 分辨率，可选 '480p', '720p', '1080p'，默认 '480p'
  * @param {number} options.duration - 视频时长（秒），默认 5
  * @returns {Promise<Object>} 返回任务ID和视频信息
  */
 export async function generateVideoFromImage(imageUrl, options = {}) {
   const {
-    model = 'wan2.2-i2v-flash',
+    model = 'doubao-seedance-1-5-pro-251215',
     resolution = '480p',
     duration = 5,
     text = '',
@@ -98,7 +98,7 @@ export async function generateVideoFromImage(imageUrl, options = {}) {
   }
 
   // 如果是豆包 Seedance 模型，使用专门的服务
-  if (model === 'doubao-seedance-1-5-pro-251215' || model === 'doubao-seedance-1-0-lite-i2v-250428') {
+  if (model === 'doubao-seedance-1-5-pro-251215') {
     // 豆包 Seedance 需要可访问的HTTP/HTTPS URL，不能是base64
     let finalImageUrl = imageUrl
     
@@ -141,7 +141,7 @@ export async function generateVideoFromImage(imageUrl, options = {}) {
     
     // 调用豆包 Seedance API
     return await generateVideoWithSeedance(finalImageUrl, {
-      model, // 传递模型参数（支持 doubao-seedance-1-5-pro-251215 和 doubao-seedance-1-0-lite-i2v-250428）
+      model, // 传递模型参数（支持 doubao-seedance-1-5-pro-251215）
       resolution,
       ratio,
       duration,
@@ -453,7 +453,7 @@ export async function generateVideoFromImage(imageUrl, options = {}) {
  * @param {string} model - 模型名称，用于选择不同的查询服务
  * @returns {Promise<Object>} 返回任务状态和视频信息
  */
-export async function getVideoTaskStatus(taskId, model = 'wan2.2-i2v-flash') {
+export async function getVideoTaskStatus(taskId, model = 'doubao-seedance-1-5-pro-251215') {
   // 如果是 MiniMax Hailuo 模型，使用专门的服务
   if (model === 'minimax-hailuo-02' || model === 'minimax-hailuo-2.3' || model === 'minimax-hailuo-2.3-fast') {
     return await getHailuoTaskStatus(taskId)
@@ -471,7 +471,7 @@ export async function getVideoTaskStatus(taskId, model = 'wan2.2-i2v-flash') {
   }
 
   // 如果是豆包 Seedance 模型，使用专门的服务
-  if (model === 'doubao-seedance-1-5-pro-251215' || model === 'doubao-seedance-1-0-lite-i2v-250428') {
+  if (model === 'doubao-seedance-1-5-pro-251215') {
     const { getSeedanceTaskStatus } = await import('./doubaoSeedanceService.js')
     return await getSeedanceTaskStatus(taskId)
   }

@@ -27,16 +27,16 @@ function DeleteConfirmModal({ isOpen, onClose, onConfirm, message }: DeleteConfi
             onClick={onClose}
             className="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
           >
-            否
+            取消
           </button>
           <button
             onClick={() => {
               onConfirm()
               onClose()
             }}
-            className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
-            是
+            确定
           </button>
         </div>
       </div>

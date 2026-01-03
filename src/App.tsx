@@ -22,6 +22,7 @@ import VoiceCreation from './pages/VoiceCreation'
 import PromotionCreation from './pages/PromotionCreation'
 import Analytics from './pages/Analytics'
 import VideoReview from './pages/VideoReview'
+import CreditRecharge from './pages/CreditRecharge'
 import { useAlert } from './hooks/useAlert.tsx'
 
 // 受保护的路由组件
@@ -222,6 +223,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Analytics />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/credit-recharge"
+          element={
+            <ProtectedRoute>
+              <CreditRecharge />
             </ProtectedRoute>
           }
         />

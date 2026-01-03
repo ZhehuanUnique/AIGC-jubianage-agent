@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import SidebarNavigation from '../components/SidebarNavigation'
 import { Plus, MoreVertical, Trash2, ArrowLeft, RefreshCw } from 'lucide-react'
 import CreateFragmentModal from '../components/CreateFragmentModal'
+import DeleteConfirmModal from '../components/DeleteConfirmModal'
 import { getProjectFragments } from '../services/api'
 import { alert } from '../utils/alert'
 
@@ -23,12 +24,33 @@ function FragmentManagement() {
   const [fragments, setFragments] = useState<Fragment[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const [deleteConfirmFragmentId, setDeleteConfirmFragmentId] = useState<string | null>(null)
 
-  // 从数据库加载片段列表（包含视频）
-  const loadFragments = async () => {
+  // 从数据库加载片段列表（包含视频）- 乐观更新优化
+  const loadFragments = async (silent = false) => {
     if (!projectId) return
     
-    setIsLoading(true)
+    // 乐观更新：先显示缓存数据
+    if (!silent) {
+      const storageKey = projectId ? `fragments_${projectId}` : 'fragments'
+      const cachedFragments = localStorage.getItem(storageKey)
+      if (cachedFragments) {
+        try {
+          const parsed = JSON.parse(cachedFragments)
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setFragments(parsed)
+            setIsLoading(true) // 显示加载状态，但已有数据展示
+          }
+        } catch (e) {
+          console.warn('解析缓存片段失败:', e)
+        }
+      } else {
+        setIsLoading(true)
+      }
+    } else {
+      setIsLoading(false) // 静默模式不显示加载状态
+    }
+    
     try {
       // 检查 projectId 是否是数字（数据库ID）
       const numericProjectId = parseInt(projectId, 10)
@@ -37,18 +59,24 @@ function FragmentManagement() {
         try {
           const dbFragments = await getProjectFragments(numericProjectId)
           if (dbFragments && dbFragments.length > 0) {
-            setFragments(dbFragments.map(fragment => ({
+            const convertedFragments = dbFragments.map(fragment => ({
               id: fragment.id,
               name: fragment.name,
               description: fragment.description,
               imageUrl: fragment.imageUrl,
               videoUrls: fragment.videoUrls || [],
-            })))
+            }))
+            setFragments(convertedFragments)
+            // 更新缓存
+            const storageKey = projectId ? `fragments_${projectId}` : 'fragments'
+            localStorage.setItem(storageKey, JSON.stringify(convertedFragments))
             setIsLoading(false)
             return
           } else {
             // 如果没有数据，显示空列表
             setFragments([])
+            const storageKey = projectId ? `fragments_${projectId}` : 'fragments'
+            localStorage.setItem(storageKey, JSON.stringify([]))
             setIsLoading(false)
             return
           }
@@ -73,25 +101,28 @@ function FragmentManagement() {
       }
     } catch (error) {
       console.error('加载片段列表失败:', error)
-      setFragments([])
+      // 如果加载失败但有缓存数据，不更新为空
+      if (fragments.length === 0) {
+        setFragments([])
+      }
     } finally {
       setIsLoading(false)
     }
   }
 
-  // 初始加载和定期刷新
+  // 初始加载和定期刷新 - 乐观更新优化
   useEffect(() => {
-    loadFragments()
+    loadFragments(false) // 首次加载，显示缓存
     
-    // 每5秒自动刷新一次
+    // 每10秒自动刷新一次（静默模式，不显示加载状态）
     refreshIntervalRef.current = setInterval(() => {
-      loadFragments()
-    }, 5000)
+      loadFragments(true) // 静默刷新
+    }, 10000) // 增加到10秒，减少请求频率
     
-    // 页面可见时刷新
+    // 页面可见时刷新（静默模式）
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        loadFragments()
+        loadFragments(true) // 静默刷新
       }
     }
     document.addEventListener('visibilitychange', handleVisibilityChange)
@@ -105,28 +136,55 @@ function FragmentManagement() {
   }, [projectId])
 
   const handleFragmentCreated = (newFragment: Fragment) => {
-    // 添加新片段到列表
-    setFragments(prev => [...prev, newFragment])
-    // 重新加载以确保数据同步
-    loadFragments()
+    // 乐观更新：立即添加到列表
+    setFragments(prev => {
+      const updated = [...prev, newFragment]
+      // 更新缓存
+      const storageKey = projectId ? `fragments_${projectId}` : 'fragments'
+      localStorage.setItem(storageKey, JSON.stringify(updated))
+      return updated
+    })
+    // 后台同步（静默模式）
+    loadFragments(true)
   }
 
   // 删除片段
   const handleDeleteFragment = async (fragmentId: string) => {
-    if (!confirm('确定要删除这个片段吗？删除后无法恢复。')) {
-      return
-    }
+    setDeleteConfirmFragmentId(fragmentId)
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirmFragmentId) return
+
+    const fragmentIdToDelete = deleteConfirmFragmentId
+    setDeleteConfirmFragmentId(null)
+
+    // 乐观更新：立即从列表中移除
+    setFragments(prev => {
+      const updated = prev.filter(f => f.id !== fragmentIdToDelete)
+      // 更新缓存
+      const storageKey = projectId ? `fragments_${projectId}` : 'fragments'
+      localStorage.setItem(storageKey, JSON.stringify(updated))
+      return updated
+    })
 
     try {
-      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002'
+      // 生产环境使用相对路径，开发环境使用完整URL
+      const API_BASE_URL = (() => {
+        if (import.meta.env.VITE_API_BASE_URL !== undefined) return import.meta.env.VITE_API_BASE_URL
+        const isProduction = !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')
+        return isProduction ? '' : 'http://localhost:3002'
+      })()
       const token = localStorage.getItem('auth_token')
       
       if (!token) {
         alert('请先登录', 'warning')
+        // 如果未登录，重新加载以恢复数据
+        loadFragments(true)
         return
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/fragments/${fragmentId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/fragments/${fragmentIdToDelete}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -136,15 +194,18 @@ function FragmentManagement() {
       const result = await response.json()
       
       if (result.success) {
-        alert('片段已删除', 'success')
-        // 重新加载片段列表
-        loadFragments()
+        // 删除成功，静默刷新以确保数据同步
+        loadFragments(true)
       } else {
         alert(`删除失败: ${result.error}`, 'error')
+        // 如果删除失败，重新加载以恢复数据
+        loadFragments(true)
       }
     } catch (error) {
       console.error('删除片段失败:', error)
       alert('删除片段失败，请稍后重试', 'error')
+      // 如果删除失败，重新加载以恢复数据
+      loadFragments(true)
     }
   }
 
@@ -273,6 +334,14 @@ function FragmentManagement() {
           onFragmentCreated={handleFragmentCreated}
         />
       )}
+
+      {/* 删除确认模态框 */}
+      <DeleteConfirmModal
+        isOpen={!!deleteConfirmFragmentId}
+        onClose={() => setDeleteConfirmFragmentId(null)}
+        onConfirm={handleConfirmDelete}
+        message="确定要删除这个片段吗？删除后无法恢复。"
+      />
     </div>
   )
 }

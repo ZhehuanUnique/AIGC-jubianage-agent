@@ -144,7 +144,7 @@ function VideoEditing() {
   const [selectedImages, setSelectedImages] = useState<Set<number>>(new Set()) // 选中的图片索引集合
   
   // 视频生成配置
-  const [videoModel, setVideoModel] = useState('wan2.2-i2v-flash')
+  const [videoModel, setVideoModel] = useState('doubao-seedance-1-5-pro-251215')
   const [videoQuantity, setVideoQuantity] = useState(1)
   const [videoRatio, setVideoRatio] = useState('16:9')
   const [selectedScenes, setSelectedScenes] = useState<Array<{ id: string; name: string; image?: string }>>([])
@@ -232,7 +232,7 @@ function VideoEditing() {
           shotNumber: 1,
           image: '/placeholder-image.jpg',
           videoPrompt: '开场交代背景。在高塔上，我和闺密并肩而立，俯瞰着华丽但冰冷的宫城，暗示被困七年的压抑。',
-          model: 'wan2.2-i2v-flash',
+          model: 'doubao-seedance-1-5-pro-251215',
           resolution: '720p',
           duration: 5,
           quantity: 1,
@@ -244,7 +244,7 @@ function VideoEditing() {
           shotNumber: 2,
           image: '/placeholder-image.jpg',
           videoPrompt: '闺密转过身，脸上带着一种奇异的、解脱般的微笑，告诉我一个好消息。',
-          model: 'wan2.2-i2v-flash',
+          model: 'doubao-seedance-1-5-pro-251215',
           resolution: '720p',
           duration: 5,
           quantity: 1,
@@ -256,7 +256,7 @@ function VideoEditing() {
           shotNumber: 3,
           image: '/placeholder-image.jpg',
           videoPrompt: '闺密说出关键信息的第一部分，她的眼神中透露着一种狂热的光芒',
-          model: 'wan2.2-i2v-flash',
+          model: 'doubao-seedance-1-5-pro-251215',
           resolution: '720p',
           duration: 5,
           quantity: 1,
@@ -301,7 +301,7 @@ function VideoEditing() {
 
   // 辅助函数：判断是否是豆包 Seedance 模型
   const isSeedanceModel = (model: string): boolean => {
-    return model === 'doubao-seedance-1-5-pro-251215' || model === 'doubao-seedance-1-0-lite-i2v-250428'
+    return model === 'doubao-seedance-1-5-pro-251215'
   }
 
   // 辅助函数：获取可用的分辨率选项

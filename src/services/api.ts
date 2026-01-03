@@ -1,4 +1,16 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002'
+// 生产环境使用相对路径，开发环境使用完整URL
+// 使用运行时检测，确保生产环境使用相对路径
+const API_BASE_URL = (() => {
+  // 如果设置了环境变量，优先使用
+  if (import.meta.env.VITE_API_BASE_URL !== undefined) {
+    return import.meta.env.VITE_API_BASE_URL
+  }
+  // 运行时检测：如果当前域名不是 localhost，使用相对路径
+  const isProduction = typeof window !== 'undefined' && 
+    !window.location.hostname.includes('localhost') && 
+    !window.location.hostname.includes('127.0.0.1')
+  return isProduction ? '' : 'http://localhost:3002'
+})()
 
 // 导入认证服务以获取token
 import { AuthService } from './auth'

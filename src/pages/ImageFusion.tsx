@@ -89,7 +89,7 @@ function ImageFusion() {
         ...f,
         shotNumber: f.shotNumber || f.id,
         quantity: f.quantity || 1,
-        model: f.model || 'wan2.2-i2v-flash',
+        model: f.model || 'doubao-seedance-1-5-pro-251215',
         resolution: f.resolution || '720p',
         duration: f.duration || 5,
         generatingStatus: f.generatingStatus || 'idle',
@@ -121,7 +121,7 @@ function ImageFusion() {
             ...f,
             shotNumber: f.shotNumber || f.id,
             quantity: f.quantity || 1,
-            model: f.model || 'wan2.2-i2v-flash',
+            model: f.model || 'doubao-seedance-1-5-pro-251215',
             resolution: f.resolution || '720p',
             duration: f.duration || 5,
             generatingStatus: f.generatingStatus || 'idle',
@@ -160,7 +160,7 @@ function ImageFusion() {
         shotNumber: 1,
         image: '/placeholder-image.jpg',
         videoPrompt: '真人电影风格，风轻轻吹过，两人的长发和衣角微微飘动。她们静静地站着，没有任何交流，气氛沉静而压抑。镜头缓慢从两人身后向前推进，越过她们的肩膀，展现下方的宫城全貌。',
-        model: 'wan2.2-i2v-flash',
+        model: 'doubao-seedance-1-5-pro-251215',
         resolution: '720p',
         duration: 5,
         quantity: 1,
@@ -171,7 +171,7 @@ function ImageFusion() {
         shotNumber: 2,
         image: '/placeholder-image.jpg',
         videoPrompt: '真人电影风格，画面描述...',
-        model: 'wan2.2-i2v-flash',
+        model: 'doubao-seedance-1-5-pro-251215',
         resolution: '720p',
         duration: 5,
         quantity: 1,
@@ -182,7 +182,7 @@ function ImageFusion() {
         shotNumber: 3,
         image: '/placeholder-image.jpg',
         videoPrompt: '真人电影风格，画面描述...',
-        model: 'wan2.2-i2v-flash',
+        model: 'doubao-seedance-1-5-pro-251215',
         resolution: '720p',
         duration: 5,
         quantity: 1,
@@ -193,7 +193,7 @@ function ImageFusion() {
         shotNumber: 4,
         image: '/placeholder-image.jpg',
         videoPrompt: '真人电影风格，画面描述...',
-        model: 'wan2.2-i2v-flash',
+        model: 'doubao-seedance-1-5-pro-251215',
         resolution: '720p',
         duration: 5,
         quantity: 1,
@@ -203,7 +203,7 @@ function ImageFusion() {
   })
 
   // 视频生成全局设置
-  const [globalModel, setGlobalModel] = useState('wan2.2-i2v-flash') // 视频模型
+  const [globalModel, setGlobalModel] = useState('doubao-seedance-1-5-pro-251215') // 视频模型
   const [globalResolution, setGlobalResolution] = useState('720p') // 视频分辨率
   const [globalDuration, setGlobalDuration] = useState(5) // 视频时长
   const [globalQuantity, setGlobalQuantity] = useState(1) // 每个分镜生成几个视频（1或2）
@@ -288,7 +288,7 @@ function ImageFusion() {
         shotNumber: shotNumber,
         image: image,
         videoPrompt: shot.videoPrompt || shot.prompt || '真人电影风格，画面描述...',
-        model: 'wan2.2-i2v-flash',
+        model: 'doubao-seedance-1-5-pro-251215',
         resolution: '720p',
         duration: 5,
         quantity: 1,
@@ -337,7 +337,7 @@ function ImageFusion() {
         ...f,
         shotNumber: f.shotNumber || f.id,
         quantity: f.quantity || 1,
-        model: f.model || 'wan2.2-i2v-flash',
+        model: f.model || 'doubao-seedance-1-5-pro-251215',
         resolution: f.resolution || '720p',
         duration: f.duration || 5,
         generatingStatus: f.generatingStatus || 'idle',
@@ -411,7 +411,7 @@ function ImageFusion() {
               ...f,
               shotNumber: f.shotNumber || f.id,
               quantity: f.quantity || 1,
-              model: f.model || 'wan2.2-i2v-flash',
+              model: f.model || 'doubao-seedance-1-5-pro-251215',
               resolution: f.resolution || '720p',
               duration: f.duration || 5,
               generatingStatus: f.generatingStatus || 'idle',
@@ -556,7 +556,7 @@ function ImageFusion() {
 
   // 辅助函数：判断是否是豆包 Seedance 模型
   const isSeedanceModel = (model: string): boolean => {
-    return model === 'doubao-seedance-1-5-pro-251215' || model === 'doubao-seedance-1-0-lite-i2v-250428'
+    return model === 'doubao-seedance-1-5-pro-251215'
   }
 
   // 辅助函数：获取可用的分辨率选项
@@ -1033,7 +1033,7 @@ function ImageFusion() {
     
     // 获取当前分镜的模型（在闭包外获取，避免状态更新导致的问题）
     const currentFusion = fusions.find(f => f.id === fusionId)
-    const model = (currentFusion?.model || 'wan2.2-i2v-flash') as 'wan2.2-i2v-flash' | 'wan2.5-i2v-preview' | 'wan2.6-i2v' | 'doubao-seedance-1-0-lite-i2v-250428' | 'doubao-seedance-1-5-pro-251215' | 'viduq2-turbo' | 'viduq2-pro' | 'viduq1' | 'vidu2.0' | 'vidu1.5' | 'vidu1.0' | 'veo3.1' | 'veo3.1-pro'
+    const model = (currentFusion?.model || 'doubao-seedance-1-5-pro-251215') as 'doubao-seedance-1-5-pro-251215' | 'viduq2-turbo' | 'viduq2-pro' | 'viduq1' | 'vidu2.0' | 'vidu1.5' | 'vidu1.0' | 'veo3.1' | 'veo3.1-pro'
 
     const poll = async () => {
       try {
@@ -1339,10 +1339,6 @@ function ImageFusion() {
                 onChange={(e) => handleGlobalModelChange(e.target.value)}
                 className="px-3 py-1 bg-white border border-gray-300 rounded text-sm focus:outline-none focus:border-purple-500"
               >
-                <option value="wan2.2-i2v-flash">wan2.2-i2v-flash</option>
-                <option value="wan2.5-i2v-preview">wan2.5-i2v-preview</option>
-                <option value="wan2.6-i2v">wan2.6-i2v</option>
-                <option value="doubao-seedance-1-0-lite-i2v-250428">即梦AI-视频生成3.0pro</option>
                 <option value="doubao-seedance-1-5-pro-251215">即梦AI-视频生成3.5pro</option>
                 <option value="viduq2-turbo">ViduQ2-Turbo</option>
                 <option value="veo3.1">Google Veo3.1</option>
@@ -1495,10 +1491,6 @@ function ImageFusion() {
                       className="px-2 py-1 bg-white border border-gray-300 rounded text-sm focus:outline-none focus:border-purple-500"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <option value="wan2.2-i2v-flash">wan2.2-i2v-flash</option>
-                      <option value="wan2.5-i2v-preview">wan2.5-i2v-preview</option>
-                      <option value="wan2.6-i2v">wan2.6-i2v</option>
-                      <option value="doubao-seedance-1-0-lite-i2v-250428">即梦AI-视频生成3.0pro</option>
                       <option value="doubao-seedance-1-5-pro-251215">即梦AI-视频生成3.5pro</option>
                       <option value="viduq2-turbo">ViduQ2-Turbo</option>
                       <option value="veo3.1">Google Veo3.1</option>

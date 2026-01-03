@@ -49,7 +49,7 @@ function VideoEditingDrawer({
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   
   // 视频生成配置
-  const [videoModel, setVideoModel] = useState('wan2.2-i2v-flash')
+  const [videoModel, setVideoModel] = useState('doubao-seedance-1-5-pro-251215')
   const [videoQuantity, setVideoQuantity] = useState(1)
   const [videoRatio, setVideoRatio] = useState('16:9')
   const [selectedScenes, setSelectedScenes] = useState<Array<{ id: string; name: string; image?: string }>>([])
@@ -121,7 +121,7 @@ function VideoEditingDrawer({
 
   // 辅助函数：判断是否是豆包 Seedance 模型
   const isSeedanceModel = (model: string): boolean => {
-    return model === 'doubao-seedance-1-5-pro-251215' || model === 'doubao-seedance-1-0-lite-i2v-250428'
+    return model === 'doubao-seedance-1-5-pro-251215'
   }
 
   // 辅助函数：获取可用的分辨率选项
@@ -414,10 +414,6 @@ function VideoEditingDrawer({
                   }}
                   className="w-full px-3 py-2 bg-white border border-gray-300 rounded text-sm focus:outline-none focus:border-purple-500"
                 >
-                  <option value="wan2.2-i2v-flash">wan2.2-i2v-flash</option>
-                  <option value="wan2.5-i2v-preview">wan2.5-i2v-preview</option>
-                  <option value="wan2.6-i2v">wan2.6-i2v</option>
-                  <option value="doubao-seedance-1-0-lite-i2v-250428">即梦AI-视频生成3.0pro</option>
                   <option value="doubao-seedance-1-5-pro-251215">即梦AI-视频生成3.5pro</option>
                   <option value="viduq2-turbo">ViduQ2-Turbo</option>
                   <option value="veo3.1">Google Veo3.1</option>

@@ -264,7 +264,7 @@ app.post('/api/segment-script', async (req, res) => {
 // 图生视频接口 - 图片上传生成视频
 app.post('/api/generate-video', uploadImage.single('image'), async (req, res) => {
   try {
-    const { model = 'wan2.2-i2v-flash', resolution = '480p', duration = 5, text = '', ratio = 'adaptive', projectName } = req.body
+    const { model = 'doubao-seedance-1-5-pro-251215', resolution = '480p', duration = 5, text = '', ratio = 'adaptive', projectName } = req.body
 
     // 检查是否有上传的图片文件
     let imageUrl
@@ -351,7 +351,7 @@ app.post('/api/generate-video', uploadImage.single('image'), async (req, res) =>
 })
 
 // ==================== Seedance 参考生视频 API ====================
-// 只有 doubao-seedance-1-0-lite-i2v-250428 支持此功能
+// 注意：参考生视频功能需要 doubao-seedance-1-0-lite-i2v-250428 模型，但该模型已不可用
 app.post('/api/generate-reference-video', uploadImage.fields([
   { name: 'referenceImage', maxCount: 1 },
   { name: 'referenceVideo', maxCount: 1 }
@@ -460,7 +460,7 @@ app.post('/api/generate-reference-video', uploadImage.fields([
 })
 
 // ==================== Seedance 首尾帧生视频 API ====================
-// 支持模型：doubao-seedance-1-5-pro-251215, doubao-seedance-1-0-pro-250528, doubao-seedance-1-0-lite-i2v-250428
+// 支持模型：doubao-seedance-1-5-pro-251215
 app.post('/api/generate-first-last-frame-video', uploadImage.fields([
   { name: 'firstFrame', maxCount: 1 },
   { name: 'lastFrame', maxCount: 1 }
@@ -592,6 +592,7 @@ app.post('/api/first-last-frame-video/generate', authenticateToken, uploadImage.
   { name: 'firstFrame', maxCount: 1 },
   { name: 'lastFrame', maxCount: 1 }
 ]), async (req, res) => {
+  // 尾帧现在是可选的，如果没有尾帧，使用单首帧+提示词模式
   try {
     const userId = req.user?.id
     const { 
@@ -647,9 +648,10 @@ app.post('/api/first-last-frame-video/generate', authenticateToken, uploadImage.
       })
     }
 
-    // 检查尾帧图片
+    // 检查尾帧图片（可选）
     let lastFrameUrl
-    if (req.files && req.files.lastFrame && req.files.lastFrame[0]) {
+    const hasLastFrame = req.files && req.files.lastFrame && req.files.lastFrame[0]
+    if (hasLastFrame) {
       const { uploadBuffer } = await import('./services/cosService.js')
       const imageBuffer = req.files.lastFrame[0].buffer
       const mimeType = req.files.lastFrame[0].mimetype
@@ -660,34 +662,57 @@ app.post('/api/first-last-frame-video/generate', authenticateToken, uploadImage.
       const cosKey = `projects/${projectId}/images/last_frame_${Date.now()}.${ext}`
       const uploadResult = await uploadBuffer(imageBuffer, cosKey, mimeType)
       lastFrameUrl = uploadResult.url
-    } else {
-      return res.status(400).json({ 
-        success: false,
-        error: '请上传尾帧图片' 
-      })
     }
 
-    console.log('📹 收到首尾帧生视频请求（保存到项目文件夹）:', {
-      projectId,
-      projectName: project.name,
-      firstFrameUrl: firstFrameUrl.substring(0, 100) + '...',
-      lastFrameUrl: lastFrameUrl.substring(0, 100) + '...',
-      model,
-      resolution,
-      ratio,
-      duration,
-      hasText: !!text,
-    })
+    // 根据是否有尾帧选择不同的生成模式
+    let result
+    if (hasLastFrame) {
+      // 模式1: 首帧 + 尾帧 + 提示词
+      console.log('📹 收到首尾帧生视频请求（保存到项目文件夹）:', {
+        projectId,
+        projectName: project.name,
+        firstFrameUrl: firstFrameUrl.substring(0, 100) + '...',
+        lastFrameUrl: lastFrameUrl.substring(0, 100) + '...',
+        model,
+        resolution,
+        ratio,
+        duration,
+        hasText: !!text,
+        mode: 'first_last_frame',
+      })
 
-    // 调用首尾帧生视频API
-    const { generateFirstLastFrameVideoWithSeedance } = await import('./services/doubaoSeedanceService.js')
-    const result = await generateFirstLastFrameVideoWithSeedance(firstFrameUrl, lastFrameUrl, {
-      model,
-      text,
-      resolution,
-      ratio,
-      duration: parseInt(duration),
-    })
+      const { generateFirstLastFrameVideoWithSeedance } = await import('./services/doubaoSeedanceService.js')
+      result = await generateFirstLastFrameVideoWithSeedance(firstFrameUrl, lastFrameUrl, {
+        model,
+        text,
+        resolution,
+        ratio,
+        duration: parseInt(duration),
+      })
+    } else {
+      // 模式2: 单首帧 + 提示词
+      console.log('📹 收到单首帧生视频请求（保存到项目文件夹）:', {
+        projectId,
+        projectName: project.name,
+        firstFrameUrl: firstFrameUrl.substring(0, 100) + '...',
+        model,
+        resolution,
+        ratio,
+        duration,
+        hasText: !!text,
+        mode: 'single_frame',
+      })
+
+      const { generateVideoWithSeedance } = await import('./services/doubaoSeedanceService.js')
+      result = await generateVideoWithSeedance(firstFrameUrl, {
+        model,
+        text,
+        resolution,
+        ratio,
+        duration: parseInt(duration),
+        generateAudio: model === 'doubao-seedance-1-5-pro-251215', // 只有 1.5 Pro 支持音频
+      })
+    }
 
     res.json({
       success: true,
@@ -998,7 +1023,7 @@ app.post('/api/rag/store-script', async (req, res) => {
 app.get('/api/video-task/:taskId', authenticateToken, async (req, res) => {
   try {
     const { taskId } = req.params
-    const { model = 'wan2.2-i2v-flash', projectName, shotId } = req.query
+    const { model = 'doubao-seedance-1-5-pro-251215', projectName, shotId } = req.query
     const userId = req.user?.id
 
     if (!taskId) {
@@ -5965,7 +5990,7 @@ async function startServer() {
   app.listen(PORT, () => {
     console.log(`🚀 服务器运行在 http://localhost:${PORT}`)
     console.log(`📝 剧本分析服务已启动`)
-    console.log(`📹 图生视频服务已启动 (模型: wan2.2-i2v-flash)`)
+    console.log(`📹 图生视频服务已启动 (默认模型: doubao-seedance-1-5-pro-251215)`)
     console.log(`🎨 文生图服务已启动 (模型: nano-banana-pro, midjourney-v7-t2i)`)
     console.log(`🎵 Suno音乐生成API已启动`)
     console.log(`🎤 IndexTTS2.5音色创作API已启动`)

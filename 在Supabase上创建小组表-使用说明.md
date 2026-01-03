@@ -123,3 +123,7 @@ WHERE table_name = 'projects'
 2. `projects` 表是否存在（需要添加 group_id 列）
 3. 是否有足够的数据库权限
 
+
+
+
+

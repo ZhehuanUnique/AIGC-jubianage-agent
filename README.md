@@ -715,6 +715,113 @@ cd server
 npm run check-env
 ```
 
+## 🗄️ Milvus 向量数据库配置（可选，用于 Gemini RAG 服务）
+
+### 快速启动
+
+**使用 Docker Compose（推荐）**：
+```bash
+cd milvus
+docker-compose up -d
+```
+
+**等待 Milvus 启动**：
+Milvus 需要 30-60 秒才能完全启动。使用等待脚本：
+```bash
+bash 等待并检查Milvus.sh
+```
+
+或手动等待：
+```bash
+# 等待 60 秒
+sleep 60
+
+# 检查健康状态
+curl http://localhost:9091/healthz
+```
+
+应该返回 `OK`。
+
+### 配置环境变量
+
+在 `server/.env` 文件中添加：
+```env
+# 向量数据库类型
+VECTOR_DB_TYPE=milvus
+
+# Milvus 配置
+MILVUS_HOST=localhost
+MILVUS_PORT=19530
+```
+
+### 验证 Milvus 服务
+
+```bash
+# 检查容器状态
+cd milvus
+docker-compose ps
+
+# 测试健康检查
+curl http://localhost:9091/healthz
+```
+
+**预期结果**：
+- 容器状态为 "Up" 和 "healthy"
+- 健康检查返回 `OK`
+
+### 常见问题
+
+#### 问题1：连接超时
+
+**症状**：`Error: 14 UNAVAILABLE: No connection established`
+
+**解决方案**：
+1. 确保 Milvus 容器正在运行：`docker-compose ps`
+2. 等待 30-60 秒让 Milvus 完全启动
+3. 检查端口是否正确：`netstat -an | findstr 19530`
+
+#### 问题2：数据损坏
+
+**症状**：`Corruption: CURRENT file corrupted`
+
+**解决方案**：
+```bash
+# 停止容器
+cd milvus
+docker-compose down
+
+# 清理损坏的数据
+rmdir /S /Q volumes\milvus\rdb_data
+
+# 重新启动
+docker-compose up -d
+
+# 等待 60 秒
+timeout /t 60
+
+# 检查状态
+docker-compose ps
+curl http://localhost:9091/healthz
+```
+
+**注意**：清理 `rdb_data` 目录会删除 RocksMQ 的消息队列数据，但不会影响已存储的向量数据（存储在 MinIO 中）。
+
+### Milvus 管理
+
+```bash
+# 查看日志
+docker-compose logs -f standalone
+
+# 停止服务
+docker-compose down
+
+# 重启服务
+docker-compose restart
+
+# 删除容器和数据
+docker-compose down -v
+```
+
 ## 🤖 Ollama 模型配置（可选，用于视频运动提示词生成）
 
 ### 方式一：Docker 部署（推荐，支持跨设备访问）
@@ -1437,6 +1544,18 @@ npm run build
 sudo chown -R ubuntu:ubuntu dist/
 sudo systemctl reload nginx
 ```
+
+### 开发环境 vs 生产环境
+
+**开发环境（支持热更新）**：
+- URL：`http://localhost:5173`
+- 运行：`npm run dev`
+- 特点：修改代码后自动热更新，无需手动刷新
+
+**生产环境（需要部署）**：
+- URL：`https://www.jubianai.cn`
+- 运行：Nginx + PM2
+- 特点：需要构建和部署才能看到更改，不支持热更新
 
 ### 服务器部署
 

@@ -52,7 +52,7 @@ function VideoEditDrawer({
   }, [])
   
   // 视频配置
-  const [videoModel, setVideoModel] = useState('wan2.2-i2v-flash')
+  const [videoModel, setVideoModel] = useState('doubao-seedance-1-5-pro-251215')
   const [videoDuration, setVideoDuration] = useState(5)
   const [videoResolution, setVideoResolution] = useState('720p')
   const [videoQuantity, setVideoQuantity] = useState(1)
@@ -333,10 +333,6 @@ function VideoEditDrawer({
                       onChange={(e) => setVideoModel(e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-purple-500"
                     >
-                      <option value="wan2.2-i2v-flash">wan2.2-i2v-flash</option>
-                      <option value="wan2.5-i2v-preview">wan2.5-i2v-preview</option>
-                      <option value="wan2.6-i2v">wan2.6-i2v</option>
-                      <option value="doubao-seedance-1-0-lite-i2v-250428">即梦AI-视频生成3.0pro</option>
                       <option value="doubao-seedance-1-5-pro-251215">即梦AI-视频生成3.5pro</option>
                       <option value="viduq2-turbo">ViduQ2-Turbo</option>
                       <option value="veo3.1">Google Veo3.1</option>

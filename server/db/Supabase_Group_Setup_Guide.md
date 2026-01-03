@@ -56,3 +56,7 @@ WHERE table_name = 'projects'
 - 如果 `projects` 表已经存在 `group_id` 列，脚本会跳过添加列的步骤
 - 所有表都会自动创建必要的索引和触发器
 
+
+
+
+

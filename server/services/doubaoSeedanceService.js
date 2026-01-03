@@ -27,11 +27,7 @@ if (existsSync(envPath)) {
  */
 function getApiKeyForModel(model) {
   // 根据模型选择对应的 API Key
-  if (model === 'doubao-seedance-1-0-lite-i2v-250428') {
-    return process.env.DOUBAO_SEEDANCE_1_0_LITE_API_KEY || 
-           process.env.DOUBAO_SEEDANCE_API_KEY || 
-           process.env.MIDJOURNEY_API_KEY
-  } else if (model === 'doubao-seedance-1-5-pro-251215') {
+  if (model === 'doubao-seedance-1-5-pro-251215') {
     return process.env.DOUBAO_SEEDANCE_1_5_PRO_API_KEY || 
            process.env.DOUBAO_SEEDANCE_API_KEY || 
            process.env.MIDJOURNEY_API_KEY
@@ -146,7 +142,7 @@ export async function generateVideoWithSeedance(imageUrl, options = {}) {
       const errorMessage = errorData.message || errorData.error?.message || `HTTP ${response.status}`
       
       if (response.status === 401) {
-        throw new Error(`API密钥无效，请检查 ${model === 'doubao-seedance-1-0-lite-i2v-250428' ? 'DOUBAO_SEEDANCE_1_0_LITE_API_KEY' : 'DOUBAO_SEEDANCE_1_5_PRO_API_KEY'} 或 DOUBAO_SEEDANCE_API_KEY 环境变量`)
+        throw new Error(`API密钥无效，请检查 DOUBAO_SEEDANCE_1_5_PRO_API_KEY 或 DOUBAO_SEEDANCE_API_KEY 环境变量`)
       }
       
       throw new Error(`豆包 Seedance API调用失败: ${errorMessage}`)
@@ -179,7 +175,7 @@ export async function generateVideoWithSeedance(imageUrl, options = {}) {
 
 /**
  * 使用豆包 Seedance 生成参考生视频
- * 只有 doubao-seedance-1-0-lite-i2v-250428 支持此功能
+ * 注意：此功能需要 doubao-seedance-1-0-lite-i2v-250428 模型，但该模型已不可用
  * @param {string} referenceImageUrl - 参考图片URL
  * @param {string} referenceVideoUrl - 参考视频URL
  * @param {Object} options - 生成选项
@@ -190,7 +186,7 @@ export async function generateVideoWithSeedance(imageUrl, options = {}) {
  * @returns {Promise<Object>} 返回任务ID和状态
  */
 export async function generateReferenceVideoWithSeedance(referenceImageUrl, referenceVideoUrl, options = {}) {
-  const model = 'doubao-seedance-1-0-lite-i2v-250428' // 只有这个模型支持参考生视频
+  const model = 'doubao-seedance-1-0-lite-i2v-250428' // 注意：此模型已不可用，此功能将失败
   const apiKey = getApiKeyForModel(model)
 
   if (!apiKey) {
@@ -304,7 +300,7 @@ export async function generateReferenceVideoWithSeedance(referenceImageUrl, refe
 
 /**
  * 使用豆包 Seedance 生成首尾帧生视频
- * 支持模型：doubao-seedance-1-5-pro-251215, doubao-seedance-1-0-pro-250528, doubao-seedance-1-0-lite-i2v-250428
+ * 支持模型：doubao-seedance-1-5-pro-251215
  * @param {string} firstFrameUrl - 首帧图片URL
  * @param {string} lastFrameUrl - 尾帧图片URL
  * @param {Object} options - 生成选项
@@ -333,10 +329,13 @@ export async function generateFirstLastFrameVideoWithSeedance(firstFrameUrl, las
   const apiHost = process.env.DOUBAO_SEEDANCE_API_HOST || process.env.MIDJOURNEY_API_HOST || 'https://api.302.ai'
 
   try {
-    console.log(`🎬 调用豆包 Seedance ${model} 首尾帧生视频API:`, {
+    // 使用 1.5 Pro 模型（唯一支持首尾帧生视频的模型）
+    const actualModel = 'doubao-seedance-1-5-pro-251215'
+
+    console.log(`🎬 调用豆包 Seedance ${actualModel} 首尾帧生视频API:`, {
       firstFrameUrl: firstFrameUrl.substring(0, 100) + (firstFrameUrl.length > 100 ? '...' : ''),
       lastFrameUrl: lastFrameUrl.substring(0, 100) + (lastFrameUrl.length > 100 ? '...' : ''),
-      model,
+      model: actualModel,
       resolution,
       ratio,
       duration,
@@ -345,7 +344,7 @@ export async function generateFirstLastFrameVideoWithSeedance(firstFrameUrl, las
 
     // 构建请求体（根据官方文档：首尾帧生视频需要 first_frame 和 last_frame）
     const requestBody = {
-      model: model,
+      model: actualModel,
       content: [
         {
           type: 'text',
@@ -367,7 +366,7 @@ export async function generateFirstLastFrameVideoWithSeedance(firstFrameUrl, las
         },
       ],
       service_tier: 'default',
-      generate_audio: model === 'doubao-seedance-1-5-pro-251215', // 只有 1.5 Pro 支持音频
+      generate_audio: true, // 1.5 Pro 支持音频
     }
 
     // 设置参数
@@ -398,7 +397,7 @@ export async function generateFirstLastFrameVideoWithSeedance(firstFrameUrl, las
       const errorMessage = errorData.message || errorData.error?.message || `HTTP ${response.status}`
       
       if (response.status === 401) {
-        throw new Error(`API密钥无效，请检查 ${model === 'doubao-seedance-1-0-lite-i2v-250428' ? 'DOUBAO_SEEDANCE_1_0_LITE_API_KEY' : 'DOUBAO_SEEDANCE_1_5_PRO_API_KEY'} 或 DOUBAO_SEEDANCE_API_KEY 环境变量`)
+        throw new Error(`API密钥无效，请检查 DOUBAO_SEEDANCE_1_5_PRO_API_KEY 或 DOUBAO_SEEDANCE_API_KEY 环境变量`)
       }
       
       throw new Error(`豆包 Seedance 首尾帧生视频API调用失败: ${errorMessage}`)

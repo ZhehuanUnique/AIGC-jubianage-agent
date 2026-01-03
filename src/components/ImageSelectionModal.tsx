@@ -125,7 +125,13 @@ function ImageSelectionModal({ isOpen, onClose, rowId }: ImageSelectionModalProp
               <div>
                 <label className="block text-sm mb-2">模型</label>
                 <select className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500">
-                  <option>即梦AI-视频生成3.0pro</option>
+                  <option value="doubao-seedance-1-5-pro-251215">即梦AI-视频生成3.5pro</option>
+                  <option value="viduq2-turbo">ViduQ2-Turbo</option>
+                  <option value="veo3.1">Google Veo3.1</option>
+                  <option value="veo3.1-pro">Google Veo3.1-Pro</option>
+                  <option value="minimax-hailuo-02">MiniMax Hailuo-02</option>
+                  <option value="minimax-hailuo-2.3">MiniMax Hailuo-2.3</option>
+                  <option value="minimax-hailuo-2.3-fast">MiniMax Hailuo-2.3-fast</option>
                 </select>
               </div>
 

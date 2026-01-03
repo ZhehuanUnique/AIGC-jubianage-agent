@@ -1,4 +1,16 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002'
+// 生产环境使用相对路径，开发环境使用完整URL
+// 使用运行时检测，确保生产环境使用相对路径
+const API_BASE_URL = (() => {
+  // 如果设置了环境变量，优先使用
+  if (import.meta.env.VITE_API_BASE_URL !== undefined) {
+    return import.meta.env.VITE_API_BASE_URL
+  }
+  // 运行时检测：如果当前域名不是 localhost，使用相对路径
+  const isProduction = typeof window !== 'undefined' && 
+    !window.location.hostname.includes('localhost') && 
+    !window.location.hostname.includes('127.0.0.1')
+  return isProduction ? '' : 'http://localhost:3002'
+})()
 
 export interface User {
   id: number
@@ -66,7 +78,8 @@ export class AuthService {
         if (attempt === retries) {
           // 提供更详细的错误信息
           if (error instanceof TypeError && (error.message.includes('fetch') || error.message.includes('Failed to fetch'))) {
-            return { success: false, error: '无法连接到服务器，请确保后端服务已启动（http://localhost:3002）' }
+            const serverUrl = import.meta.env.MODE === 'production' ? '服务器' : 'http://localhost:3002'
+            return { success: false, error: `无法连接到服务器，请确保后端服务已启动${import.meta.env.MODE === 'production' ? '' : `（${serverUrl}）`}` }
           }
           if (error.name === 'AbortError') {
             return { success: false, error: '请求超时，请稍后重试' }
