@@ -89,7 +89,7 @@ function CreateFragmentModal({ onClose, onFragmentCreated }: CreateFragmentModal
               })
             }
 
-            alertSuccess('片段创建成功！', '成功')
+            // 移除成功弹窗，直接关闭
             onClose()
             return
           } else {
@@ -124,7 +124,7 @@ function CreateFragmentModal({ onClose, onFragmentCreated }: CreateFragmentModal
         })
       }
 
-      alertSuccess('片段创建成功！', '成功')
+      // 移除成功弹窗，直接关闭
       onClose()
     } catch (error) {
       console.error('创建片段失败:', error)

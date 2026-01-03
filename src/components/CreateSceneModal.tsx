@@ -88,6 +88,8 @@ function CreateSceneModal({ onClose, onSceneSelect, projectName }: CreateSceneMo
   const [generatingTasks, setGeneratingTasks] = useState<SceneTask[]>([])
   // 已完成的任务（显示在"确定使用场景"中）
   const [completedScenes, setCompletedScenes] = useState<SceneTask[]>([])
+  // 选中的场景ID
+  const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null)
   
   // 轮询任务状态的定时器
   const pollingTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map())
@@ -239,7 +241,7 @@ function CreateSceneModal({ onClose, onSceneSelect, projectName }: CreateSceneMo
           setSelectedModel(null)
           setSelectedResolution(null)
 
-          alert('任务已提交，正在生成中...', 'success')
+          // 移除成功弹窗，任务已提交
         } else {
           alert(result.error || '提交任务失败', 'error')
         }
@@ -276,7 +278,7 @@ function CreateSceneModal({ onClose, onSceneSelect, projectName }: CreateSceneMo
           setSceneName('')
           setUploadedImage(null)
 
-          alert('场景上传成功！', 'success')
+          // 移除成功弹窗，上传成功后自动添加到已完成列表
         } else {
           alert('上传失败', 'error')
         }
@@ -585,12 +587,42 @@ function CreateSceneModal({ onClose, onSceneSelect, projectName }: CreateSceneMo
                       }
                       
                       // 读取文件并转换为 base64
-                      const reader = new FileReader()
-                      reader.onload = (event) => {
-                        setUploadedImage(event.target?.result as string)
-                        // 上传成功，不显示提示框
+                      // 优化：压缩图片以减少卡顿
+                      const maxSize = 2 * 1024 * 1024 // 2MB
+                      if (file.size > maxSize) {
+                        // 如果图片太大，压缩它
+                        const canvas = document.createElement('canvas')
+                        const ctx = canvas.getContext('2d')
+                        const img = new Image()
+                        
+                        img.onload = () => {
+                          // 计算压缩后的尺寸（保持宽高比，最大宽度1920）
+                          const maxWidth = 1920
+                          const ratio = Math.min(maxWidth / img.width, 1)
+                          canvas.width = img.width * ratio
+                          canvas.height = img.height * ratio
+                          
+                          // 绘制并压缩
+                          ctx?.drawImage(img, 0, 0, canvas.width, canvas.height)
+                          canvas.toBlob((blob) => {
+                            if (blob) {
+                              const reader = new FileReader()
+                              reader.onload = (event) => {
+                                setUploadedImage(event.target?.result as string)
+                              }
+                              reader.readAsDataURL(blob)
+                            }
+                          }, 'image/jpeg', 0.85) // 85%质量
+                        }
+                        img.src = URL.createObjectURL(file)
+                      } else {
+                        // 图片不大，直接读取
+                        const reader = new FileReader()
+                        reader.onload = (event) => {
+                          setUploadedImage(event.target?.result as string)
+                        }
+                        reader.readAsDataURL(file)
                       }
-                      reader.readAsDataURL(file)
                     }
                   }}
                 />
@@ -829,8 +861,15 @@ function CreateSceneModal({ onClose, onSceneSelect, projectName }: CreateSceneMo
                     {completedScenes.map((scene) => (
                       <div
                         key={scene.id}
-                        className="bg-white border border-gray-300 rounded-lg overflow-hidden cursor-pointer hover:border-purple-500 transition-colors"
+                        className={`bg-white border-2 rounded-lg overflow-hidden cursor-pointer transition-all relative ${
+                          selectedSceneId === scene.id
+                            ? 'border-green-500 shadow-lg'
+                            : 'border-gray-300 hover:border-purple-500'
+                        }`}
                         onClick={async () => {
+                          // 设置选中状态
+                          setSelectedSceneId(scene.id)
+                          
                           // 确保场景已保存到数据库（如果taskId不是以'scene_'开头且不为空，说明是生成的，需要保存）
                           if (currentProjectName && scene.imageUrl && !scene.taskId.startsWith('scene_') && scene.taskId !== '') {
                             // 如果还没有保存（通过taskId判断），先保存
@@ -843,26 +882,38 @@ function CreateSceneModal({ onClose, onSceneSelect, projectName }: CreateSceneMo
                             }
                           }
                           
-                          if (onSceneSelect) {
-                            onSceneSelect({
-                              id: scene.id,
-                              name: scene.name,
-                              image: scene.imageUrl,
-                            })
-                            onClose()
-                          }
+                          // 延迟一下再调用回调，让用户看到选中效果
+                          setTimeout(() => {
+                            if (onSceneSelect) {
+                              onSceneSelect({
+                                id: scene.id,
+                                name: scene.name,
+                                image: scene.imageUrl,
+                              })
+                              onClose()
+                            }
+                          }, 200)
                         }}
                       >
-                        <div className="aspect-square bg-gray-700 flex items-center justify-center overflow-hidden">
+                        <div className="aspect-square bg-gray-700 flex items-center justify-center overflow-hidden relative">
                           {scene.imageUrl ? (
                             <img
                               src={scene.imageUrl}
                               alt={scene.name}
                               className="w-full h-full object-cover"
+                              loading="lazy"
                             />
                           ) : (
                             <div className="w-16 h-16 rounded-lg bg-purple-600 flex items-center justify-center text-white text-xs">
                               {scene.name}
+                            </div>
+                          )}
+                          {/* 选中标记 - 绿色圆圈白色对号 */}
+                          {selectedSceneId === scene.id && (
+                            <div className="absolute bottom-2 right-2 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center shadow-lg z-10">
+                              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                              </svg>
                             </div>
                           )}
                         </div>

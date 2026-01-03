@@ -36,12 +36,16 @@ function FirstLastFrameVideo() {
   
   const [isGenerating, setIsGenerating] = useState(false)
   const [tasks, setTasks] = useState<VideoTask[]>([])
+  const [allTasks, setAllTasks] = useState<VideoTask[]>([]) // 存储所有任务（未筛选）
   const [isLoading, setIsLoading] = useState(false)
+  const [isInitialLoad, setIsInitialLoad] = useState(true) // 标记是否为首次加载
   const [hoveredFrame, setHoveredFrame] = useState<'first' | 'last' | null>(null)
   const [isInputFocused, setIsInputFocused] = useState(false)
   const [isBottomBarCollapsed, setIsBottomBarCollapsed] = useState(true) // 默认收缩，参考Vue项目
   const [isBottomBarHovered, setIsBottomBarHovered] = useState(false)
   const [isBottomEdgeHovered, setIsBottomEdgeHovered] = useState(false)
+  const [hoveredVideoId, setHoveredVideoId] = useState<string | null>(null)
+  const videoRefs = useRef<Map<string, HTMLVideoElement>>(new Map())
   
   // 筛选状态
   const [timeFilter, setTimeFilter] = useState<'all' | 'week' | 'month' | 'quarter' | 'custom'>('all')
@@ -58,11 +62,53 @@ function FirstLastFrameVideo() {
   const bottomBarHoverTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const bottomEdgeHoverTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  // 加载历史任务
-  const loadHistory = async () => {
+  // 应用筛选逻辑
+  const applyFilters = (allTasksList: VideoTask[]) => {
+    let filtered = [...allTasksList]
+
+    // 时间范围筛选
+    if (timeFilter !== 'all') {
+      const now = new Date()
+      let cutoffDate: Date
+
+      switch (timeFilter) {
+        case 'week':
+          cutoffDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+          break
+        case 'month':
+          cutoffDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+          break
+        case 'quarter':
+          cutoffDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+          break
+        default:
+          cutoffDate = new Date(0)
+      }
+
+      filtered = filtered.filter(video => {
+        const videoDate = new Date(video.createdAt)
+        return videoDate >= cutoffDate
+      })
+    }
+
+    // 操作类型筛选（目前只支持前端筛选，后端暂不支持）
+    if (operationFilter !== 'all') {
+      // 注意：这里需要后端支持 is_ultra_hd, is_favorite, is_liked 字段
+      // 暂时跳过，因为当前数据结构中没有这些字段
+    }
+
+    setTasks(filtered)
+  }
+
+  // 加载历史任务（支持静默模式）
+  const loadHistory = async (silent: boolean = false) => {
     if (!projectId) return
     
-    setIsLoading(true)
+    // 只在首次加载或非静默模式时显示加载状态
+    if (isInitialLoad || !silent) {
+      setIsLoading(true)
+    }
+    
     try {
       const numericProjectId = parseInt(projectId, 10)
       if (!isNaN(numericProjectId)) {
@@ -70,7 +116,7 @@ function FirstLastFrameVideo() {
         // 转换为VideoTask格式
         const videoTasks: VideoTask[] = videos.map(v => ({
           id: v.taskId,
-          status: v.status,
+          status: v.status as 'pending' | 'processing' | 'completed' | 'failed',
           videoUrl: v.videoUrl,
           firstFrameUrl: v.firstFrameUrl || '',
           lastFrameUrl: v.lastFrameUrl,
@@ -81,27 +127,52 @@ function FirstLastFrameVideo() {
           text: v.text,
           createdAt: v.createdAt,
         }))
-        setTasks(videoTasks)
+        
+        // 保存所有任务
+        setAllTasks(videoTasks)
+        
+        // 应用筛选
+        applyFilters(videoTasks)
+        
+        // 首次加载完成后，标记为非首次加载
+        if (isInitialLoad) {
+          setIsInitialLoad(false)
+        }
       }
-      setIsLoading(false)
     } catch (error) {
       console.error('加载历史失败:', error)
+      // 即使失败也设置空数组，显示"暂无历史视频"而不是错误
+      setAllTasks([])
+      setTasks([])
+      if (isInitialLoad) {
+        setIsInitialLoad(false)
+      }
+    } finally {
       setIsLoading(false)
     }
   }
 
+  // 当筛选条件改变时，重新应用筛选
+  useEffect(() => {
+    applyFilters(allTasks)
+  }, [timeFilter, videoFilter, operationFilter])
+
   useEffect(() => {
     loadHistory()
     
-    // 滚动处理 - 参考Vue项目，简化逻辑
+    // 滚动处理 - 参考Vue项目，使用 useRef 避免闭包问题
     const handleScroll = () => {
       if (scrollTimeoutRef.current) {
         clearTimeout(scrollTimeoutRef.current)
       }
       
       scrollTimeoutRef.current = setTimeout(() => {
+        // 使用 document.activeElement 检查输入框是否聚焦
+        const activeElement = document.activeElement
+        const isInputActive = activeElement?.tagName === 'TEXTAREA' || activeElement?.tagName === 'INPUT'
+        
         // 如果输入框聚焦或底部栏被悬停，不自动收缩
-        if (isInputFocused || isBottomBarHovered || isBottomEdgeHovered) {
+        if (isInputActive || isBottomBarHovered || isBottomEdgeHovered) {
           return
         }
         
@@ -154,7 +225,7 @@ function FirstLastFrameVideo() {
         clearInterval(pollIntervalRef.current)
       }
     }
-  }, [isInputFocused, isBottomBarHovered, isBottomEdgeHovered]) // 添加依赖项，确保使用最新状态
+  }, []) // 移除依赖项，避免频繁重新绑定
 
   // 已移除3.0pro选项，只支持3.5pro
 
@@ -446,12 +517,13 @@ function FirstLastFrameVideo() {
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold text-gray-800">今天</h2>
             
-            {/* 筛选下拉菜单 */}
-            <div className="flex items-center gap-2">
+            {/* 筛选下拉菜单 - 黄色边框 */}
+            <div className="flex items-center gap-2 border-2 border-yellow-400 rounded-lg px-2 py-1">
               {/* 时间筛选 */}
               <div className="relative">
                 <button
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation()
                     setShowTimeDropdown(!showTimeDropdown)
                     setShowVideoDropdown(false)
                     setShowOperationDropdown(false)
@@ -524,7 +596,8 @@ function FirstLastFrameVideo() {
               {/* 视频筛选 */}
               <div className="relative">
                 <button
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation()
                     setShowVideoDropdown(!showVideoDropdown)
                     setShowTimeDropdown(false)
                     setShowOperationDropdown(false)
@@ -537,7 +610,7 @@ function FirstLastFrameVideo() {
                   </svg>
                 </button>
                 {showVideoDropdown && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 p-2 z-50">
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 p-2 z-50" onClick={(e) => e.stopPropagation()}>
                     <div className="text-xs font-semibold text-gray-700 mb-2 px-2">选择视频类型</div>
                     <div className="space-y-1">
                       <button
@@ -558,17 +631,6 @@ function FirstLastFrameVideo() {
                       </button>
                       <button
                         onClick={() => {
-                          setVideoFilter('personal')
-                          setShowVideoDropdown(false)
-                        }}
-                        className={`w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 ${
-                          videoFilter === 'personal' ? 'bg-blue-50 text-blue-600' : ''
-                        }`}
-                      >
-                        个人
-                      </button>
-                      <button
-                        onClick={() => {
                           setVideoFilter('group')
                           setShowVideoDropdown(false)
                         }}
@@ -578,6 +640,17 @@ function FirstLastFrameVideo() {
                       >
                         小组
                       </button>
+                      <button
+                        onClick={() => {
+                          setVideoFilter('personal')
+                          setShowVideoDropdown(false)
+                        }}
+                        className={`w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 ${
+                          videoFilter === 'personal' ? 'bg-blue-50 text-blue-600' : ''
+                        }`}
+                      >
+                        个人
+                      </button>
                     </div>
                   </div>
                 )}
@@ -586,7 +659,8 @@ function FirstLastFrameVideo() {
               {/* 操作类型筛选 */}
               <div className="relative">
                 <button
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation()
                     setShowOperationDropdown(!showOperationDropdown)
                     setShowTimeDropdown(false)
                     setShowVideoDropdown(false)
@@ -599,7 +673,7 @@ function FirstLastFrameVideo() {
                   </svg>
                 </button>
                 {showOperationDropdown && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 p-2 z-50">
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 p-2 z-50" onClick={(e) => e.stopPropagation()}>
                     <div className="text-xs font-semibold text-gray-700 mb-2 px-2">选择操作类型</div>
                     <div className="space-y-1">
                       <button
@@ -658,8 +732,8 @@ function FirstLastFrameVideo() {
             </div>
           </div>
 
-          {/* 历史视频网格 */}
-          {isLoading && tasks.length === 0 ? (
+          {/* 历史视频网格 - 参考Vue项目，只在首次加载且没有视频时显示加载状态 */}
+          {isLoading && isInitialLoad && tasks.length === 0 ? (
             <div className="text-center py-12">
               <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
               <p className="text-gray-500 mt-4">加载中...</p>
@@ -674,11 +748,41 @@ function FirstLastFrameVideo() {
                 <div
                   key={task.id}
                   className="group relative bg-white rounded-xl shadow-sm hover:shadow-lg transition-all"
+                  style={{ overflow: 'visible' }}
+                  onMouseEnter={() => {
+                    setHoveredVideoId(task.id)
+                    const video = videoRefs.current.get(task.id)
+                    if (video) {
+                      video.play().catch(() => {})
+                    }
+                  }}
+                  onMouseLeave={() => {
+                    setHoveredVideoId(null)
+                    const video = videoRefs.current.get(task.id)
+                    if (video) {
+                      video.pause()
+                      video.currentTime = 0
+                    }
+                  }}
                 >
                   {/* 视频容器 */}
-                  <div className="relative aspect-video bg-gray-100 rounded-t-xl overflow-hidden">
-                    {task.videoUrl ? (
+                  <div 
+                    className="relative aspect-video bg-gray-100 rounded-t-xl overflow-hidden"
+                    style={task.status !== 'completed' && task.firstFrameUrl ? {
+                      backgroundImage: `url(${task.firstFrameUrl})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center'
+                    } : {}}
+                  >
+                    {task.videoUrl && task.status === 'completed' ? (
                       <video
+                        ref={(el) => {
+                          if (el) {
+                            videoRefs.current.set(task.id, el)
+                          } else {
+                            videoRefs.current.delete(task.id)
+                          }
+                        }}
                         src={task.videoUrl}
                         className="w-full h-full object-cover"
                         muted
@@ -701,18 +805,25 @@ function FirstLastFrameVideo() {
                     {task.status !== 'completed' && (
                       <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
                         <div className="text-center text-white px-4 w-full">
-                          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-2"></div>
+                          {(task.status === 'processing' || task.status === 'pending') && (
+                            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-2"></div>
+                          )}
                           <p className="text-sm font-medium mb-2">{getStatusText(task.status)}</p>
                           {/* 进度条 */}
-                          <div className="w-full max-w-xs mx-auto mb-2">
-                            <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
-                              <div
-                                className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                                style={{ width: `${getEstimatedProgress(task)}%` }}
-                              ></div>
+                          {(task.status === 'processing' || task.status === 'pending') && (
+                            <div className="w-full max-w-xs mx-auto mb-2">
+                              <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
+                                <div
+                                  className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                                  style={{ width: `${getEstimatedProgress(task)}%` }}
+                                ></div>
+                              </div>
+                              <p className="text-xs text-gray-300 mt-1">{Math.round(getEstimatedProgress(task))}%</p>
                             </div>
-                            <p className="text-xs text-gray-300 mt-1">{Math.round(getEstimatedProgress(task))}%</p>
-                          </div>
+                          )}
+                          {task.status === 'failed' && task.errorMessage && (
+                            <p className="text-xs text-gray-300 mt-1">{task.errorMessage}</p>
+                          )}
                         </div>
                       </div>
                     )}
