@@ -3249,7 +3249,7 @@ app.delete('/api/projects/:projectId', authenticateToken, async (req, res) => {
     // 尝试删除 fragments 表数据（如果表存在）
     try {
       await db.query('DELETE FROM fragments WHERE project_id = $1', [parseInt(projectId)])
-    } catch (fragmentsError: any) {
+    } catch (fragmentsError) {
       // 如果 fragments 表不存在，忽略错误（表可能尚未创建）
       if (!fragmentsError.message?.includes('does not exist')) {
         console.warn('删除 fragments 数据时出错（继续删除项目）:', fragmentsError.message)
