@@ -4,8 +4,9 @@ import SidebarNavigation from '../components/SidebarNavigation'
 import { Plus, Search, ArrowLeft, User, RefreshCw, Trash2 } from 'lucide-react'
 import CreateCharacterModal from '../components/CreateCharacterModal'
 import CharacterDetailModal from '../components/CharacterDetailModal'
+import DeleteConfirmModal from '../components/DeleteConfirmModal'
 import { getProject } from '../services/projectStorage'
-import { alertError, alertSuccess } from '../utils/alert'
+import { alertError } from '../utils/alert'
 import { getProjectCharacters, deleteCharacter } from '../services/api'
 
 interface Character {
@@ -24,6 +25,8 @@ function CharacterManagement() {
   const [projectName, setProjectName] = useState<string>('')
   const [isLoading, setIsLoading] = useState(false)
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [characterToDelete, setCharacterToDelete] = useState<Character | null>(null)
 
   // 从数据库加载角色数据
   const loadCharacters = async () => {
@@ -331,21 +334,10 @@ function CharacterManagement() {
                   <div className="p-3 text-center text-sm">{character.name}</div>
                   {/* 删除按钮 - 悬停时显示 */}
                   <button
-                    onClick={async (e) => {
+                    onClick={(e) => {
                       e.stopPropagation()
-                      if (window.confirm(`确定要删除角色 "${character.name}" 吗？`)) {
-                        try {
-                          const numericId = parseInt(character.id, 10)
-                          if (!isNaN(numericId)) {
-                            await deleteCharacter(numericId)
-                            alertSuccess('角色已删除', '成功')
-                            // 重新加载列表
-                            loadCharacters()
-                          }
-                        } catch (error) {
-                          alertError(error instanceof Error ? error.message : '删除失败', '错误')
-                        }
-                      }
+                      setCharacterToDelete(character)
+                      setShowDeleteModal(true)
                     }}
                     className="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 z-10"
                     title="删除角色"
@@ -421,6 +413,32 @@ function CharacterManagement() {
           }}
         />
       )}
+
+      {/* 删除确认模态框 */}
+      <DeleteConfirmModal
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false)
+          setCharacterToDelete(null)
+        }}
+        onConfirm={async () => {
+          if (characterToDelete) {
+            try {
+              const numericId = parseInt(characterToDelete.id, 10)
+              if (!isNaN(numericId)) {
+                await deleteCharacter(numericId)
+                // 移除成功提示框，直接重新加载列表
+                loadCharacters()
+              }
+            } catch (error) {
+              alertError(error instanceof Error ? error.message : '删除失败', '错误')
+            }
+          }
+          setShowDeleteModal(false)
+          setCharacterToDelete(null)
+        }}
+        message={characterToDelete ? `确定要删除角色 "${characterToDelete.name}" 吗？` : ''}
+      />
     </div>
   )
 }

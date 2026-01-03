@@ -4,6 +4,25 @@
  * 备选方案: 302.ai API (如果 Grsai API 失败)
  */
 
+import dotenv from 'dotenv'
+import { fileURLToPath } from 'url'
+import { dirname, join } from 'path'
+import { existsSync } from 'fs'
+
+// 加载.env文件
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+const envPath = join(__dirname, '../../.env')
+if (existsSync(envPath)) {
+  dotenv.config({ path: envPath })
+} else {
+  // 尝试从 server/.env 加载
+  const serverEnvPath = join(__dirname, '../.env')
+  if (existsSync(serverEnvPath)) {
+    dotenv.config({ path: serverEnvPath })
+  }
+}
+
 /**
  * 使用 302.ai API 生成图片（备选方案，支持文生图和图生图）
  */

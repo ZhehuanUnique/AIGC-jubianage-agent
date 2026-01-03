@@ -4,8 +4,9 @@ import SidebarNavigation from '../components/SidebarNavigation'
 import { Plus, Search, ArrowLeft, RefreshCw, Trash2 } from 'lucide-react'
 import CreateSceneModal from '../components/CreateSceneModal'
 import SceneDetailModal from '../components/SceneDetailModal'
+import DeleteConfirmModal from '../components/DeleteConfirmModal'
 import { getProject } from '../services/projectStorage'
-import { alertError, alertSuccess } from '../utils/alert'
+import { alertError } from '../utils/alert'
 import { getProjectScenes, deleteScene } from '../services/api'
 
 interface Scene {
@@ -24,6 +25,8 @@ function SceneManagement() {
   const [projectName, setProjectName] = useState<string>('')
   const [isLoading, setIsLoading] = useState(false)
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [sceneToDelete, setSceneToDelete] = useState<Scene | null>(null)
 
   // 从 projectId 获取项目名称
   useEffect(() => {
@@ -236,21 +239,10 @@ function SceneManagement() {
                 <div className="p-3 text-center text-sm">{scene.name}</div>
                 {/* 删除按钮 - 悬停时显示 */}
                 <button
-                  onClick={async (e) => {
+                  onClick={(e) => {
                     e.stopPropagation()
-                    if (window.confirm(`确定要删除场景 "${scene.name}" 吗？`)) {
-                      try {
-                        const numericId = parseInt(scene.id, 10)
-                        if (!isNaN(numericId)) {
-                          await deleteScene(numericId)
-                          alertSuccess('场景已删除', '成功')
-                          // 重新加载列表
-                          loadScenes()
-                        }
-                      } catch (error) {
-                        alertError(error instanceof Error ? error.message : '删除失败', '错误')
-                      }
-                    }
+                    setSceneToDelete(scene)
+                    setShowDeleteModal(true)
                   }}
                   className="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 z-10"
                   title="删除场景"
@@ -290,6 +282,32 @@ function SceneManagement() {
           }}
         />
       )}
+
+      {/* 删除确认模态框 */}
+      <DeleteConfirmModal
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false)
+          setSceneToDelete(null)
+        }}
+        onConfirm={async () => {
+          if (sceneToDelete) {
+            try {
+              const numericId = parseInt(sceneToDelete.id, 10)
+              if (!isNaN(numericId)) {
+                await deleteScene(numericId)
+                // 移除成功提示框，直接重新加载列表
+                loadScenes()
+              }
+            } catch (error) {
+              alertError(error instanceof Error ? error.message : '删除失败', '错误')
+            }
+          }
+          setShowDeleteModal(false)
+          setSceneToDelete(null)
+        }}
+        message={sceneToDelete ? `确定要删除场景 "${sceneToDelete.name}" 吗？` : ''}
+      />
     </div>
   )
 }

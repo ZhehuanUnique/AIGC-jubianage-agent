@@ -236,6 +236,8 @@ function ScriptInput() {
       console.log('✅ 任务已创建（分析前）:', task)
       // 保存任务ID到sessionStorage，供后续步骤使用
       sessionStorage.setItem('current_task_id', task.id.toString())
+      // 触发任务创建事件，通知任务列表页面刷新
+      window.dispatchEvent(new CustomEvent('task-created'))
     } catch (error) {
       console.error('创建任务失败:', error)
       // 继续执行，不阻塞流程

@@ -517,8 +517,8 @@ function FirstLastFrameVideo() {
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold text-gray-800">今天</h2>
             
-            {/* 筛选下拉菜单 - 黄色边框 */}
-            <div className="flex items-center gap-2 border-2 border-yellow-400 rounded-lg px-2 py-1">
+            {/* 筛选下拉菜单 */}
+            <div className="flex items-center gap-2">
               {/* 时间筛选 */}
               <div className="relative">
                 <button

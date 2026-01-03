@@ -882,17 +882,15 @@ function CreateSceneModal({ onClose, onSceneSelect, projectName }: CreateSceneMo
                             }
                           }
                           
-                          // 延迟一下再调用回调，让用户看到选中效果
-                          setTimeout(() => {
-                            if (onSceneSelect) {
-                              onSceneSelect({
-                                id: scene.id,
-                                name: scene.name,
-                                image: scene.imageUrl,
-                              })
-                              onClose()
-                            }
-                          }, 200)
+                          // 立即调用回调，不延迟
+                          if (onSceneSelect) {
+                            onSceneSelect({
+                              id: scene.id,
+                              name: scene.name,
+                              image: scene.imageUrl,
+                            })
+                            onClose()
+                          }
                         }}
                       >
                         <div className="aspect-square bg-gray-700 flex items-center justify-center overflow-hidden relative">

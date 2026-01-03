@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import SidebarNavigation from '../components/SidebarNavigation'
-import { Plus, Search, Box, ArrowLeft, RefreshCw, Trash2 } from 'lucide-react'
+import { Plus, Search, ArrowLeft, RefreshCw, Trash2 } from 'lucide-react'
 import CreateItemModal from '../components/CreateItemModal'
 import { getProject } from '../services/projectStorage'
 import { getProjectItems, deleteItem } from '../services/api'
@@ -21,6 +21,8 @@ function ItemManagement() {
   const [projectName, setProjectName] = useState<string>('')
   const [isLoading, setIsLoading] = useState(false)
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [itemToDelete, setItemToDelete] = useState<Item | null>(null)
 
   // 从 projectId 获取项目名称
   useEffect(() => {
@@ -196,24 +198,38 @@ function ItemManagement() {
         </div>
 
         <div className="flex-1 p-6">
-          {/* 物品网格 */}
-          <div className="grid grid-cols-6 gap-4">
-            {/* 新建物品卡片 */}
-            <div
+          <div className="flex gap-6">
+          {/* 左侧按钮区域 */}
+          <div className="flex flex-col gap-3">
+            <button
               onClick={() => setShowCreateModal(true)}
-              className="aspect-square bg-gray-50 border-2 border-dashed border-purple-500 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 transition-all"
+              className="px-6 py-4 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all flex items-center justify-center gap-2"
             >
-              <Box className="text-purple-500 mb-2" size={32} />
-              <span className="text-purple-400 font-medium text-sm">新建物品</span>
-            </div>
+              <Plus size={20} />
+              新建物品
+            </button>
+            <button 
+              onClick={() => setShowCreateModal(true)}
+              className="px-6 py-4 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-lg hover:from-pink-600 hover:to-purple-700 transition-all flex items-center justify-center gap-2"
+            >
+              <Plus size={20} />
+              公共物品
+            </button>
+          </div>
 
-            {/* 物品卡片 */}
+          {/* 右侧物品网格 */}
+          <div className="flex-1 grid grid-cols-4 gap-4">
             {items.map((item) => (
               <div
                 key={item.id}
-                className="aspect-square bg-gray-50 border border-gray-200 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-transform relative group"
+                className="bg-gray-50 border border-gray-200 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-transform relative group"
               >
-                <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                <div
+                  onClick={() => {
+                    // 可以添加点击查看详情的逻辑
+                  }}
+                  className="aspect-video bg-gray-700 flex items-center justify-center"
+                >
                   {item.image && item.image.startsWith('http') ? (
                     <img
                       src={item.image}
@@ -221,29 +237,18 @@ function ItemManagement() {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="w-20 h-20 rounded-lg bg-purple-600 flex items-center justify-center text-white text-xs">
+                    <div className="w-24 h-24 rounded-lg bg-purple-600 flex items-center justify-center text-white text-xs text-center p-2">
                       {item.name}
                     </div>
                   )}
                 </div>
-                <div className="p-2 text-center text-xs text-gray-700">{item.name}</div>
+                <div className="p-3 text-center text-sm">{item.name}</div>
                 {/* 删除按钮 - 悬停时显示 */}
                 <button
-                  onClick={async (e) => {
+                  onClick={(e) => {
                     e.stopPropagation()
-                    if (window.confirm(`确定要删除物品 "${item.name}" 吗？`)) {
-                      try {
-                        const numericId = parseInt(item.id, 10)
-                        if (!isNaN(numericId)) {
-                          await deleteItem(numericId)
-                          alertSuccess('物品已删除', '成功')
-                          // 重新加载列表
-                          loadItems()
-                        }
-                      } catch (error) {
-                        alertError(error instanceof Error ? error.message : '删除失败', '错误')
-                      }
-                    }
+                    setItemToDelete(item)
+                    setShowDeleteModal(true)
                   }}
                   className="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 z-10"
                   title="删除物品"
@@ -252,6 +257,7 @@ function ItemManagement() {
                 </button>
               </div>
             ))}
+          </div>
           </div>
 
           {/* 分页 */}
@@ -282,6 +288,32 @@ function ItemManagement() {
           }}
         />
       )}
+
+      {/* 删除确认模态框 */}
+      <DeleteConfirmModal
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false)
+          setItemToDelete(null)
+        }}
+        onConfirm={async () => {
+          if (itemToDelete) {
+            try {
+              const numericId = parseInt(itemToDelete.id, 10)
+              if (!isNaN(numericId)) {
+                await deleteItem(numericId)
+                // 移除成功提示框，直接重新加载列表
+                loadItems()
+              }
+            } catch (error) {
+              alertError(error instanceof Error ? error.message : '删除失败', '错误')
+            }
+          }
+          setShowDeleteModal(false)
+          setItemToDelete(null)
+        }}
+        message={itemToDelete ? `确定要删除物品 "${itemToDelete.name}" 吗？` : ''}
+      />
     </div>
   )
 }

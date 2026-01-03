@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Play, Film, Trash2, ChevronLeft, ChevronRight, ArrowLeft, Check } from 'lucide-react'
 import ModeSelectionModal from '../components/ModeSelectionModal'
@@ -19,6 +19,7 @@ function TaskList() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [backendStatus, setBackendStatus] = useState<'checking' | 'online' | 'offline'>('checking')
+  const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   // 检查后端服务状态
   useEffect(() => {
@@ -58,6 +59,34 @@ function TaskList() {
   useEffect(() => {
     if (backendStatus === 'online') {
       loadTasks()
+      
+      // 每10秒自动刷新一次（静默模式，不显示加载状态）
+      refreshIntervalRef.current = setInterval(() => {
+        loadTasks(true) // 静默刷新
+      }, 10000)
+      
+      // 页面可见时刷新（静默模式）
+      const handleVisibilityChange = () => {
+        if (!document.hidden) {
+          loadTasks(true) // 静默刷新
+        }
+      }
+      document.addEventListener('visibilitychange', handleVisibilityChange)
+      
+      // 监听任务创建事件
+      const handleTaskCreated = () => {
+        console.log('📢 收到任务创建事件，立即刷新任务列表')
+        loadTasks(true) // 静默刷新
+      }
+      window.addEventListener('task-created', handleTaskCreated)
+      
+      return () => {
+        if (refreshIntervalRef.current) {
+          clearInterval(refreshIntervalRef.current)
+        }
+        document.removeEventListener('visibilitychange', handleVisibilityChange)
+        window.removeEventListener('task-created', handleTaskCreated)
+      }
     } else if (backendStatus === 'offline') {
       setError('无法连接到后端服务器，请确保后端服务器已启动（端口3002）\n\n提示：请运行 "npm run dev" 启动后端服务器')
       setLoading(false)

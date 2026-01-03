@@ -2404,7 +2404,7 @@ app.delete('/api/music/:id', authenticateToken, async (req, res) => {
   }
 })
 
-// 上传视频到COS
+// 上传视频到COS并保存到数据库
 app.post('/api/upload-video', authenticateToken, uploadVideo.single('video'), async (req, res) => {
   try {
     if (!req.file) {
@@ -2414,7 +2414,22 @@ app.post('/api/upload-video', authenticateToken, uploadVideo.single('video'), as
       })
     }
 
+    const userId = req.user?.id
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: '未登录，请先登录',
+      })
+    }
+
     const { projectId, fragmentId } = req.body
+    
+    if (!projectId) {
+      return res.status(400).json({
+        success: false,
+        error: '项目ID不能为空'
+      })
+    }
     
     // 直接从内存获取文件Buffer
     const videoBuffer = req.file.buffer
@@ -2422,13 +2437,81 @@ app.post('/api/upload-video', authenticateToken, uploadVideo.single('video'), as
     // 生成COS路径
     const { generateCosKey } = await import('./services/cosService.js')
     const ext = req.file.originalname.split('.').pop() || 'mp4'
-    const cosKey = generateCosKey('videos', `video.${ext}`)
+    const fileName = req.file.originalname || `video_${Date.now()}.${ext}`
+    const cosKey = generateCosKey('videos', `${Date.now()}_${fileName}`)
     
     // 上传到COS
     const { uploadBuffer } = await import('./services/cosService.js')
     const result = await uploadBuffer(videoBuffer, cosKey, req.file.mimetype)
     
     console.log(`✅ 视频上传成功: ${result.url}`)
+    
+    // 保存到数据库
+    try {
+      const pool = await import('./db/connection.js')
+      const db = pool.default
+      
+      // 验证项目是否属于当前用户
+      const projectCheck = await db.query(
+        'SELECT id FROM projects WHERE id = $1 AND user_id = $2',
+        [projectId, userId]
+      )
+      
+      if (projectCheck.rows.length === 0) {
+        return res.status(403).json({
+          success: false,
+          error: '无权访问该项目',
+        })
+      }
+      
+      // 准备metadata
+      const metadata: any = {
+        source: 'upload',
+        uploaded_at: new Date().toISOString(),
+      }
+      
+      // 如果提供了fragmentId，将其作为shot_id保存
+      if (fragmentId) {
+        // fragmentId可能是shot的ID
+        const shotId = parseInt(fragmentId, 10)
+        if (!isNaN(shotId)) {
+          metadata.shot_id = shotId.toString()
+          
+          // 验证shot是否存在且属于该项目
+          const shotCheck = await db.query(
+            'SELECT id FROM shots WHERE id = $1 AND project_id = $2',
+            [shotId, projectId]
+          )
+          
+          if (shotCheck.rows.length === 0) {
+            console.warn(`⚠️ Shot ${shotId} 不存在或不属于项目 ${projectId}`)
+          }
+        } else {
+          metadata.fragment_id = fragmentId
+        }
+      }
+      
+      // 保存到files表
+      await db.query(
+        `INSERT INTO files (project_id, file_type, file_name, file_size, mime_type, cos_key, cos_url, metadata)
+         VALUES ($1, 'video', $2, $3, $4, $5, $6, $7)
+         ON CONFLICT DO NOTHING`,
+        [
+          projectId,
+          fileName,
+          req.file.size,
+          req.file.mimetype,
+          result.key,
+          result.url,
+          JSON.stringify(metadata)
+        ]
+      )
+      
+      console.log(`✅ 视频已保存到数据库: ${result.url}, projectId: ${projectId}, fragmentId: ${fragmentId || '无'}`)
+    } catch (dbError) {
+      console.error('保存视频到数据库失败:', dbError)
+      // 不阻止返回结果，只记录错误
+    }
     
     res.json({
       success: true,
@@ -2441,8 +2524,6 @@ app.post('/api/upload-video', authenticateToken, uploadVideo.single('video'), as
     })
   } catch (error) {
     console.error('视频上传失败:', error)
-    
-    // 使用内存存储，无需清理临时文件
     
     res.status(500).json({
       success: false,

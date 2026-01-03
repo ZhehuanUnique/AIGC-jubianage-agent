@@ -4,6 +4,25 @@
  * Seedream 4.0: https://302ai.apifox.cn/347859401e0
  */
 
+import dotenv from 'dotenv'
+import { fileURLToPath } from 'url'
+import { dirname, join } from 'path'
+import { existsSync } from 'fs'
+
+// 加载.env文件
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+const envPath = join(__dirname, '../../.env')
+if (existsSync(envPath)) {
+  dotenv.config({ path: envPath })
+} else {
+  // 尝试从 server/.env 加载
+  const serverEnvPath = join(__dirname, '../.env')
+  if (existsSync(serverEnvPath)) {
+    dotenv.config({ path: serverEnvPath })
+  }
+}
+
 /**
  * 获取指定模型的 API Key
  * @param {string} model - 模型名称 (seedream-4-5, seedream-4-0)
