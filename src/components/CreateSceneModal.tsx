@@ -142,6 +142,206 @@ function CreateSceneModal({ onClose, onSceneSelect, projectName }: CreateSceneMo
     }, 200)
   }
 
+  // 检查是否可以提交
+  const canSubmit = (): boolean => {
+    if (!sceneName.trim()) return false
+    
+    if (generationMode === 'model') {
+      // 模型生成模式：需要选择模型和分辨率
+      return selectedModel !== null && selectedResolution !== null
+    } else {
+      // 上传模式：需要上传图片
+      return uploadedImage !== null
+    }
+  }
+
+  // 提交任务
+  const handleSubmitTask = async () => {
+    if (!canSubmit()) {
+      alert('请填写完整信息', 'warning')
+      return
+    }
+
+    try {
+      if (generationMode === 'model') {
+        // 通过模型生成场景
+        if (!selectedModel || !selectedResolution || !sceneName.trim()) {
+          alert('请填写完整信息', 'warning')
+          return
+        }
+
+        // 构建提示词
+        let prompt = description.trim()
+        if (referenceImage) {
+          // 如果有参考图，添加到提示词中
+          prompt = `${prompt} [参考图: ${referenceImage}]`
+        }
+
+        // 调用图片生成API
+        const request: GenerateImageRequest = {
+          prompt: prompt || sceneName,
+          model: selectedModel,
+          resolution: selectedResolution,
+          projectName: currentProjectName || undefined,
+          assetName: sceneName.trim(),
+          assetCategory: 'scene',
+        }
+
+        const result = await generateImage(request)
+        
+        if (result.success && result.taskId) {
+          // 创建任务对象
+          const newTask: SceneTask = {
+            id: `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            name: sceneName.trim(),
+            taskId: result.taskId,
+            status: 'generating',
+            progress: 0,
+            imageUrl: null,
+          }
+
+          // 添加到生成中任务列表
+          setGeneratingTasks(prev => [...prev, newTask])
+
+          // 开始轮询任务状态
+          startPollingTaskStatus(newTask.id, result.taskId)
+
+          // 清空表单
+          setSceneName('')
+          setDescription('')
+          setReferenceImage(null)
+          setSelectedModel(null)
+          setSelectedResolution(null)
+
+          alert('任务已提交，正在生成中...', 'success')
+        } else {
+          alert(result.error || '提交任务失败', 'error')
+        }
+      } else {
+        // 上传图片模式
+        if (!uploadedImage || !sceneName.trim()) {
+          alert('请上传图片并填写场景名称', 'warning')
+          return
+        }
+
+        // 将 base64 转换为 Blob
+        const base64Data = uploadedImage.split(',')[1]
+        const byteCharacters = atob(base64Data)
+        const byteNumbers = new Array(byteCharacters.length)
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i)
+        }
+        const byteArray = new Uint8Array(byteNumbers)
+        const blob = new Blob([byteArray], { type: 'image/jpeg' })
+        const file = new File([blob], `${sceneName.trim()}.jpg`, { type: 'image/jpeg' })
+
+        // 上传到COS并保存到数据库
+        const uploadResult = await uploadAssetImage({
+          file,
+          projectName: currentProjectName || undefined,
+          assetName: sceneName.trim(),
+          assetCategory: 'scene',
+        })
+
+        if (uploadResult.success && uploadResult.data) {
+          // 创建已完成场景对象
+          const newScene: SceneTask = {
+            id: `scene_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            name: sceneName.trim(),
+            taskId: '',
+            status: 'completed',
+            progress: 100,
+            imageUrl: uploadResult.data.url,
+          }
+
+          // 添加到已完成场景列表
+          setCompletedScenes(prev => [newScene, ...prev])
+
+          // 清空表单
+          setSceneName('')
+          setUploadedImage(null)
+
+          alert('场景上传成功！', 'success')
+        } else {
+          alert(uploadResult.error || '上传失败', 'error')
+        }
+      }
+    } catch (error) {
+      console.error('提交任务失败:', error)
+      alert(error instanceof Error ? error.message : '提交任务失败，请稍后重试', 'error')
+    }
+  }
+
+  // 轮询任务状态
+  const startPollingTaskStatus = (taskId: string, imageTaskId: string) => {
+    const poll = async () => {
+      try {
+        const statusResult = await getImageTaskStatus(imageTaskId)
+        
+        if (statusResult.success && statusResult.data) {
+          const taskData = statusResult.data
+          
+          // 更新任务状态
+          setGeneratingTasks(prev => prev.map(task => {
+            if (task.id === taskId) {
+              const updatedTask: SceneTask = {
+                ...task,
+                status: taskData.status as 'generating' | 'completed' | 'failed',
+                progress: taskData.progress || 0,
+                imageUrl: taskData.imageUrl || null,
+              }
+
+              // 如果任务完成，移动到已完成列表
+              if (taskData.status === 'completed' && taskData.imageUrl) {
+                setTimeout(() => {
+                  setGeneratingTasks(prevTasks => prevTasks.filter(t => t.id !== taskId))
+                  setCompletedScenes(prev => [updatedTask, ...prev])
+                }, 500)
+                return updatedTask
+              }
+
+              return updatedTask
+            }
+            return task
+          }))
+
+          // 如果任务还在进行中，继续轮询
+          if (taskData.status === 'generating' || taskData.status === 'pending') {
+            const timer = setTimeout(poll, 3000) // 每3秒轮询一次
+            pollingTimersRef.current.set(taskId, timer)
+          } else {
+            // 任务完成或失败，停止轮询
+            pollingTimersRef.current.delete(taskId)
+          }
+        } else {
+          // 查询失败，停止轮询
+          pollingTimersRef.current.delete(taskId)
+          setGeneratingTasks(prev => prev.map(task => 
+            task.id === taskId ? { ...task, status: 'failed' } : task
+          ))
+        }
+      } catch (error) {
+        console.error('轮询任务状态失败:', error)
+        pollingTimersRef.current.delete(taskId)
+        setGeneratingTasks(prev => prev.map(task => 
+          task.id === taskId ? { ...task, status: 'failed' } : task
+        ))
+      }
+    }
+
+    // 立即开始第一次轮询
+    const timer = setTimeout(poll, 1000)
+    pollingTimersRef.current.set(taskId, timer)
+  }
+
+  // 清理轮询定时器
+  useEffect(() => {
+    return () => {
+      pollingTimersRef.current.forEach(timer => clearTimeout(timer))
+      pollingTimersRef.current.clear()
+    }
+  }, [])
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center" onClick={handleClose}>
       {/* 左侧窗口 - 创建场景 */}
