@@ -806,6 +806,57 @@ curl http://localhost:9091/healthz
 
 **注意**：清理 `rdb_data` 目录会删除 RocksMQ 的消息队列数据，但不会影响已存储的向量数据（存储在 MinIO 中）。
 
+### Milvus 故障修复
+
+**问题：** `milvus-standalone` 容器不断重启，无法正常启动
+
+**常见原因：**
+- RocksMQ 数据损坏（最常见）
+- 端口被占用
+- 资源不足（内存、CPU）
+- 依赖服务未就绪
+
+**修复步骤：**
+
+1. **停止所有容器**：
+   ```bash
+   cd milvus
+   docker-compose down
+   ```
+
+2. **清理损坏的 RocksMQ 数据**：
+   ```bash
+   # Windows (PowerShell)
+   Remove-Item -Recurse -Force volumes\milvus\rdb_data
+   
+   # Git Bash/Linux
+   rm -rf volumes/milvus/rdb_data
+   ```
+   
+   **注意**：清理 `rdb_data` 目录会删除 RocksMQ 的消息队列数据，但不会影响已存储的向量数据（存储在 MinIO 中）。
+
+3. **重新启动服务**：
+   ```bash
+   docker-compose up -d
+   ```
+
+4. **等待服务启动**（30-60秒）：
+   ```bash
+   sleep 60  # Linux/Mac
+   timeout /t 60  # Windows CMD
+   ```
+
+5. **检查状态**：
+   ```bash
+   docker-compose ps
+   curl http://localhost:9091/healthz
+   ```
+
+**常见错误：**
+- `Corruption: CURRENT file corrupted`：RocksMQ 数据损坏，按上述步骤清理 `rdb_data` 目录
+- `Error: bind: address already in use`：端口被占用，查找并停止占用进程
+- `Error: 14 UNAVAILABLE: No connection established`：依赖服务未就绪，确保 `etcd` 和 `minio` 都在运行且健康
+
 ### Milvus 管理
 
 ```bash
@@ -914,6 +965,52 @@ OLLAMA_MODEL=qwen3-vl:8b
 OLLAMA_TIMEOUT=60000
 ```
 
+### 服务器部署（生产环境）
+
+**推荐：直接部署（不使用 Docker）**
+
+原因：
+- Ollama 本身已经是一个完整的服务，可以直接暴露 API
+- 配置简单，只需启动 Ollama 服务
+- 性能更好，无容器开销
+
+**部署步骤：**
+
+1. **在服务器上安装 Ollama**：
+   ```bash
+   ssh ubuntu@119.45.121.152
+   curl -fsSL https://ollama.com/install.sh | sh
+   sudo systemctl enable ollama
+   sudo systemctl start ollama
+   ```
+
+2. **复制模型文件到服务器**（如果本地已有）：
+   ```bash
+   # Windows PowerShell
+   scp -r E:\ollama\models ubuntu@119.45.121.152:/root/.ollama/models
+   
+   # 或使用 rsync（推荐，支持断点续传）
+   rsync -avz --progress E:\ollama\models ubuntu@119.45.121.152:/root/.ollama/models
+   ```
+
+3. **配置防火墙**：
+   ```bash
+   sudo ufw allow 11434/tcp
+   sudo ufw reload
+   ```
+
+4. **更新后端配置**：
+   ```env
+   OLLAMA_BASE_URL=http://119.45.121.152:11434
+   OLLAMA_MODEL=qwen3-vl:8b
+   OLLAMA_TIMEOUT=60000
+   ```
+
+**资源要求：**
+- 模型文件：约 5-10GB（取决于模型大小）
+- 内存：建议 8GB+（模型运行时）
+- 磁盘：至少 15GB（模型文件 + 系统）
+
 ### 常见问题
 
 **Q: Docker 部署后如何验证？**
@@ -929,6 +1026,11 @@ OLLAMA_TIMEOUT=60000
 - 检查防火墙设置
 - 确认 IP 地址正确
 - 确保设备在同一局域网
+
+**Q: 服务器部署后无法访问？**
+- 检查 Ollama 服务状态：`sudo systemctl status ollama`
+- 检查端口是否开放：`sudo netstat -tlnp | grep 11434`
+- 查看日志：`sudo journalctl -u ollama -n 50`
 
 ## 🎵 音乐生成服务配置
 
@@ -1010,38 +1112,103 @@ COS_BUCKET=你的存储桶名称
 
 ## 🎤 IndexTTS2.5 音色创作（可选）
 
-### 本地部署
+IndexTTS2.5 是文本转语音（TTS）方向的 AI 语音合成模型。推荐使用 Docker 部署以确保生产环境长期稳定运行。
 
-**项目位置：** `F:\IndexTTS2.5`（根据实际情况修改）
+### Docker 部署（推荐）
 
 **前置条件：**
-- Python 3.8 或更高版本（建议 Python 3.10）
-- IndexTTS2.5 所需的 Python 依赖包
+- 本地已有 IndexTTS2.5 项目（约20G，在E盘）
+- 服务器可以SSH访问
+- 服务器已安装 Docker 和 Docker Compose
+- 服务器有足够空间（至少25G）
 
-**启动服务：**
-1. 检查项目结构：确认 `F:\IndexTTS2.5` 目录存在
-2. 安装依赖（如果需要）：`cd F:\IndexTTS2.5 && pip install -r requirements.txt`
-3. 启动服务：运行项目提供的启动脚本或直接运行 Python 服务
+**为什么使用 Docker？**
+- ✅ 环境隔离，不影响主机系统
+- ✅ 易于管理，一键启动/停止/重启
+- ✅ 资源限制，可以限制 CPU 和内存使用
+- ✅ 易于迁移，可以在任何支持 Docker 的服务器上运行
+- ✅ 长期稳定，容器自动重启，服务更稳定
+
+**部署步骤：**
+
+1. **准备模型文件**：将 IndexTTS2.5 的模型文件复制到服务器
+   ```bash
+   # 在服务器上创建目录
+   ssh ubuntu@119.45.121.152
+   mkdir -p /var/www/indextts-docker/{models,checkpoints,outputs}
+   ```
+   
+   ```powershell
+   # 从本地复制模型文件（Windows PowerShell）
+   scp -r E:\IndexTTS2.5\models ubuntu@119.45.121.152:/var/www/indextts-docker/models
+   scp -r E:\IndexTTS2.5\checkpoints ubuntu@119.45.121.152:/var/www/indextts-docker/checkpoints
+   ```
+
+2. **复制项目文件**：
+   ```bash
+   scp -r indextts-docker/* ubuntu@119.45.121.152:/var/www/indextts-docker/
+   ```
+
+3. **构建和启动**：
+   ```bash
+   ssh ubuntu@119.45.121.152
+   cd /var/www/indextts-docker
+   docker-compose build
+   docker-compose up -d
+   docker-compose logs -f
+   ```
 
 **配置环境变量：**
+
 在 `server/.env` 文件中添加：
 ```env
 # IndexTTS2.5 配置
-INDEXTTS_BASE_URL=http://localhost:8000
+INDEXTTS_BASE_URL=http://119.45.121.152:8000
 INDEXTTS_ENABLED=true
-INDEXTTS_PATH=F:\IndexTTS2.5
 INDEXTTS_TIMEOUT=60000
 ```
 
 **API 接口：**
 - 健康检查：`GET /api/health`
 - 获取音色列表：`GET /api/voices`
-- 生成语音：`POST /api/tts/generate`（参数：text, voice, speed, pitch）
+- 生成语音：`POST /api/tts/generate`（参数：text, voice_id, speed, pitch, format）
+
+**重要提示：**
+
+`indextts-docker/app.py` 中的模型加载和语音生成功能是**示例代码**，需要根据 IndexTTS2.5 的实际 API 实现：
+1. 修改 `load_model()` 函数实现实际的模型加载
+2. 修改 `generate_tts()` 函数实现实际的语音生成
+3. 更新 `requirements.txt` 添加 IndexTTS2.5 的实际依赖包
+
+**GPU 支持（可选）：**
+
+如果服务器有 NVIDIA GPU：
+1. 安装 NVIDIA Docker
+2. 修改 `docker-compose.yml` 启用 GPU
+3. 使用 GPU 版本的 PyTorch
+
+**资源要求：**
+- 最低配置：CPU 2核，内存 4GB，磁盘 25GB
+- 推荐配置：CPU 4核，内存 8GB，磁盘 30GB，NVIDIA GPU（可选）
+
+**管理命令：**
+```bash
+# 查看日志
+docker-compose logs -f
+
+# 重启服务
+docker-compose restart
+
+# 停止服务
+docker-compose down
+```
 
 **故障排除：**
-- 服务无法启动：检查 Python 环境、依赖包、端口占用
-- 模型文件缺失：检查 checkpoints 目录和配置文件
-- API 调用失败：检查服务是否运行、端口是否正确、环境变量配置
+- 容器无法启动：检查日志 `docker-compose logs`，常见原因：端口被占用、内存不足、模型文件缺失
+- 模型加载失败：检查模型文件路径、依赖包、根据实际 API 修改代码
+- API 调用超时：增加超时时间、检查服务器资源、考虑使用 GPU 加速
+
+详细文档请参考：`indextts-docker/README.md`
 
 ## 🎬 豆包 Seedance 图生视频（可选）
 
@@ -1489,43 +1656,59 @@ npm.cmd install
 
 ### 提交代码到 GitHub
 
-**Windows 用户：**
-```powershell
-.\提交代码到GitHub.ps1
+**使用 SSH 方式（推荐）：**
+```bash
+# 切换到 SSH 方式
+git remote set-url origin git@github.com:ZhehuanUnique/AIGC-jubianage-agent.git
+
+# 添加、提交并推送
+git add .
+git commit -m "chore: 更新代码"
+git push origin main
 ```
 
-**Linux/Mac 用户：**
+**或使用 HTTPS 方式：**
 ```bash
-bash 提交代码到GitHub.sh
+git add .
+git commit -m "chore: 更新代码"
+git push origin main
 ```
 
 ### 更新线上部署
 
-#### 方法一：通过 SSH 脚本更新（推荐，Windows）
+#### 方法一：通过 SSH 更新（推荐）
 
-**快速更新（默认）：**
-```powershell
-.\快速更新服务器.ps1
-```
-
-**完整更新（包含依赖检查）：**
-```powershell
-.\快速更新服务器.ps1 -UpdateType "full"
-```
-
-**指定服务器 IP：**
-```powershell
-.\快速更新服务器.ps1 -ServerIP "你的服务器IP"
-```
-
-**注意**：如果已配置 SSH 密钥，脚本会自动使用密钥连接，无需输入密码。
-
-#### 方法二：在服务器上直接执行
-
-**完整更新（推荐）：**
+**在服务器上执行：**
 ```bash
 cd /var/www/aigc-agent
-bash 更新线上部署.sh
+git pull origin main
+cd server
+pm2 restart aigc-agent
+cd ..
+rm -rf dist node_modules/.vite
+npm run build
+sudo chown -R ubuntu:ubuntu dist/
+sudo systemctl reload nginx
+```
+
+#### 方法二：从本地通过 SSH 执行
+
+```bash
+ssh ubuntu@119.45.121.152 "cd /var/www/aigc-agent && git pull origin main && cd server && pm2 restart aigc-agent && cd .. && rm -rf dist node_modules/.vite && npm run build && sudo chown -R ubuntu:ubuntu dist/ && sudo systemctl reload nginx"
+```
+
+### 检查服务器部署状态
+
+**通过 SSH 检查：**
+```bash
+# 检查 Git 状态
+ssh ubuntu@119.45.121.152 "cd /var/www/aigc-agent && git status && git log --oneline -3"
+
+# 检查 PM2 状态
+ssh ubuntu@119.45.121.152 "cd /var/www/aigc-agent/server && pm2 status aigc-agent"
+
+# 检查后端健康
+ssh ubuntu@119.45.121.152 "curl -s http://localhost:3002/api/health"
 ```
 
 **快速更新：**

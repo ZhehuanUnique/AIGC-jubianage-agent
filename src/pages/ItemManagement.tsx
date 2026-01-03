@@ -95,11 +95,21 @@ function ItemManagement() {
     }
     document.addEventListener('visibilitychange', handleVisibilityChange)
     
+    // 监听物品上传事件
+    const handleItemUploaded = () => {
+      console.log('📢 收到物品上传事件，延迟500ms后刷新')
+      setTimeout(() => {
+        loadItems()
+      }, 500)
+    }
+    window.addEventListener('item-uploaded', handleItemUploaded)
+    
     return () => {
       if (refreshIntervalRef.current) {
         clearInterval(refreshIntervalRef.current)
       }
       document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('item-uploaded', handleItemUploaded)
     }
   }, [projectId])
 
@@ -210,7 +220,24 @@ function ItemManagement() {
       </div>
 
       {/* 创建物品模态框 */}
-      {showCreateModal && <CreateItemModal onClose={() => setShowCreateModal(false)} />}
+      {showCreateModal && (
+        <CreateItemModal 
+          onClose={() => setShowCreateModal(false)}
+          projectName={(() => {
+            // 获取项目名称
+            if (!projectId) return undefined
+            const project = getProject(projectId)
+            return project?.name || project?.scriptTitle
+          })()}
+          onItemSelect={(item) => {
+            // 当用户选择物品后，刷新物品列表
+            console.log('✅ 用户选择了物品，刷新列表:', item)
+            setTimeout(() => {
+              loadItems()
+            }, 500) // 延迟500ms确保数据库已保存
+          }}
+        />
+      )}
     </div>
   )
 }

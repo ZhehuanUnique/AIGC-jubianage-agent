@@ -21,10 +21,87 @@ function CreateFragmentModal({ onClose, onFragmentCreated }: CreateFragmentModal
       return
     }
 
+    if (!projectId) {
+      alertError('项目ID不存在', '验证失败')
+      return
+    }
+
     try {
       setLoading(true)
 
-      // 创建片段对象
+      // 检查 projectId 是否是数字（数据库ID）
+      const numericProjectId = parseInt(projectId, 10)
+      if (!isNaN(numericProjectId)) {
+        // 如果是数字，调用后端API创建片段（创建分镜）
+        try {
+          const { AuthService } = await import('../services/auth')
+          const token = AuthService.getToken()
+          if (!token) {
+            throw new Error('未登录，请先登录')
+          }
+
+          const API_BASE_URL = (() => {
+            if (import.meta.env.VITE_API_BASE_URL !== undefined) {
+              return import.meta.env.VITE_API_BASE_URL
+            }
+            const isProduction = typeof window !== 'undefined' && 
+              !window.location.hostname.includes('localhost') && 
+              !window.location.hostname.includes('127.0.0.1')
+            return isProduction ? '' : 'http://localhost:3002'
+          })()
+
+          // 创建分镜（片段对应分镜）
+          const response = await fetch(`${API_BASE_URL}/api/projects/${numericProjectId}/shots`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              shotNumber: 1, // 默认分镜号，后端会自动分配
+              description: description.trim() || fragmentName.trim(),
+              prompt: description.trim() || fragmentName.trim(),
+              segment: description.trim() || fragmentName.trim(),
+            }),
+          })
+
+          if (!response.ok) {
+            const error = await response.json()
+            throw new Error(error.error || '创建片段失败')
+          }
+
+          const result = await response.json()
+          if (result.success && result.data) {
+            const newFragment = {
+              id: result.data.id.toString(),
+              name: fragmentName.trim(),
+              description: description.trim() || undefined,
+              projectId: projectId,
+              createdAt: result.data.created_at || new Date().toISOString(),
+            }
+
+            // 调用回调函数通知父组件
+            if (onFragmentCreated) {
+              onFragmentCreated({
+                id: newFragment.id,
+                name: newFragment.name,
+                description: newFragment.description,
+              })
+            }
+
+            alertSuccess('片段创建成功！', '成功')
+            onClose()
+            return
+          } else {
+            throw new Error(result.error || '创建片段失败')
+          }
+        } catch (apiError) {
+          console.error('调用后端API创建片段失败:', apiError)
+          // API失败时，仍然保存到localStorage作为备用
+        }
+      }
+
+      // 如果不是数字或API失败，保存到localStorage（兼容模式）
       const newFragment = {
         id: `fragment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         name: fragmentName.trim(),
@@ -33,7 +110,6 @@ function CreateFragmentModal({ onClose, onFragmentCreated }: CreateFragmentModal
         createdAt: new Date().toISOString(),
       }
 
-      // 保存到localStorage
       const storageKey = projectId ? `fragments_${projectId}` : 'fragments'
       const existingFragments = JSON.parse(localStorage.getItem(storageKey) || '[]')
       existingFragments.push(newFragment)
@@ -52,7 +128,7 @@ function CreateFragmentModal({ onClose, onFragmentCreated }: CreateFragmentModal
       onClose()
     } catch (error) {
       console.error('创建片段失败:', error)
-      alertError('创建片段失败，请稍后重试', '错误')
+      alertError(error instanceof Error ? error.message : '创建片段失败，请稍后重试', '错误')
     } finally {
       setLoading(false)
     }

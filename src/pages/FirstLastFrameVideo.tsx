@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import SidebarNavigation from '../components/SidebarNavigation'
 import { ArrowLeft, Upload, Loader2, X } from 'lucide-react'
 import { alertSuccess, alertError } from '../utils/alert'
-import { generateFirstLastFrameVideo, getFirstLastFrameVideoStatus } from '../services/api'
+import { generateFirstLastFrameVideo, getFirstLastFrameVideoStatus, getFirstLastFrameVideos } from '../services/api'
 
 interface VideoTask {
   id: string
@@ -39,11 +39,17 @@ function FirstLastFrameVideo() {
   const [isLoading, setIsLoading] = useState(false)
   const [hoveredFrame, setHoveredFrame] = useState<'first' | 'last' | null>(null)
   const [isInputFocused, setIsInputFocused] = useState(false)
-  const [isBottomBarCollapsed, setIsBottomBarCollapsed] = useState(false)
-  // 使用 ref 同步状态，避免不必要的更新
-  const isCollapsedRef = useRef(false)
+  const [isBottomBarCollapsed, setIsBottomBarCollapsed] = useState(true) // 默认收缩，参考Vue项目
   const [isBottomBarHovered, setIsBottomBarHovered] = useState(false)
   const [isBottomEdgeHovered, setIsBottomEdgeHovered] = useState(false)
+  
+  // 筛选状态
+  const [timeFilter, setTimeFilter] = useState<'all' | 'week' | 'month' | 'quarter' | 'custom'>('all')
+  const [videoFilter, setVideoFilter] = useState<'all' | 'personal' | 'group'>('all')
+  const [operationFilter, setOperationFilter] = useState<'all' | 'ultra_hd' | 'favorite' | 'liked'>('all')
+  const [showTimeDropdown, setShowTimeDropdown] = useState(false)
+  const [showVideoDropdown, setShowVideoDropdown] = useState(false)
+  const [showOperationDropdown, setShowOperationDropdown] = useState(false)
   
   const firstFrameInputRef = useRef<HTMLInputElement>(null)
   const lastFrameInputRef = useRef<HTMLInputElement>(null)
@@ -58,8 +64,25 @@ function FirstLastFrameVideo() {
     
     setIsLoading(true)
     try {
-      // TODO: 从后端加载历史任务
-      // 这里暂时使用本地 tasks 状态
+      const numericProjectId = parseInt(projectId, 10)
+      if (!isNaN(numericProjectId)) {
+        const videos = await getFirstLastFrameVideos(numericProjectId)
+        // 转换为VideoTask格式
+        const videoTasks: VideoTask[] = videos.map(v => ({
+          id: v.taskId,
+          status: v.status,
+          videoUrl: v.videoUrl,
+          firstFrameUrl: v.firstFrameUrl || '',
+          lastFrameUrl: v.lastFrameUrl,
+          model: v.model,
+          resolution: v.resolution,
+          ratio: v.ratio,
+          duration: v.duration,
+          text: v.text,
+          createdAt: v.createdAt,
+        }))
+        setTasks(videoTasks)
+      }
       setIsLoading(false)
     } catch (error) {
       console.error('加载历史失败:', error)
@@ -70,19 +93,15 @@ function FirstLastFrameVideo() {
   useEffect(() => {
     loadHistory()
     
-    // 滚动处理 - 使用 ref 来访问最新状态，避免依赖项变化导致重新绑定
+    // 滚动处理 - 参考Vue项目，简化逻辑
     const handleScroll = () => {
       if (scrollTimeoutRef.current) {
         clearTimeout(scrollTimeoutRef.current)
       }
       
       scrollTimeoutRef.current = setTimeout(() => {
-        // 使用 ref 来检查状态，避免闭包问题
-        const inputFocused = document.activeElement?.tagName === 'TEXTAREA' || 
-                             document.activeElement?.tagName === 'INPUT'
-        
-        // 如果输入框聚焦或底部栏被悬停，不处理滚动
-        if (inputFocused || isBottomBarHovered || isBottomEdgeHovered) {
+        // 如果输入框聚焦或底部栏被悬停，不自动收缩
+        if (isInputFocused || isBottomBarHovered || isBottomEdgeHovered) {
           return
         }
         
@@ -91,28 +110,43 @@ function FirstLastFrameVideo() {
         const documentHeight = document.documentElement.scrollHeight
         const distanceFromBottom = documentHeight - (scrollY + windowHeight)
         
-        // 增加阈值到200px，并添加滞后区间，避免频繁切换
-        const shouldCollapse = distanceFromBottom > 200
-        
-        // 使用 ref 检查是否需要更新，避免不必要的状态更新
-        // 添加滞后区间：如果当前是展开状态，需要距离底部>200px才收缩
-        // 如果当前是收缩状态，需要距离底部<100px才展开
-        const currentCollapsed = isCollapsedRef.current
-        const needsUpdate = currentCollapsed 
-          ? distanceFromBottom < 100  // 收缩状态：距离底部<100px时展开
-          : distanceFromBottom > 200   // 展开状态：距离底部>200px时收缩
-        
-        if (needsUpdate && isCollapsedRef.current !== !currentCollapsed) {
-          isCollapsedRef.current = !currentCollapsed
-          setIsBottomBarCollapsed(!currentCollapsed)
+        // 如果不在底部附近（距离底部超过100px），则收缩 - 参考Vue项目
+        if (distanceFromBottom > 100) {
+          setIsBottomBarCollapsed(true)
         }
-      }, 500) // 增加防抖时间到500ms，进一步减少跳动
+      }, 100) // 防抖时间100ms，参考Vue项目
     }
     
     window.addEventListener('scroll', handleScroll, { passive: true })
     
+    // 初始状态：默认收缩
+    setTimeout(() => {
+      const scrollY = window.scrollY
+      const windowHeight = window.innerHeight
+      const documentHeight = document.documentElement.scrollHeight
+      const distanceFromBottom = documentHeight - (scrollY + windowHeight)
+      
+      // 如果不在底部附近（超过100px），默认收缩
+      if (distanceFromBottom > 100) {
+        setIsBottomBarCollapsed(true)
+      }
+    }, 200)
+    
+    // 点击外部关闭下拉菜单
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      if (!target.closest('.relative')) {
+        setShowTimeDropdown(false)
+        setShowVideoDropdown(false)
+        setShowOperationDropdown(false)
+      }
+    }
+    
+    document.addEventListener('click', handleClickOutside)
+    
     return () => {
       window.removeEventListener('scroll', handleScroll)
+      document.removeEventListener('click', handleClickOutside)
       if (scrollTimeoutRef.current) {
         clearTimeout(scrollTimeoutRef.current)
       }
@@ -120,7 +154,7 @@ function FirstLastFrameVideo() {
         clearInterval(pollIntervalRef.current)
       }
     }
-  }, []) // 移除依赖项，避免频繁重新绑定事件监听器
+  }, [isInputFocused, isBottomBarHovered, isBottomEdgeHovered]) // 添加依赖项，确保使用最新状态
 
   // 已移除3.0pro选项，只支持3.5pro
 
@@ -297,7 +331,7 @@ function FirstLastFrameVideo() {
     }, 5000) // 每5秒轮询一次
   }
 
-  // 底部边缘悬停处理
+  // 底部边缘悬停处理 - 参考Vue项目
   const handleBottomEdgeHover = (isHovering: boolean) => {
     if (bottomEdgeHoverTimeoutRef.current) {
       clearTimeout(bottomEdgeHoverTimeoutRef.current)
@@ -306,32 +340,20 @@ function FirstLastFrameVideo() {
     setIsBottomEdgeHovered(isHovering)
     
     if (isHovering) {
-      if (isCollapsedRef.current) {
-        isCollapsedRef.current = false
-        setIsBottomBarCollapsed(false)
-      }
+      // 鼠标靠近底部边缘时，立即展开悬浮窗口
+      setIsBottomBarCollapsed(false)
     } else {
-      // 延迟检查，避免与滚动事件冲突
+      // 延迟检查是否需要收缩
       bottomEdgeHoverTimeoutRef.current = setTimeout(() => {
-        const inputFocused = document.activeElement?.tagName === 'TEXTAREA' || 
-                             document.activeElement?.tagName === 'INPUT'
-        if (!inputFocused && !isBottomBarHovered) {
-          const scrollY = window.scrollY
-          const windowHeight = window.innerHeight
-          const documentHeight = document.documentElement.scrollHeight
-          const distanceFromBottom = documentHeight - (scrollY + windowHeight)
-          const shouldCollapse = distanceFromBottom > 200
-          
-          if (isCollapsedRef.current !== shouldCollapse) {
-            isCollapsedRef.current = shouldCollapse
-            setIsBottomBarCollapsed(shouldCollapse)
-          }
+        // 如果输入框没有焦点且鼠标不在悬浮窗口上，则收缩
+        if (!isInputFocused && !isBottomBarHovered) {
+          setIsBottomBarCollapsed(true)
         }
-      }, 600) // 增加延迟时间
+      }, 300) // 延迟300ms，参考Vue项目
     }
   }
 
-  // 底部悬浮栏悬停处理
+  // 底部悬浮栏悬停处理 - 参考Vue项目
   const handleBottomBarHover = (isHovering: boolean) => {
     if (bottomBarHoverTimeoutRef.current) {
       clearTimeout(bottomBarHoverTimeoutRef.current)
@@ -340,43 +362,28 @@ function FirstLastFrameVideo() {
     setIsBottomBarHovered(isHovering)
     
     if (isHovering) {
-      if (isCollapsedRef.current) {
-        isCollapsedRef.current = false
-        setIsBottomBarCollapsed(false)
-      }
+      // 鼠标悬停在悬浮窗口上时，保持展开
+      setIsBottomBarCollapsed(false)
     } else {
-      // 延迟检查，避免与滚动事件冲突
+      // 延迟检查是否需要收缩
       bottomBarHoverTimeoutRef.current = setTimeout(() => {
-        const inputFocused = document.activeElement?.tagName === 'TEXTAREA' || 
-                             document.activeElement?.tagName === 'INPUT'
-        if (!inputFocused && !isBottomEdgeHovered) {
-          const scrollY = window.scrollY
-          const windowHeight = window.innerHeight
-          const documentHeight = document.documentElement.scrollHeight
-          const distanceFromBottom = documentHeight - (scrollY + windowHeight)
-          const shouldCollapse = distanceFromBottom > 200
-          
-          if (isCollapsedRef.current !== shouldCollapse) {
-            isCollapsedRef.current = shouldCollapse
-            setIsBottomBarCollapsed(shouldCollapse)
-          }
+        // 如果输入框没有焦点且鼠标不在底部边缘，则收缩
+        if (!isInputFocused && !isBottomEdgeHovered) {
+          setIsBottomBarCollapsed(true)
         }
-      }, 600) // 增加延迟时间
+      }, 300) // 延迟300ms，参考Vue项目
     }
   }
 
-  // 输入框焦点处理
+  // 输入框焦点处理 - 参考Vue项目
   const handleInputFocus = () => {
     setIsInputFocused(true)
-    if (isCollapsedRef.current) {
-      isCollapsedRef.current = false
-      setIsBottomBarCollapsed(false)
-    }
+    setIsBottomBarCollapsed(false)
   }
 
   const handleInputBlur = () => {
     setIsInputFocused(false)
-    // 增加延迟，确保焦点完全失去后再检查
+    // 失去焦点后，如果不在底部附近且鼠标不在悬浮区域，则收缩
     setTimeout(() => {
       if (!isBottomBarHovered && !isBottomEdgeHovered) {
         const scrollY = window.scrollY
@@ -384,19 +391,11 @@ function FirstLastFrameVideo() {
         const documentHeight = document.documentElement.scrollHeight
         const distanceFromBottom = documentHeight - (scrollY + windowHeight)
         
-        // 使用与滚动处理相同的阈值和滞后逻辑
-        const currentCollapsed = isCollapsedRef.current
-        const shouldCollapse = distanceFromBottom > 200
-        const needsUpdate = currentCollapsed 
-          ? distanceFromBottom < 100
-          : shouldCollapse
-        
-        if (needsUpdate && isCollapsedRef.current !== shouldCollapse) {
-          isCollapsedRef.current = shouldCollapse
-          setIsBottomBarCollapsed(shouldCollapse)
+        if (distanceFromBottom > 100) {
+          setIsBottomBarCollapsed(true)
         }
       }
-    }, 500) // 增加延迟时间
+    }, 200) // 延迟200ms，参考Vue项目
   }
 
   // 获取状态文本
@@ -443,8 +442,221 @@ function FirstLastFrameVideo() {
       {/* 历史视频区域（全屏滚动） */}
       <div className="pb-[600px] pt-8 ml-64">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* 日期标题 */}
-          <h2 className="text-2xl font-bold text-gray-800 mb-6">今天</h2>
+          {/* 顶部：标题和筛选 */}
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-gray-800">今天</h2>
+            
+            {/* 筛选下拉菜单 */}
+            <div className="flex items-center gap-2">
+              {/* 时间筛选 */}
+              <div className="relative">
+                <button
+                  onClick={() => {
+                    setShowTimeDropdown(!showTimeDropdown)
+                    setShowVideoDropdown(false)
+                    setShowOperationDropdown(false)
+                  }}
+                  className="px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 rounded-lg flex items-center gap-1"
+                >
+                  时间
+                  <svg className={`w-4 h-4 transition-transform ${showTimeDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {showTimeDropdown && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 p-2 z-50">
+                    <div className="text-xs font-semibold text-gray-700 mb-2 px-2">选择时间范围</div>
+                    <div className="space-y-1">
+                      <button
+                        onClick={() => {
+                          setTimeFilter('all')
+                          setShowTimeDropdown(false)
+                        }}
+                        className={`w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 flex items-center justify-between ${
+                          timeFilter === 'all' ? 'bg-blue-50 text-blue-600' : ''
+                        }`}
+                      >
+                        全部
+                        {timeFilter === 'all' && (
+                          <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setTimeFilter('week')
+                          setShowTimeDropdown(false)
+                        }}
+                        className={`w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 ${
+                          timeFilter === 'week' ? 'bg-blue-50 text-blue-600' : ''
+                        }`}
+                      >
+                        最近一周
+                      </button>
+                      <button
+                        onClick={() => {
+                          setTimeFilter('month')
+                          setShowTimeDropdown(false)
+                        }}
+                        className={`w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 ${
+                          timeFilter === 'month' ? 'bg-blue-50 text-blue-600' : ''
+                        }`}
+                      >
+                        最近一个月
+                      </button>
+                      <button
+                        onClick={() => {
+                          setTimeFilter('quarter')
+                          setShowTimeDropdown(false)
+                        }}
+                        className={`w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 ${
+                          timeFilter === 'quarter' ? 'bg-blue-50 text-blue-600' : ''
+                        }`}
+                      >
+                        最近三个月
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              {/* 视频筛选 */}
+              <div className="relative">
+                <button
+                  onClick={() => {
+                    setShowVideoDropdown(!showVideoDropdown)
+                    setShowTimeDropdown(false)
+                    setShowOperationDropdown(false)
+                  }}
+                  className="px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 rounded-lg flex items-center gap-1"
+                >
+                  视频
+                  <svg className={`w-4 h-4 transition-transform ${showVideoDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {showVideoDropdown && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 p-2 z-50">
+                    <div className="text-xs font-semibold text-gray-700 mb-2 px-2">选择视频类型</div>
+                    <div className="space-y-1">
+                      <button
+                        onClick={() => {
+                          setVideoFilter('all')
+                          setShowVideoDropdown(false)
+                        }}
+                        className={`w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 flex items-center justify-between ${
+                          videoFilter === 'all' ? 'bg-blue-50 text-blue-600' : ''
+                        }`}
+                      >
+                        全部
+                        {videoFilter === 'all' && (
+                          <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setVideoFilter('personal')
+                          setShowVideoDropdown(false)
+                        }}
+                        className={`w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 ${
+                          videoFilter === 'personal' ? 'bg-blue-50 text-blue-600' : ''
+                        }`}
+                      >
+                        个人
+                      </button>
+                      <button
+                        onClick={() => {
+                          setVideoFilter('group')
+                          setShowVideoDropdown(false)
+                        }}
+                        className={`w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 ${
+                          videoFilter === 'group' ? 'bg-blue-50 text-blue-600' : ''
+                        }`}
+                      >
+                        小组
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              {/* 操作类型筛选 */}
+              <div className="relative">
+                <button
+                  onClick={() => {
+                    setShowOperationDropdown(!showOperationDropdown)
+                    setShowTimeDropdown(false)
+                    setShowVideoDropdown(false)
+                  }}
+                  className="px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 rounded-lg flex items-center gap-1"
+                >
+                  操作类型
+                  <svg className={`w-4 h-4 transition-transform ${showOperationDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {showOperationDropdown && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 p-2 z-50">
+                    <div className="text-xs font-semibold text-gray-700 mb-2 px-2">选择操作类型</div>
+                    <div className="space-y-1">
+                      <button
+                        onClick={() => {
+                          setOperationFilter('all')
+                          setShowOperationDropdown(false)
+                        }}
+                        className={`w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 flex items-center justify-between ${
+                          operationFilter === 'all' ? 'bg-blue-50 text-blue-600' : ''
+                        }`}
+                      >
+                        全部
+                        {operationFilter === 'all' && (
+                          <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setOperationFilter('ultra_hd')
+                          setShowOperationDropdown(false)
+                        }}
+                        className={`w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 ${
+                          operationFilter === 'ultra_hd' ? 'bg-blue-50 text-blue-600' : ''
+                        }`}
+                      >
+                        已超清
+                      </button>
+                      <button
+                        onClick={() => {
+                          setOperationFilter('favorite')
+                          setShowOperationDropdown(false)
+                        }}
+                        className={`w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 ${
+                          operationFilter === 'favorite' ? 'bg-blue-50 text-blue-600' : ''
+                        }`}
+                      >
+                        已收藏
+                      </button>
+                      <button
+                        onClick={() => {
+                          setOperationFilter('liked')
+                          setShowOperationDropdown(false)
+                        }}
+                        className={`w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 ${
+                          operationFilter === 'liked' ? 'bg-blue-50 text-blue-600' : ''
+                        }`}
+                      >
+                        已点赞
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
 
           {/* 历史视频网格 */}
           {isLoading && tasks.length === 0 ? (
@@ -529,10 +741,7 @@ function FirstLastFrameVideo() {
         onMouseEnter={() => handleBottomEdgeHover(true)}
         onMouseLeave={() => handleBottomEdgeHover(false)}
         onClick={() => {
-          if (isCollapsedRef.current) {
-            isCollapsedRef.current = false
-            setIsBottomBarCollapsed(false)
-          }
+          setIsBottomBarCollapsed(false)
         }}
       >
         {/* 收缩时显示提示条 */}

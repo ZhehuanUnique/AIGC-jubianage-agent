@@ -698,6 +698,9 @@ function CreateItemModal({ onClose, onItemSelect, projectName }: CreateItemModal
 
       console.log(`✅ 物品 "${task.name}" 已保存到项目 "${currentProjectName}"`, result)
       
+      // 触发自定义事件，通知页面刷新
+      window.dispatchEvent(new CustomEvent('item-uploaded', { detail: { itemName: task.name } }))
+      
       // 保存成功后，立即刷新列表
       setTimeout(() => {
         loadCompletedItems()
@@ -1037,7 +1040,7 @@ function CreateItemModal({ onClose, onItemSelect, projectName }: CreateItemModal
                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 }`}
               >
-                {generationMode === 'model' ? '提交任务 (消耗10积分)' : '提交任务'}
+                {generationMode === 'model' ? '提交任务 (消耗10积分)' : '确定'}
               </button>
             </div>
           </div>
@@ -1136,7 +1139,19 @@ function CreateItemModal({ onClose, onItemSelect, projectName }: CreateItemModal
                       <div
                         key={item.id}
                         className="bg-white border border-gray-300 rounded-lg overflow-hidden cursor-pointer hover:border-purple-500 transition-colors"
-                        onClick={() => {
+                        onClick={async () => {
+                          // 确保物品已保存到数据库
+                          if (currentProjectName && item.imageUrl && !item.taskId.startsWith('upload_')) {
+                            // 如果还没有保存（通过taskId判断），先保存
+                            try {
+                              await saveItemToDatabase(item)
+                            } catch (error) {
+                              console.error('保存物品失败:', error)
+                              alert('保存物品失败，请稍后重试', 'error')
+                              return
+                            }
+                          }
+                          
                           if (onItemSelect) {
                             onItemSelect({
                               id: item.id,

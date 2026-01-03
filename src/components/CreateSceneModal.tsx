@@ -291,13 +291,27 @@ function CreateSceneModal({ onClose, onSceneSelect, projectName }: CreateSceneMo
                 imageUrl: taskData.imageUrl || null,
               }
 
-              // 如果任务完成，移动到已完成列表
+              // 如果任务完成，移动到已完成列表并保存到数据库
               if (taskData.status === 'completed' && taskData.imageUrl) {
+                const completedTask = {
+                  ...updatedTask,
+                  status: 'completed' as const,
+                  progress: 100,
+                  imageUrl: taskData.imageUrl,
+                }
+                
+                // 自动保存到数据库和项目文件夹
+                if (currentProjectName && taskData.imageUrl) {
+                  saveSceneToDatabase(completedTask).catch((error) => {
+                    console.error('保存场景到数据库失败:', error)
+                  })
+                }
+                
                 setTimeout(() => {
                   setGeneratingTasks(prevTasks => prevTasks.filter(t => t.id !== taskId))
-                  setCompletedScenes(prev => [updatedTask, ...prev])
+                  setCompletedScenes(prev => [completedTask, ...prev])
                 }, 500)
-                return updatedTask
+                return completedTask
               }
 
               return updatedTask
@@ -332,6 +346,46 @@ function CreateSceneModal({ onClose, onSceneSelect, projectName }: CreateSceneMo
     // 立即开始第一次轮询
     const timer = setTimeout(poll, 1000)
     pollingTimersRef.current.set(taskId, timer)
+  }
+
+  // 保存场景到数据库和项目文件夹
+  const saveSceneToDatabase = async (task: SceneTask) => {
+    if (!currentProjectName || !task.imageUrl) {
+      console.warn('⚠️ 无法保存场景：缺少项目名称或图片URL')
+      return
+    }
+
+    try {
+      // 如果图片是URL，需要先转换为base64
+      let imageData = task.imageUrl
+      if (task.imageUrl.startsWith('http://') || task.imageUrl.startsWith('https://')) {
+        // 下载图片并转换为base64
+        const response = await fetch(task.imageUrl)
+        const blob = await response.blob()
+        const reader = new FileReader()
+        imageData = await new Promise<string>((resolve, reject) => {
+          reader.onloadend = () => resolve(reader.result as string)
+          reader.onerror = reject
+          reader.readAsDataURL(blob)
+        })
+      }
+
+      // 上传到COS并保存到数据库
+      await uploadAssetImage({
+        base64Image: imageData,
+        assetType: 'scenes',
+        assetName: task.name,
+        projectName: currentProjectName,
+      })
+
+      console.log(`✅ 场景 "${task.name}" 已保存到项目 "${currentProjectName}"`)
+      
+      // 触发自定义事件，通知页面刷新
+      window.dispatchEvent(new CustomEvent('scene-uploaded', { detail: { sceneName: task.name } }))
+    } catch (error) {
+      console.error('保存场景失败:', error)
+      throw error
+    }
   }
 
   // 清理轮询定时器
@@ -655,7 +709,7 @@ function CreateSceneModal({ onClose, onSceneSelect, projectName }: CreateSceneMo
                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 }`}
               >
-                {generationMode === 'model' ? '提交任务 (消耗10积分)' : '提交任务'}
+                {generationMode === 'model' ? '提交任务 (消耗10积分)' : '确定'}
               </button>
             </div>
           </div>
@@ -754,7 +808,19 @@ function CreateSceneModal({ onClose, onSceneSelect, projectName }: CreateSceneMo
                       <div
                         key={scene.id}
                         className="bg-white border border-gray-300 rounded-lg overflow-hidden cursor-pointer hover:border-purple-500 transition-colors"
-                        onClick={() => {
+                        onClick={async () => {
+                          // 确保场景已保存到数据库（如果taskId不是以'scene_'开头且不为空，说明是生成的，需要保存）
+                          if (currentProjectName && scene.imageUrl && !scene.taskId.startsWith('scene_') && scene.taskId !== '') {
+                            // 如果还没有保存（通过taskId判断），先保存
+                            try {
+                              await saveSceneToDatabase(scene)
+                            } catch (error) {
+                              console.error('保存场景失败:', error)
+                              alert('保存场景失败，请稍后重试', 'error')
+                              return
+                            }
+                          }
+                          
                           if (onSceneSelect) {
                             onSceneSelect({
                               id: scene.id,

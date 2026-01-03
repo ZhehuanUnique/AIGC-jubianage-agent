@@ -782,7 +782,19 @@ app.get('/api/first-last-frame-video/status/:taskId', authenticateToken, async (
 
             console.log(`✅ 视频已保存到项目文件夹: ${uploadResult.url}`)
 
-            // 保存到 files 表
+            // 保存到 files 表，包含更多元数据
+            const metadata = {
+              task_id: taskId,
+              source: 'first_last_frame_video',
+              model: req.body.model || 'doubao-seedance-1-5-pro-251215',
+              resolution: req.body.resolution || '720p',
+              ratio: req.body.ratio || '16:9',
+              duration: parseInt(req.body.duration) || 5,
+              text: req.body.text || '',
+              prompt: req.body.text || '',
+              first_frame_url: firstFrameUrl || null,
+              last_frame_url: lastFrameUrl || null,
+            }
             await db.query(
               `INSERT INTO files (project_id, file_type, file_name, cos_key, cos_url, metadata)
                VALUES ($1, 'video', $2, $3, $4, $5)
@@ -792,7 +804,7 @@ app.get('/api/first-last-frame-video/status/:taskId', authenticateToken, async (
                 `first_last_frame_${timestamp}.mp4`,
                 cosKey,
                 uploadResult.url,
-                JSON.stringify({ task_id: taskId, source: 'first_last_frame_video' })
+                JSON.stringify(metadata)
               ]
             )
 
@@ -815,6 +827,79 @@ app.get('/api/first-last-frame-video/status/:taskId', authenticateToken, async (
     res.status(500).json({
       success: false,
       error: error.message || '查询任务状态失败，请稍后重试',
+    })
+  }
+})
+
+// 获取项目的首尾帧视频历史
+app.get('/api/projects/:projectId/first-last-frame-videos', authenticateToken, async (req, res) => {
+  try {
+    const { projectId } = req.params
+    const userId = req.user?.id
+    
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: '未登录，请先登录',
+      })
+    }
+    
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+    
+    // 验证项目是否属于当前用户
+    const projectCheck = await db.query(
+      'SELECT id FROM projects WHERE id = $1 AND user_id = $2',
+      [projectId, userId]
+    )
+    
+    if (projectCheck.rows.length === 0) {
+      return res.status(403).json({
+        success: false,
+        error: '无权访问该项目',
+      })
+    }
+    
+    // 获取所有首尾帧视频（从files表中查找，metadata包含source='first_last_frame_video'）
+    const videosResult = await db.query(
+      `SELECT f.id, f.cos_url, f.file_name, f.created_at, f.metadata
+       FROM files f
+       WHERE f.project_id = $1 
+         AND f.file_type = 'video'
+         AND f.metadata->>'source' = 'first_last_frame_video'
+       ORDER BY f.created_at DESC
+       LIMIT 100`,
+      [projectId]
+    )
+    
+    // 格式化返回数据
+    const videos = videosResult.rows.map((file) => {
+      const metadata = file.metadata ? (typeof file.metadata === 'string' ? JSON.parse(file.metadata) : file.metadata) : {}
+      return {
+        id: file.id.toString(),
+        taskId: metadata.task_id || file.id.toString(),
+        videoUrl: file.cos_url,
+        status: 'completed', // 已保存到files表的都是完成的
+        firstFrameUrl: metadata.first_frame_url || null,
+        lastFrameUrl: metadata.last_frame_url || null,
+        model: metadata.model || 'doubao-seedance-1-5-pro-251215',
+        resolution: metadata.resolution || '720p',
+        ratio: metadata.ratio || '16:9',
+        duration: metadata.duration || 5,
+        text: metadata.text || metadata.prompt || null,
+        createdAt: file.created_at,
+      }
+    })
+    
+    res.json({
+      success: true,
+      data: videos
+    })
+  } catch (error) {
+    console.error('获取首尾帧视频历史失败:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '获取首尾帧视频历史失败'
     })
   }
 })
@@ -3666,6 +3751,82 @@ app.get('/api/projects/:projectId/items', authenticateToken, async (req, res) =>
   }
 })
 
+// 创建项目分镜（片段）
+app.post('/api/projects/:projectId/shots', authenticateToken, async (req, res) => {
+  try {
+    const { projectId } = req.params
+    const { shotNumber, description, prompt, segment, style } = req.body
+    const userId = req.user?.id
+    
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: '未登录，请先登录',
+      })
+    }
+    
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+    
+    // 验证项目是否属于当前用户
+    const parsedProjectId = parseInt(projectId, 10)
+    if (isNaN(parsedProjectId)) {
+      return res.status(400).json({
+        success: false,
+        error: '无效的项目ID',
+      })
+    }
+    
+    const projectCheck = await db.query(
+      'SELECT id FROM projects WHERE id = $1 AND user_id = $2',
+      [parsedProjectId, userId]
+    )
+    
+    if (projectCheck.rows.length === 0) {
+      return res.status(403).json({
+        success: false,
+        error: '无权访问该项目',
+      })
+    }
+    
+    // 如果没有指定shot_number，自动分配下一个
+    let finalShotNumber = shotNumber
+    if (!finalShotNumber) {
+      const maxShotResult = await db.query(
+        'SELECT MAX(shot_number) as max_shot FROM shots WHERE project_id = $1',
+        [parsedProjectId]
+      )
+      finalShotNumber = (maxShotResult.rows[0]?.max_shot || 0) + 1
+    }
+    
+    const result = await db.query(
+      `INSERT INTO shots (project_id, shot_number, description, prompt, segment, style, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+       RETURNING id, shot_number, description, prompt, segment, style, created_at`,
+      [parsedProjectId, finalShotNumber, description || prompt || segment, prompt || description || segment, segment || description || prompt, style || null]
+    )
+    
+    res.json({
+      success: true,
+      data: {
+        id: result.rows[0].id,
+        shot_number: result.rows[0].shot_number,
+        description: result.rows[0].description,
+        prompt: result.rows[0].prompt,
+        segment: result.rows[0].segment,
+        style: result.rows[0].style,
+        created_at: result.rows[0].created_at,
+      },
+    })
+  } catch (error) {
+    console.error('创建分镜失败:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '创建分镜失败',
+    })
+  }
+})
+
 // 获取项目分镜列表（包含提示词）
 app.get('/api/projects/:projectId/shots', authenticateToken, async (req, res) => {
   try {
@@ -3803,6 +3964,32 @@ app.get('/api/projects/:projectId/fragments', authenticateToken, async (req, res
         }
       })
     )
+    
+    // 同时获取首尾帧视频（作为特殊片段）
+    const firstLastFrameVideos = await db.query(
+      `SELECT f.cos_url, f.file_name, f.created_at, f.metadata
+       FROM files f
+       WHERE f.project_id = $1 
+         AND f.file_type = 'video'
+         AND f.metadata->>'source' = 'first_last_frame_video'
+       ORDER BY f.created_at DESC
+       LIMIT 50`,
+      [projectId]
+    )
+    
+    // 将首尾帧视频添加到片段列表（如果有）
+    if (firstLastFrameVideos.rows.length > 0) {
+      const firstLastFrameFragment = {
+        id: 'first-last-frame-videos',
+        name: '首尾帧生视频',
+        description: '首尾帧生成的视频',
+        imageUrl: null,
+        videoUrls: firstLastFrameVideos.rows.map(f => f.cos_url),
+        createdAt: firstLastFrameVideos.rows[0].created_at,
+        updatedAt: firstLastFrameVideos.rows[0].created_at,
+      }
+      fragments.push(firstLastFrameFragment)
+    }
     
     res.json({
       success: true,

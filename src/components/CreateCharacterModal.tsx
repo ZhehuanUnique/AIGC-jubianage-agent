@@ -521,6 +521,9 @@ function CreateCharacterModal({ onClose, projectName, alwaysShowRightPanel = fal
       })
 
       console.log(`✅ 角色 "${task.name}" 已保存到项目 "${currentProjectName}"`)
+      
+      // 触发自定义事件，通知页面刷新
+      window.dispatchEvent(new CustomEvent('character-uploaded', { detail: { characterName: task.name } }))
     } catch (error) {
       console.error('保存角色失败:', error)
       throw error
@@ -953,7 +956,7 @@ function CreateCharacterModal({ onClose, projectName, alwaysShowRightPanel = fal
                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 }`}
               >
-                {generationMode === 'model' ? '提交任务 (消耗10积分)' : '提交任务'}
+                {generationMode === 'model' ? '提交任务 (消耗10积分)' : '确定'}
               </button>
             </div>
           </div>
@@ -1054,7 +1057,19 @@ function CreateCharacterModal({ onClose, projectName, alwaysShowRightPanel = fal
                       <div
                         key={character.id}
                         className="bg-white border border-gray-300 rounded-lg overflow-hidden cursor-pointer hover:border-purple-500 transition-colors"
-                        onClick={() => {
+                        onClick={async () => {
+                          // 确保角色已保存到数据库
+                          if (currentProjectName && character.imageUrl && !character.taskId.startsWith('upload_')) {
+                            // 如果还没有保存（通过taskId判断），先保存
+                            try {
+                              await saveCharacterToDatabase(character)
+                            } catch (error) {
+                              console.error('保存角色失败:', error)
+                              alert('保存角色失败，请稍后重试', 'error')
+                              return
+                            }
+                          }
+                          
                           if (onCharacterSelect) {
                             onCharacterSelect({
                               id: character.id,
