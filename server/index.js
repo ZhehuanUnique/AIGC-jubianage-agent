@@ -3245,7 +3245,16 @@ app.delete('/api/projects/:projectId', authenticateToken, async (req, res) => {
     await db.query('DELETE FROM characters WHERE project_id = $1', [parseInt(projectId)])
     await db.query('DELETE FROM scenes WHERE project_id = $1', [parseInt(projectId)])
     await db.query('DELETE FROM items WHERE project_id = $1', [parseInt(projectId)])
-    await db.query('DELETE FROM fragments WHERE project_id = $1', [parseInt(projectId)])
+    
+    // 尝试删除 fragments 表数据（如果表存在）
+    try {
+      await db.query('DELETE FROM fragments WHERE project_id = $1', [parseInt(projectId)])
+    } catch (fragmentsError: any) {
+      // 如果 fragments 表不存在，忽略错误（表可能尚未创建）
+      if (!fragmentsError.message?.includes('does not exist')) {
+        console.warn('删除 fragments 数据时出错（继续删除项目）:', fragmentsError.message)
+      }
+    }
     
     // 删除项目本身
     await db.query('DELETE FROM projects WHERE id = $1 AND user_id = $2', [parseInt(projectId), userId])
