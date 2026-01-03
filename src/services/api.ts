@@ -1698,3 +1698,44 @@ export async function getFirstLastFrameVideoStatus(taskId: string, projectId: st
     return { success: false, error: error.message || '查询首尾帧视频状态失败' }
   }
 }
+
+export async function getFirstLastFrameVideos(projectId: number): Promise<Array<{
+  id: string
+  taskId: string
+  status: string
+  videoUrl?: string
+  firstFrameUrl?: string | null
+  lastFrameUrl?: string | null
+  model: string
+  resolution: string
+  ratio: string
+  duration: number
+  text?: string | null
+  createdAt: string
+}>> {
+  const token = AuthService.getToken()
+  if (!token) {
+    throw new Error('未登录，请先登录')
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/first-last-frame-videos`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+
+    const data = await response.json()
+    if (!response.ok) {
+      throw new Error(data.error || '获取首尾帧视频历史失败')
+    }
+    
+    if (data.success && data.data) {
+      return data.data
+    }
+    return []
+  } catch (error: any) {
+    console.error('获取首尾帧视频历史API失败:', error)
+    throw error
+  }
+}
