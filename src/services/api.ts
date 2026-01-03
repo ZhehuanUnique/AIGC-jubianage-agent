@@ -540,11 +540,15 @@ export interface ImageTaskStatus {
 export async function generateImage(request: GenerateImageRequest): Promise<ImageTaskStatus> {
   try {
     const token = AuthService.getToken()
+    if (!token) {
+      throw new Error('未登录，请先登录')
+    }
+    
     const response = await fetch(`${API_BASE_URL}/api/generate-image`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(token && { 'Authorization': `Bearer ${token}` }),
+        'Authorization': `Bearer ${token}`,
       },
       body: JSON.stringify(request),
     })
@@ -580,11 +584,15 @@ export async function submitMidjourneyUpscale(params: {
 }): Promise<{ taskId: string; status: string; message: string }> {
   try {
     const token = AuthService.getToken()
+    if (!token) {
+      throw new Error('未登录，请先登录')
+    }
+    
     const response = await fetch(`${API_BASE_URL}/api/midjourney/upscale`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(token && { 'Authorization': `Bearer ${token}` }),
+        'Authorization': `Bearer ${token}`,
       },
       body: JSON.stringify(params),
     })
@@ -617,6 +625,9 @@ export async function getImageTaskStatus(
 ): Promise<ImageTaskStatus> {
   try {
     const token = AuthService.getToken()
+    if (!token) {
+      throw new Error('未登录，请先登录')
+    }
     
     // 构建查询参数
     const params = new URLSearchParams()
@@ -637,7 +648,7 @@ export async function getImageTaskStatus(
     
     const response = await fetch(url, {
       headers: {
-        ...(token && { 'Authorization': `Bearer ${token}` }),
+        'Authorization': `Bearer ${token}`,
       },
     })
 
@@ -1196,11 +1207,15 @@ export async function generateVideoMotionPrompt(params: {
 }): Promise<{ prompt: string }> {
   try {
     const token = AuthService.getToken()
+    if (!token) {
+      throw new Error('未登录，请先登录')
+    }
+    
     const response = await fetch(`${API_BASE_URL}/api/generate-video-motion-prompt`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(token && { 'Authorization': `Bearer ${token}` }),
+        'Authorization': `Bearer ${token}`,
       },
       body: JSON.stringify(params),
     })
@@ -1235,11 +1250,15 @@ export async function generateVideoFromImage(params: {
 }): Promise<{ taskId: string }> {
   try {
     const token = AuthService.getToken()
+    if (!token) {
+      throw new Error('未登录，请先登录')
+    }
+    
     const response = await fetch(`${API_BASE_URL}/api/generate-video`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(token && { 'Authorization': `Bearer ${token}` }),
+        'Authorization': `Bearer ${token}`,
       },
       body: JSON.stringify(params),
     })
@@ -1279,6 +1298,10 @@ export async function getVideoTaskStatus(
 }> {
   try {
     const token = AuthService.getToken()
+    if (!token) {
+      throw new Error('未登录，请先登录')
+    }
+    
     const params = new URLSearchParams()
     if (model) {
       params.append('model', model)
@@ -1292,7 +1315,7 @@ export async function getVideoTaskStatus(
     const url = `${API_BASE_URL}/api/video-task/${taskId}${params.toString() ? `?${params.toString()}` : ''}`
     const response = await fetch(url, {
       headers: {
-        ...(token && { 'Authorization': `Bearer ${token}` }),
+        'Authorization': `Bearer ${token}`,
       },
     })
 
