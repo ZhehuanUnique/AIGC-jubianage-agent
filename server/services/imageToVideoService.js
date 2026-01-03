@@ -9,6 +9,7 @@ import { upscaleVideoWithViduHd, getViduHdTaskStatus } from './viduHdService.js'
 import { generateVideoWithViduV2, getViduV2TaskStatus } from './viduV2Service.js'
 import { generateVideoWithVeo3, getVeo3TaskStatus } from './veo3Service.js'
 import { generateVideoWithHailuo, getHailuoTaskStatus } from './hailuoService.js'
+import { generateVideoWithKling26, generateVideoWithKlingO1, getKlingTaskStatus } from './klingService.js'
 
 // 加载.env文件
 const __filename = fileURLToPath(import.meta.url)
@@ -35,6 +36,26 @@ export async function generateVideoFromImage(imageUrl, options = {}) {
     text = '',
     ratio = 'adaptive',
   } = options
+
+  // 如果是 Kling 模型，使用专门的服务
+  if (model === 'kling-2.6-5s' || model === 'kling-2.6-10s') {
+    return await generateVideoWithKling26(imageUrl, {
+      prompt: text,
+      lastFrameImage: options.lastFrameImage || null,
+      enableAudio: options.enableAudio || false,
+    })
+  }
+
+  if (model === 'kling-o1') {
+    return await generateVideoWithKlingO1(imageUrl, {
+      prompt: text || 'Generate a video from the image',
+      lastFrameImage: options.lastFrameImage || null,
+      o1Type: options.o1Type || (options.lastFrameImage ? 'firstTail' : 'referImage'),
+      aspectRatio: options.aspectRatio || 'auto',
+      duration: duration,
+      keepOriginalSound: options.keepOriginalSound || false,
+    })
+  }
 
   // 如果是 MiniMax Hailuo 模型，使用专门的服务
   if (model === 'minimax-hailuo-02' || model === 'minimax-hailuo-2.3' || model === 'minimax-hailuo-2.3-fast') {
@@ -454,6 +475,11 @@ export async function generateVideoFromImage(imageUrl, options = {}) {
  * @returns {Promise<Object>} 返回任务状态和视频信息
  */
 export async function getVideoTaskStatus(taskId, model = 'doubao-seedance-1-5-pro-251215') {
+  // 如果是 Kling 模型，使用专门的服务
+  if (model === 'kling-2.6-5s' || model === 'kling-2.6-10s' || model === 'kling-o1') {
+    return await getKlingTaskStatus(taskId, model)
+  }
+
   // 如果是 MiniMax Hailuo 模型，使用专门的服务
   if (model === 'minimax-hailuo-02' || model === 'minimax-hailuo-2.3' || model === 'minimax-hailuo-2.3-fast') {
     return await getHailuoTaskStatus(taskId)

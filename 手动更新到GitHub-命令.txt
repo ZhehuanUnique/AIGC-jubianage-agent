@@ -1,0 +1,52 @@
+# 手动更新到 GitHub 的命令（使用 SSH）
+
+## 方法 1: 使用脚本（推荐）
+
+### Windows PowerShell:
+.\快速更新到GitHub.ps1
+
+### Linux/Mac/Git Bash:
+bash 快速更新到GitHub.sh
+
+## 方法 2: 手动执行命令
+
+### 1. 切换到 SSH 方式（如果还没切换）
+git remote set-url origin git@github.com:ZhehuanUnique/AIGC-jubianage-agent.git
+
+### 2. 检查状态
+git status
+
+### 3. 添加所有更改
+git add -A
+
+### 4. 提交更改
+git commit -m "style: 更新积分充值页面 - 改为白色背景，调整价格为¥999起，更新品牌名称为剧变时代Agent; feat: 添加 Kling 可灵视频生成服务支持"
+
+### 5. 推送到 GitHub
+git push origin main
+
+## 完整命令（一行执行）
+
+### Git Bash:
+git remote set-url origin git@github.com:ZhehuanUnique/AIGC-jubianage-agent.git && git add -A && git commit -m "style: 更新积分充值页面 - 改为白色背景，调整价格为¥999起，更新品牌名称为剧变时代Agent; feat: 添加 Kling 可灵视频生成服务支持" && git push origin main
+
+### PowerShell:
+git remote set-url origin git@github.com:ZhehuanUnique/AIGC-jubianage-agent.git; git add -A; git commit -m "style: 更新积分充值页面 - 改为白色背景，调整价格为¥999起，更新品牌名称为剧变时代Agent; feat: 添加 Kling 可灵视频生成服务支持"; git push origin main
+
+## 验证推送
+
+推送成功后，可以执行以下命令验证：
+git log --oneline -3
+
+## 如果推送失败
+
+1. 检查 SSH 密钥是否已添加到 GitHub:
+   ssh -T git@github.com
+
+2. 如果提示 "Permission denied"，需要：
+   - 生成 SSH 密钥（如果还没有）: ssh-keygen -t ed25519 -C "your_email@example.com"
+   - 将公钥添加到 GitHub: Settings > SSH and GPG keys > New SSH key
+   - 复制公钥内容: cat ~/.ssh/id_ed25519.pub
+
+3. 如果提示 "Connection refused"，检查网络连接
+

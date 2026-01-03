@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import NavigationBar from '../components/NavigationBar'
 import { MoreVertical, Menu, Plus, X, CheckCircle, Trash2, Edit, Copy, Scissors } from 'lucide-react'
@@ -40,25 +40,121 @@ function ProjectManagement() {
     workBackground?: string
     createdAt?: string
     updatedAt?: string
-  }>>([])
+  }>>(() => {
+    // 初始化时尝试从缓存加载
+    try {
+      const cachedProjects = sessionStorage.getItem('projectList_projects')
+      if (cachedProjects) {
+        const parsed = JSON.parse(cachedProjects)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed
+        }
+      }
+    } catch (e) {
+      console.warn('从缓存加载项目失败:', e)
+    }
+    return []
+  })
 
-  // 从API加载项目列表（按用户过滤）
-  useEffect(() => {
-    const loadProjects = async () => {
+  const [isLoadingProjects, setIsLoadingProjects] = useState(false)
+  const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const loadingPromiseRef = useRef<Promise<void> | null>(null) // 防止重复请求
+
+  // 从API加载项目列表（按用户过滤）- 乐观更新优化
+  const loadProjects = async (silent = false) => {
+    // 如果正在加载中，等待当前请求完成
+    if (loadingPromiseRef.current) {
+      return loadingPromiseRef.current
+    }
+
+    // 乐观更新：先显示缓存数据
+    if (!silent) {
+      // 如果已有数据，不显示加载状态
+      if (apiProjects.length > 0) {
+        // 尝试从数据库静默更新，不设置 isLoading
+      } else {
+        try {
+          const cachedProjects = sessionStorage.getItem('projectList_projects')
+          if (cachedProjects) {
+            const parsed = JSON.parse(cachedProjects)
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setApiProjects(parsed)
+              setIsLoadingProjects(true) // 显示加载状态，但已有数据展示
+            }
+          } else {
+            setIsLoadingProjects(true)
+          }
+        } catch (e) {
+          console.warn('解析缓存项目失败:', e)
+          setIsLoadingProjects(true)
+        }
+      }
+    } else {
+      setIsLoadingProjects(false) // 静默模式不显示加载状态
+    }
+
+    // 创建加载 Promise
+    const loadPromise = (async () => {
       try {
         const projects = await getProjects()
         // 只使用 API 返回的数据，确保按用户过滤
         setApiProjects(projects)
+        // 更新缓存
+        sessionStorage.setItem('projectList_projects', JSON.stringify(projects))
         // 清空本地项目列表，避免显示旧数据
         setProjects([])
       } catch (error) {
         console.error('加载项目列表失败:', error)
-        // API 失败时显示空列表，不回退到 localStorage
-        setApiProjects([])
-        setProjects([])
+        // 如果加载失败但有缓存数据，不更新为空
+        if (apiProjects.length === 0) {
+          setApiProjects([])
+          setProjects([])
+        }
+      } finally {
+        if (!silent) {
+          setIsLoadingProjects(false)
+        }
+        loadingPromiseRef.current = null // 清除加载 Promise
+      }
+    })()
+
+    loadingPromiseRef.current = loadPromise
+    return loadPromise
+  }
+
+  // 初始加载和定期刷新 - 乐观更新优化
+  useEffect(() => {
+    loadProjects(false) // 首次加载，显示缓存
+
+    // 每20秒自动刷新一次（静默模式，不显示加载状态）
+    refreshIntervalRef.current = setInterval(() => {
+      loadProjects(true) // 静默刷新
+    }, 20000) // 增加到20秒，减少请求频率
+
+    // 页面可见时刷新（静默模式，延迟执行避免频繁刷新）
+    let visibilityTimeout: NodeJS.Timeout | null = null
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        // 延迟500ms执行，避免页面切换时立即刷新
+        if (visibilityTimeout) {
+          clearTimeout(visibilityTimeout)
+        }
+        visibilityTimeout = setTimeout(() => {
+          loadProjects(true) // 静默刷新
+        }, 500)
       }
     }
-    loadProjects()
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current)
+      }
+      if (visibilityTimeout) {
+        clearTimeout(visibilityTimeout)
+      }
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
   }, [])
 
   // 处理自动创建项目（只执行一次）
@@ -76,7 +172,9 @@ function ProjectManagement() {
           // 重新加载项目列表
           return getProjects()
         }).then((projects) => {
+          // 乐观更新：立即更新列表和缓存
           setApiProjects(projects)
+          sessionStorage.setItem('projectList_projects', JSON.stringify(projects))
           
           // 显示提示消息
           setNotification({
@@ -115,8 +213,14 @@ function ProjectManagement() {
         // 调用后端 API 删除项目
         await deleteProjectApi(deleteConfirmProject.id)
         
-        // 从本地状态中移除
-        setApiProjects(prev => prev.filter(p => p.id !== deleteConfirmProject.id))
+        // 乐观更新：立即从状态和缓存中移除
+        const previousProjects = apiProjects
+        setApiProjects(prev => {
+          const updated = prev.filter(p => p.id !== deleteConfirmProject.id)
+          // 更新缓存
+          sessionStorage.setItem('projectList_projects', JSON.stringify(updated))
+          return updated
+        })
         
         // 同时从 localStorage 删除（如果存在）
         const { deleteProject: deleteLocalProject } = await import('../services/projectStorage')
@@ -124,9 +228,17 @@ function ProjectManagement() {
         
         setDeleteConfirmProject(null)
         
-        // 重新加载项目列表以确保同步
-        const projects = await getProjects()
-        setApiProjects(projects)
+        // 后台同步（静默模式）
+        try {
+          const projects = await getProjects()
+          setApiProjects(projects)
+          sessionStorage.setItem('projectList_projects', JSON.stringify(projects))
+        } catch (error) {
+          console.error('刷新项目列表失败:', error)
+          // 如果同步失败，恢复乐观更新
+          setApiProjects(previousProjects)
+          sessionStorage.setItem('projectList_projects', JSON.stringify(previousProjects))
+        }
       } catch (error) {
         console.error('删除项目失败:', error)
         alert(error instanceof Error ? error.message : '删除项目失败，请稍后重试')
@@ -210,11 +322,25 @@ function ProjectManagement() {
         throw new Error(error.error || '重命名项目失败')
       }
       
-      // 重新加载项目列表
-      const projects = await getProjects()
-      setApiProjects(projects)
+      // 乐观更新：立即更新状态和缓存
+      setApiProjects(prev => {
+        const updated = prev.map(p => 
+          p.id === numericProjectId ? { ...p, name: renameNewName.trim() } : p
+        )
+        sessionStorage.setItem('projectList_projects', JSON.stringify(updated))
+        return updated
+      })
       
       alertSuccess('项目已重命名', '成功')
+      
+      // 后台同步（静默模式）
+      try {
+        const projects = await getProjects()
+        setApiProjects(projects)
+        sessionStorage.setItem('projectList_projects', JSON.stringify(projects))
+      } catch (error) {
+        console.error('刷新项目列表失败:', error)
+      }
     } catch (error) {
       console.error('重命名项目失败:', error)
       alertError(error instanceof Error ? error.message : '重命名失败', '错误')
@@ -279,9 +405,8 @@ function ProjectManagement() {
       alertSuccess(`项目已复制到 "${targetProject.name}"`, '成功')
       setCopySourceProject(null)
       
-      // 重新加载项目列表
-      const updatedProjects = await getProjects()
-      setApiProjects(updatedProjects)
+      // 后台同步（静默模式）
+      loadProjects(true)
     } catch (error) {
       console.error('复制项目失败:', error)
       alertError(error instanceof Error ? error.message : '复制失败', '错误')
@@ -344,9 +469,8 @@ function ProjectManagement() {
       alertSuccess(`项目已移动到 "${targetProject.name}"`, '成功')
       setCutSourceProject(null)
       
-      // 重新加载项目列表
-      const updatedProjects = await getProjects()
-      setApiProjects(updatedProjects)
+      // 后台同步（静默模式）
+      loadProjects(true)
     } catch (error) {
       console.error('移动项目失败:', error)
       alertError(error instanceof Error ? error.message : '移动失败', '错误')
@@ -373,6 +497,14 @@ function ProjectManagement() {
       )}
 
       <div className="max-w-7xl mx-auto p-6">
+        {/* 加载状态 */}
+        {isLoadingProjects && apiProjects.length === 0 && (
+          <div className="flex items-center justify-center py-12">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+            <span className="ml-4 text-gray-600">加载中...</span>
+          </div>
+        )}
+        
         {/* 项目网格 */}
         <div className="grid grid-cols-5 gap-4 mt-6">
           {/* 添加项目卡片 */}
@@ -536,13 +668,8 @@ function ProjectManagement() {
         <CreateProjectModal
           onClose={() => setShowCreateModal(false)}
           onProjectCreated={async () => {
-            // 重新加载项目列表
-            try {
-              const projects = await getProjects()
-              setApiProjects(projects)
-            } catch (error) {
-              console.error('刷新项目列表失败:', error)
-            }
+            // 后台同步（静默模式）
+            loadProjects(true)
           }}
         />
       )}

@@ -70,14 +70,19 @@ function FirstLastFrameVideo() {
   useEffect(() => {
     loadHistory()
     
-    // 滚动处理
+    // 滚动处理 - 使用 ref 来访问最新状态，避免依赖项变化导致重新绑定
     const handleScroll = () => {
       if (scrollTimeoutRef.current) {
         clearTimeout(scrollTimeoutRef.current)
       }
       
       scrollTimeoutRef.current = setTimeout(() => {
-        if (isInputFocused || isBottomBarHovered || isBottomEdgeHovered) {
+        // 使用 ref 来检查状态，避免闭包问题
+        const inputFocused = document.activeElement?.tagName === 'TEXTAREA' || 
+                             document.activeElement?.tagName === 'INPUT'
+        
+        // 如果输入框聚焦或底部栏被悬停，不处理滚动
+        if (inputFocused || isBottomBarHovered || isBottomEdgeHovered) {
           return
         }
         
@@ -86,15 +91,22 @@ function FirstLastFrameVideo() {
         const documentHeight = document.documentElement.scrollHeight
         const distanceFromBottom = documentHeight - (scrollY + windowHeight)
         
-        // 只有当距离底部超过150px时才收缩，避免频繁切换
-        const shouldCollapse = distanceFromBottom > 150
+        // 增加阈值到200px，并添加滞后区间，避免频繁切换
+        const shouldCollapse = distanceFromBottom > 200
         
         // 使用 ref 检查是否需要更新，避免不必要的状态更新
-        if (isCollapsedRef.current !== shouldCollapse) {
-          isCollapsedRef.current = shouldCollapse
-          setIsBottomBarCollapsed(shouldCollapse)
+        // 添加滞后区间：如果当前是展开状态，需要距离底部>200px才收缩
+        // 如果当前是收缩状态，需要距离底部<100px才展开
+        const currentCollapsed = isCollapsedRef.current
+        const needsUpdate = currentCollapsed 
+          ? distanceFromBottom < 100  // 收缩状态：距离底部<100px时展开
+          : distanceFromBottom > 200   // 展开状态：距离底部>200px时收缩
+        
+        if (needsUpdate && isCollapsedRef.current !== !currentCollapsed) {
+          isCollapsedRef.current = !currentCollapsed
+          setIsBottomBarCollapsed(!currentCollapsed)
         }
-      }, 300) // 增加防抖时间到300ms，减少跳动
+      }, 500) // 增加防抖时间到500ms，进一步减少跳动
     }
     
     window.addEventListener('scroll', handleScroll, { passive: true })
@@ -108,7 +120,7 @@ function FirstLastFrameVideo() {
         clearInterval(pollIntervalRef.current)
       }
     }
-  }, [isInputFocused, isBottomBarHovered, isBottomEdgeHovered])
+  }, []) // 移除依赖项，避免频繁重新绑定事件监听器
 
   // 已移除3.0pro选项，只支持3.5pro
 
@@ -299,20 +311,23 @@ function FirstLastFrameVideo() {
         setIsBottomBarCollapsed(false)
       }
     } else {
+      // 延迟检查，避免与滚动事件冲突
       bottomEdgeHoverTimeoutRef.current = setTimeout(() => {
-        if (!isInputFocused && !isBottomBarHovered) {
+        const inputFocused = document.activeElement?.tagName === 'TEXTAREA' || 
+                             document.activeElement?.tagName === 'INPUT'
+        if (!inputFocused && !isBottomBarHovered) {
           const scrollY = window.scrollY
           const windowHeight = window.innerHeight
           const documentHeight = document.documentElement.scrollHeight
           const distanceFromBottom = documentHeight - (scrollY + windowHeight)
-          const shouldCollapse = distanceFromBottom > 150
+          const shouldCollapse = distanceFromBottom > 200
           
           if (isCollapsedRef.current !== shouldCollapse) {
             isCollapsedRef.current = shouldCollapse
             setIsBottomBarCollapsed(shouldCollapse)
           }
         }
-      }, 400)
+      }, 600) // 增加延迟时间
     }
   }
 
@@ -330,20 +345,23 @@ function FirstLastFrameVideo() {
         setIsBottomBarCollapsed(false)
       }
     } else {
+      // 延迟检查，避免与滚动事件冲突
       bottomBarHoverTimeoutRef.current = setTimeout(() => {
-        if (!isInputFocused && !isBottomEdgeHovered) {
+        const inputFocused = document.activeElement?.tagName === 'TEXTAREA' || 
+                             document.activeElement?.tagName === 'INPUT'
+        if (!inputFocused && !isBottomEdgeHovered) {
           const scrollY = window.scrollY
           const windowHeight = window.innerHeight
           const documentHeight = document.documentElement.scrollHeight
           const distanceFromBottom = documentHeight - (scrollY + windowHeight)
-          const shouldCollapse = distanceFromBottom > 150
+          const shouldCollapse = distanceFromBottom > 200
           
           if (isCollapsedRef.current !== shouldCollapse) {
             isCollapsedRef.current = shouldCollapse
             setIsBottomBarCollapsed(shouldCollapse)
           }
         }
-      }, 400)
+      }, 600) // 增加延迟时间
     }
   }
 
@@ -358,6 +376,7 @@ function FirstLastFrameVideo() {
 
   const handleInputBlur = () => {
     setIsInputFocused(false)
+    // 增加延迟，确保焦点完全失去后再检查
     setTimeout(() => {
       if (!isBottomBarHovered && !isBottomEdgeHovered) {
         const scrollY = window.scrollY
@@ -365,13 +384,19 @@ function FirstLastFrameVideo() {
         const documentHeight = document.documentElement.scrollHeight
         const distanceFromBottom = documentHeight - (scrollY + windowHeight)
         
-        const shouldCollapse = distanceFromBottom > 150
-        if (isCollapsedRef.current !== shouldCollapse) {
+        // 使用与滚动处理相同的阈值和滞后逻辑
+        const currentCollapsed = isCollapsedRef.current
+        const shouldCollapse = distanceFromBottom > 200
+        const needsUpdate = currentCollapsed 
+          ? distanceFromBottom < 100
+          : shouldCollapse
+        
+        if (needsUpdate && isCollapsedRef.current !== shouldCollapse) {
           isCollapsedRef.current = shouldCollapse
           setIsBottomBarCollapsed(shouldCollapse)
         }
       }
-    }, 300)
+    }, 500) // 增加延迟时间
   }
 
   // 获取状态文本
