@@ -147,6 +147,49 @@ function CharacterManagement() {
     }
   }
 
+  // 从 projectId 获取项目名称
+  useEffect(() => {
+    const fetchProjectName = async () => {
+      if (!projectId) return
+      
+      try {
+        // 检查 projectId 是否是数字（数据库ID）
+        const numericProjectId = parseInt(projectId, 10)
+        if (!isNaN(numericProjectId)) {
+          // 如果是数字，从数据库获取项目信息
+          const { getProjects } = await import('../services/api')
+          const allProjects = await getProjects()
+          const project = allProjects.find(p => p.id === numericProjectId)
+          if (project) {
+            setProjectName(project.name || project.scriptTitle || '')
+            return
+          }
+        }
+        
+        // 如果不是数字或找不到，尝试从 localStorage 获取
+        const project = getProject(projectId)
+        if (project && project.name) {
+          setProjectName(project.name)
+        } else {
+          // 尝试从 sessionStorage 获取
+          const savedScriptTitle = sessionStorage.getItem('scriptInput_scriptTitle')
+          if (savedScriptTitle) {
+            setProjectName(savedScriptTitle)
+          }
+        }
+      } catch (error) {
+        console.error('获取项目名称失败:', error)
+        // 尝试从 localStorage 获取
+        const project = getProject(projectId)
+        if (project && project.name) {
+          setProjectName(project.name)
+        }
+      }
+    }
+    
+    fetchProjectName()
+  }, [projectId])
+
   // 初始加载和定期刷新
   useEffect(() => {
     loadCharacters()

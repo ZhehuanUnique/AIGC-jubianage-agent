@@ -57,7 +57,9 @@ function CreateSceneModal({ onClose, onSceneSelect, projectName }: CreateSceneMo
   const [currentProjectName, setCurrentProjectName] = useState<string | null>(projectName || null)
   
   useEffect(() => {
-    if (!currentProjectName) {
+    if (projectName) {
+      setCurrentProjectName(projectName)
+    } else if (!currentProjectName) {
       try {
         const savedScriptTitle = sessionStorage.getItem('scriptInput_scriptTitle')
         if (savedScriptTitle) {
@@ -67,7 +69,7 @@ function CreateSceneModal({ onClose, onSceneSelect, projectName }: CreateSceneMo
         console.warn('⚠️ 获取项目名称失败:', error)
       }
     }
-  }, [])
+  }, [projectName])
 
   const [leftVisible, setLeftVisible] = useState(false)
   const [rightVisible, setRightVisible] = useState(false)
@@ -112,12 +114,36 @@ function CreateSceneModal({ onClose, onSceneSelect, projectName }: CreateSceneMo
     }
   }
 
-  // 当模型改变时，自动选择第一个支持的分辨率
+  // 检查模型是否支持图生图（垫图）
+  const supportsImageToImage = (modelId: string | null): boolean => {
+    if (!modelId) return false
+    
+    const supportedModels = [
+      'nano-banana-pro',
+      'seedream-4-0',
+      'seedream-4-5',
+      'flux-2-max',
+      'flux-2-flex',
+      'flux-2-pro',
+    ]
+    
+    return supportedModels.includes(modelId)
+  }
+
+  // 当模型改变时，自动选择第一个支持的分辨率，并清除不支持图生图模型的垫图
   useEffect(() => {
     if (selectedModel) {
       const supportedResolutions = getSupportedResolutions(selectedModel)
       if (supportedResolutions.length > 0 && !supportedResolutions.includes(selectedResolution as any)) {
         setSelectedResolution(supportedResolutions[0])
+      }
+      
+      // 如果新模型不支持图生图，清除已上传的垫图
+      if (!supportsImageToImage(selectedModel) && referenceImage) {
+        setReferenceImage(null)
+        if (referenceImageInputRef.current) {
+          referenceImageInputRef.current.value = ''
+        }
       }
     } else {
       setSelectedResolution(null)
@@ -339,8 +365,15 @@ function CreateSceneModal({ onClose, onSceneSelect, projectName }: CreateSceneMo
 
   // 保存场景到数据库和项目文件夹
   const saveSceneToDatabase = async (task: SceneTask) => {
-    if (!currentProjectName || !task.imageUrl) {
-      console.warn('⚠️ 无法保存场景：缺少项目名称或图片URL')
+    if (!task.imageUrl) {
+      console.warn('⚠️ 无法保存场景：缺少图片URL')
+      alert('无法保存场景：缺少图片URL', 'error')
+      return
+    }
+    
+    if (!currentProjectName) {
+      console.warn('⚠️ 无法保存场景：缺少项目名称')
+      alert('请提供项目名称', 'error')
       return
     }
 
@@ -639,10 +672,10 @@ function CreateSceneModal({ onClose, onSceneSelect, projectName }: CreateSceneMo
               </div>
             )}
 
-            {/* 上传参考图 - 仅在"通过模型生成场景"时显示 */}
-            {generationMode === 'model' && (
+            {/* 图生图 - 仅在"通过模型生成场景"且模型支持图生图时显示 */}
+            {generationMode === 'model' && supportsImageToImage(selectedModel) && (
               <div>
-                <label className="block text-sm mb-2">上传参考图</label>
+                <label className="block text-sm mb-2">图生图</label>
                 <input
                   ref={referenceImageInputRef}
                   type="file"
@@ -665,21 +698,21 @@ function CreateSceneModal({ onClose, onSceneSelect, projectName }: CreateSceneMo
                 />
                 <div
                   onClick={() => referenceImageInputRef.current?.click()}
-                  className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-purple-500 transition-colors"
+                  className="border-2 border-dashed border-yellow-400 rounded-lg p-8 text-center cursor-pointer hover:border-yellow-500 transition-colors"
                 >
                   {referenceImage ? (
                     <div className="space-y-2">
                       <img
                         src={referenceImage}
-                        alt="参考图"
+                        alt="垫图"
                         className="max-w-full max-h-48 mx-auto rounded-lg"
                       />
-                      <p className="text-gray-600 text-sm">点击更换参考图</p>
+                      <p className="text-gray-600 text-sm">点击更换图片</p>
                     </div>
                   ) : (
                     <>
                       <Upload className="mx-auto mb-2 text-gray-600" size={32} />
-                      <p className="text-gray-600 text-sm">上传参考图</p>
+                      <p className="text-gray-600 text-sm">上传垫图（图生图）</p>
                       <p className="text-gray-500 text-xs mt-1">支持JPG / JPEG / PNG格式</p>
                     </>
                   )}
