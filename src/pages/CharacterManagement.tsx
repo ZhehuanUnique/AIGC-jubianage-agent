@@ -173,16 +173,7 @@ function CharacterManagement() {
     }
     window.addEventListener('storage', handleStorageChange)
     
-    // 监听角色上传事件
-    const handleCharacterUploaded = () => {
-      console.log('📢 收到角色上传事件，延迟500ms后刷新')
-      setTimeout(() => {
-        loadCharacters()
-      }, 500)
-    }
-    window.addEventListener('character-uploaded', handleCharacterUploaded)
-    
-    // 也监听自定义事件（同页面内通信）
+    // 监听自定义事件（同页面内通信）
     const handleCharacterUploaded = () => {
       console.log('📢 收到角色上传事件，准备刷新...')
       console.log(`   当前projectId: ${projectId}`)
