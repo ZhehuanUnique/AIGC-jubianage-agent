@@ -140,7 +140,8 @@ export async function uploadMusicToCOS(audioUrl, metadata = {}) {
  */
 export async function saveMusicToDatabase(musicData) {
   try {
-    const { db } = await import('../db/connection.js')
+    const pool = await import('../db/connection.js')
+    const db = pool.default || pool
     
     const {
       cosUrl,
@@ -215,7 +216,8 @@ export async function saveMusicToDatabase(musicData) {
  */
 export async function getUserMusicList(userId, projectId = null) {
   try {
-    const { db } = await import('../db/connection.js')
+    const pool = await import('../db/connection.js')
+    const db = pool.default || pool
     
     let query = `
       SELECT * FROM music_files 
@@ -246,7 +248,8 @@ export async function getUserMusicList(userId, projectId = null) {
  */
 export async function deleteMusic(musicId, userId) {
   try {
-    const { db } = await import('../db/connection.js')
+    const pool = await import('../db/connection.js')
+    const db = pool.default || pool
     
     // 先获取音乐信息（包括 COS key）
     const getQuery = 'SELECT * FROM music_files WHERE id = $1 AND user_id = $2'
