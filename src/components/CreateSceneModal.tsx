@@ -224,26 +224,15 @@ function CreateSceneModal({ onClose, onSceneSelect, projectName }: CreateSceneMo
           return
         }
 
-        // 将 base64 转换为 Blob
-        const base64Data = uploadedImage.split(',')[1]
-        const byteCharacters = atob(base64Data)
-        const byteNumbers = new Array(byteCharacters.length)
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i)
-        }
-        const byteArray = new Uint8Array(byteNumbers)
-        const blob = new Blob([byteArray], { type: 'image/jpeg' })
-        const file = new File([blob], `${sceneName.trim()}.jpg`, { type: 'image/jpeg' })
-
-        // 上传到COS并保存到数据库
-        const uploadResult = await uploadAssetImage({
-          file,
-          projectName: currentProjectName || undefined,
+        // 直接使用 base64 图片数据上传
+        const result = await uploadAssetImage({
+          base64Image: uploadedImage,
+          assetType: 'scenes',
           assetName: sceneName.trim(),
-          assetCategory: 'scene',
+          projectName: currentProjectName || undefined,
         })
 
-        if (uploadResult.success && uploadResult.data) {
+        if (result && result.url) {
           // 创建已完成场景对象
           const newScene: SceneTask = {
             id: `scene_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -251,7 +240,7 @@ function CreateSceneModal({ onClose, onSceneSelect, projectName }: CreateSceneMo
             taskId: '',
             status: 'completed',
             progress: 100,
-            imageUrl: uploadResult.data.url,
+            imageUrl: result.url,
           }
 
           // 添加到已完成场景列表
@@ -263,7 +252,7 @@ function CreateSceneModal({ onClose, onSceneSelect, projectName }: CreateSceneMo
 
           alert('场景上传成功！', 'success')
         } else {
-          alert(uploadResult.error || '上传失败', 'error')
+          alert('上传失败', 'error')
         }
       }
     } catch (error) {

@@ -515,7 +515,7 @@ function CreateCharacterModal({ onClose, projectName, alwaysShowRightPanel = fal
       // 上传到COS并保存到数据库
       await uploadAssetImage({
         base64Image: imageData,
-        assetType: 'character',
+        assetType: 'characters',
         assetName: task.name,
         projectName: currentProjectName,
       })

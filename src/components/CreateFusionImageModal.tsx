@@ -68,7 +68,13 @@ function CreateFusionImageModal({ onClose }: CreateFusionImageModalProps) {
                 <span className="text-red-500">*</span> 创作模式
               </label>
               <select className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500">
-                <option>星融1.0(理解力极强，融合力极强，表情丰富...)</option>
+                <option value="nano-banana-pro">Nano Banana Pro</option>
+                <option value="midjourney-v7-t2i">Midjourney v7</option>
+                <option value="flux-2-max">Flux-2-Max</option>
+                <option value="flux-2-flex">Flux-2-Flex</option>
+                <option value="flux-2-pro">Flux-2-Pro</option>
+                <option value="seedream-4-5">Seedream 4.5</option>
+                <option value="seedream-4-0">Seedream 4.0</option>
               </select>
             </div>
 

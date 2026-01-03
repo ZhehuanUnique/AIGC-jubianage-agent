@@ -827,13 +827,23 @@ export async function uploadAssetImage(params: {
       throw new Error('未登录，请先登录')
     }
 
+    // 将前端的复数形式转换为后端的单数形式
+    const assetTypeMap: Record<'characters' | 'scenes' | 'items', 'character' | 'scene' | 'item'> = {
+      'characters': 'character',
+      'scenes': 'scene',
+      'items': 'item',
+    }
+
     const response = await fetch(`${API_BASE_URL}/api/upload-asset-base64-image`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`,
       },
-      body: JSON.stringify(params),
+      body: JSON.stringify({
+        ...params,
+        assetType: assetTypeMap[params.assetType],
+      }),
     })
 
     if (!response.ok) {
