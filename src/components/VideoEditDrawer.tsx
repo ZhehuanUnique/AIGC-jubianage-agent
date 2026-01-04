@@ -334,6 +334,7 @@ function VideoEditDrawer({
                       className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-purple-500"
                     >
                       <option value="doubao-seedance-1-5-pro-251215">即梦AI-视频生成3.5pro</option>
+                      <option value="volcengine-video-3.0-pro">即梦AI-视频生成3.0 Pro</option>
                       <option value="viduq2-turbo">ViduQ2-Turbo</option>
                       <option value="veo3.1">Google Veo3.1</option>
                       <option value="veo3.1-pro">Google Veo3.1-Pro</option>

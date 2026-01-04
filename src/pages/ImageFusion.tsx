@@ -564,6 +564,11 @@ function ImageFusion() {
     return model === 'kling-2.6-5s' || model === 'kling-2.6-10s' || model === 'kling-o1'
   }
 
+  // 辅助函数：判断是否是火山引擎即梦AI模型
+  const isVolcengineModel = (model: string): boolean => {
+    return model === 'volcengine-video-3.0-pro' || model === 'doubao-seedance-3.0-pro'
+  }
+
   // 辅助函数：获取可用的分辨率选项
   const getAvailableResolutions = (model: string): string[] => {
     if (isHailuoModel(model)) {
@@ -582,6 +587,9 @@ function ImageFusion() {
     } else if (isKlingModel(model)) {
       // Kling 模型：支持 720p(768p) 和 1080p
       return ['720p', '1080p']
+    } else if (isVolcengineModel(model)) {
+      // 火山引擎即梦AI-3.0 Pro：支持 480p, 720p, 1080p
+      return ['480p', '720p', '1080p']
     }
     // 通义万相模型（wan2.x）支持 480p, 720p, 1080p
     return ['480p', '720p', '1080p']
@@ -616,6 +624,9 @@ function ImageFusion() {
         // Kling-O1 支持自定义时长，返回常用选项
         return [5, 10, 15, 20]
       }
+    } else if (isVolcengineModel(model)) {
+      // 火山引擎即梦AI-3.0 Pro：支持 2~12 秒
+      return [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     }
     // 通义万相模型（wan2.x）：默认支持 5 和 10 秒
     return [5, 10]
@@ -1358,6 +1369,7 @@ function ImageFusion() {
                 className="px-3 py-1 bg-white border border-gray-300 rounded text-sm focus:outline-none focus:border-purple-500"
               >
                 <option value="doubao-seedance-1-5-pro-251215">即梦AI-视频生成3.5pro</option>
+                <option value="volcengine-video-3.0-pro">即梦AI-视频生成3.0 Pro</option>
                 <option value="viduq2-turbo">ViduQ2-Turbo</option>
                 <option value="veo3.1">Google Veo3.1</option>
                 <option value="veo3.1-pro">Google Veo3.1-Pro</option>
@@ -1513,12 +1525,16 @@ function ImageFusion() {
                       onClick={(e) => e.stopPropagation()}
                     >
                       <option value="doubao-seedance-1-5-pro-251215">即梦AI-视频生成3.5pro</option>
+                      <option value="volcengine-video-3.0-pro">即梦AI-视频生成3.0 Pro</option>
                       <option value="viduq2-turbo">ViduQ2-Turbo</option>
                       <option value="veo3.1">Google Veo3.1</option>
                       <option value="veo3.1-pro">Google Veo3.1-Pro</option>
                       <option value="minimax-hailuo-02">MiniMax Hailuo-02</option>
                       <option value="minimax-hailuo-2.3">MiniMax Hailuo-2.3</option>
                       <option value="minimax-hailuo-2.3-fast">MiniMax Hailuo-2.3-fast</option>
+                      <option value="kling-2.6-5s">Kling-2.6-5秒</option>
+                      <option value="kling-2.6-10s">Kling-2.6-10秒</option>
+                      <option value="kling-o1">Kling-O1</option>
                     </select>
                   </td>
                   <td className="px-4 py-4">

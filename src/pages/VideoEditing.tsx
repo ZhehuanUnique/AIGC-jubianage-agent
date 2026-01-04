@@ -309,6 +309,11 @@ function VideoEditing() {
     return model === 'kling-2.6-5s' || model === 'kling-2.6-10s' || model === 'kling-o1'
   }
 
+  // 辅助函数：判断是否是火山引擎即梦AI模型
+  const isVolcengineModel = (model: string): boolean => {
+    return model === 'volcengine-video-3.0-pro' || model === 'doubao-seedance-3.0-pro'
+  }
+
   // 辅助函数：获取可用的分辨率选项
   const getAvailableResolutions = (model: string): string[] => {
     if (isHailuoModel(model)) {
@@ -326,6 +331,9 @@ function VideoEditing() {
     } else if (isKlingModel(model)) {
       // Kling 模型：支持 720p(768p) 和 1080p
       return ['720p', '1080p']
+    } else if (isVolcengineModel(model)) {
+      // 火山引擎即梦AI-3.0 Pro：支持 480p, 720p, 1080p
+      return ['480p', '720p', '1080p']
     }
     // 通义万相模型（wan2.x）支持 480p, 720p, 1080p
     return ['480p', '720p', '1080p']
