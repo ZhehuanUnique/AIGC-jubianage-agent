@@ -106,3 +106,4 @@ EXECUTE FUNCTION update_daily_consumption_stats();
 -- SELECT * FROM daily_consumption_stats ORDER BY date DESC LIMIT 10;
 
 
+

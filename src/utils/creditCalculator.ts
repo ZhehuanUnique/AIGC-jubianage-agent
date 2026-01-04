@@ -118,3 +118,4 @@ export function calculateVideoGenerationCredit(
   return calculateCreditFromCost(costInYuan)
 }
 
+
