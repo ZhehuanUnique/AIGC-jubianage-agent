@@ -89,6 +89,9 @@ function CreateItemModal({ onClose, onItemSelect, projectName }: CreateItemModal
   const [completedItems, setCompletedItems] = useState<ItemTask[]>([])
   // 选中的物品ID
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
+  // 分页状态
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 4 // 每页显示4个物品
   
   // 轮询任务状态的定时器
   const pollingTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map())
@@ -625,6 +628,23 @@ function CreateItemModal({ onClose, onItemSelect, projectName }: CreateItemModal
 
         // 如果任务完成，移动到已完成列表并保存到数据库
         if (status.status === 'completed' && status.imageUrl) {
+          // Midjourney 特殊处理：如果是网格图，只保存一张（避免保存8张）
+          const isMidjourneyGrid = task.model === 'midjourney-v7-t2i' && (status as any).isGridImage
+          
+          // 检查是否已经保存过相同的物品（避免重复保存）
+          const existingItem = completedItems.find(item => 
+            item.name === task.name && 
+            item.model === task.model &&
+            item.taskId === task.taskId
+          )
+          
+          if (existingItem && isMidjourneyGrid) {
+            console.log('⚠️ Midjourney 网格图已存在，跳过重复保存')
+            // 从生成中列表移除即可，不添加到已完成列表
+            setGeneratingTasks((prev) => prev.filter((t) => t.id !== task.id))
+            return
+          }
+          
           const completedTask = {
             ...task,
             status: 'completed' as const,
@@ -642,8 +662,20 @@ function CreateItemModal({ onClose, onItemSelect, projectName }: CreateItemModal
 
           // 从生成中列表移除
           setGeneratingTasks((prev) => prev.filter((t) => t.id !== task.id))
-          // 添加到已完成列表
-          setCompletedItems((prev) => [...prev, completedTask])
+          // 添加到已完成列表（确保不重复）
+          setCompletedItems((prev) => {
+            // 检查是否已存在相同的物品
+            const exists = prev.some(item => 
+              item.name === completedTask.name && 
+              item.model === completedTask.model &&
+              item.taskId === completedTask.taskId
+            )
+            if (exists) {
+              console.log('⚠️ 物品已存在，跳过添加:', completedTask.name)
+              return prev
+            }
+            return [...prev, completedTask]
+          })
 
           // 清除轮询定时器
           const timer = pollingTimersRef.current.get(task.id)
@@ -1200,74 +1232,103 @@ function CreateItemModal({ onClose, onItemSelect, projectName }: CreateItemModal
               ) : (
                 <>
                   <div className="grid grid-cols-2 gap-4">
-                    {completedItems.map((item) => (
-                      <div
-                        key={item.id}
-                        className={`bg-white border-2 rounded-lg overflow-hidden cursor-pointer transition-all relative ${
-                          selectedItemId === item.id
-                            ? 'border-green-500 shadow-lg'
-                            : 'border-gray-300 hover:border-purple-500'
-                        }`}
-                        onClick={async () => {
-                          // 设置选中状态
-                          setSelectedItemId(item.id)
-                          
-                          // 确保物品已保存到数据库
-                          if (currentProjectName && item.imageUrl && !item.taskId.startsWith('upload_')) {
-                            // 如果还没有保存（通过taskId判断），先保存
-                            try {
-                              await saveItemToDatabase(item)
-                            } catch (error) {
-                              console.error('保存物品失败:', error)
-                              alert('保存物品失败，请稍后重试', 'error')
-                              return
+                    {(() => {
+                      // 计算当前页显示的物品
+                      const startIndex = (currentPage - 1) * itemsPerPage
+                      const endIndex = startIndex + itemsPerPage
+                      const currentPageItems = completedItems.slice(startIndex, endIndex)
+                      
+                      return currentPageItems.map((item) => (
+                        <div
+                          key={item.id}
+                          className={`bg-white border-2 rounded-lg overflow-hidden cursor-pointer transition-all relative ${
+                            selectedItemId === item.id
+                              ? 'border-green-500 shadow-lg'
+                              : 'border-gray-300 hover:border-purple-500'
+                          }`}
+                          onClick={async () => {
+                            // 设置选中状态（只选中当前点击的物品）
+                            setSelectedItemId(item.id)
+                            
+                            // 确保物品已保存到数据库
+                            if (currentProjectName && item.imageUrl && !item.taskId.startsWith('upload_')) {
+                              // 如果还没有保存（通过taskId判断），先保存
+                              try {
+                                await saveItemToDatabase(item)
+                              } catch (error) {
+                                console.error('保存物品失败:', error)
+                                alert('保存物品失败，请稍后重试', 'error')
+                                return
+                              }
                             }
-                          }
-                          
-                          // 延迟一下再调用回调，让用户看到选中效果
-                          setTimeout(() => {
-                            if (onItemSelect) {
-                              onItemSelect({
-                                id: item.id,
-                                name: item.name,
-                                image: item.imageUrl,
-                              })
-                              onClose()
-                            }
-                          }, 200)
-                        }}
-                      >
-                        <div className="aspect-square bg-gray-700 flex items-center justify-center overflow-hidden relative">
-                          {item.imageUrl ? (
-                            <img
-                              src={item.imageUrl}
-                              alt={item.name}
-                              className="w-full h-full object-cover"
-                              loading="lazy"
-                            />
-                          ) : (
-                            <div className="w-16 h-16 rounded-lg bg-purple-600 flex items-center justify-center text-white text-xs">
-                              {item.name}
-                            </div>
-                          )}
-                          {/* 选中标记 - 绿色圆圈白色对号 */}
-                          {selectedItemId === item.id && (
-                            <div className="absolute bottom-2 right-2 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center shadow-lg z-10">
-                              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                              </svg>
-                            </div>
-                          )}
+                            
+                            // 延迟一下再调用回调，让用户看到选中效果
+                            setTimeout(() => {
+                              if (onItemSelect) {
+                                onItemSelect({
+                                  id: item.id,
+                                  name: item.name,
+                                  image: item.imageUrl,
+                                })
+                                onClose()
+                              }
+                            }, 200)
+                          }}
+                        >
+                          <div className="aspect-square bg-gray-700 flex items-center justify-center overflow-hidden relative">
+                            {item.imageUrl ? (
+                              <img
+                                src={item.imageUrl}
+                                alt={item.name}
+                                className="w-full h-full object-cover"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <div className="w-16 h-16 rounded-lg bg-purple-600 flex items-center justify-center text-white text-xs">
+                                {item.name}
+                              </div>
+                            )}
+                            {/* 选中标记 - 绿色圆圈白色对号 */}
+                            {selectedItemId === item.id && (
+                              <div className="absolute bottom-2 right-2 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center shadow-lg z-10">
+                                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                </svg>
+                              </div>
+                            )}
+                          </div>
+                          <div className="p-2 text-center text-xs">{item.name}</div>
                         </div>
-                        <div className="p-2 text-center text-xs">{item.name}</div>
-                      </div>
-                    ))}
+                      ))
+                    })()}
                   </div>
-                  {completedItems.length > 4 && (
+                  {completedItems.length > itemsPerPage && (
                     <div className="flex justify-center items-center gap-2 mt-4">
-                      <button className="px-2 py-1 text-gray-600">上一页</button>
-                      <span className="text-gray-600 text-sm">1 / {Math.ceil(completedItems.length / 4)}</span>
-                      <button className="px-2 py-1 text-gray-600">下一页</button>
+                      <button 
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className={`px-2 py-1 rounded ${
+                          currentPage === 1 
+                            ? 'text-gray-400 cursor-not-allowed' 
+                            : 'text-gray-600 hover:bg-gray-100'
+                        }`}
+                      >
+                        上一页
+                      </button>
+                      <span className="text-gray-600 text-sm">
+                        {currentPage} / {Math.ceil(completedItems.length / itemsPerPage)}
+                      </span>
+                      <button 
+                        onClick={() => setCurrentPage(p => Math.min(Math.ceil(completedItems.length / itemsPerPage), p + 1))}
+                        disabled={currentPage >= Math.ceil(completedItems.length / itemsPerPage)}
+                        className={`px-2 py-1 rounded ${
+                          currentPage >= Math.ceil(completedItems.length / itemsPerPage)
+                            ? 'text-gray-400 cursor-not-allowed' 
+                            : 'text-gray-600 hover:bg-gray-100'
+                        }`}
+                      >
+                        下一页
+                      </button>
                     </div>
                   )}
                 </>
