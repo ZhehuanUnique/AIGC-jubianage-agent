@@ -239,11 +239,12 @@ export async function generateVideoWithVolcengine(imageUrl, options = {}) {
     }
 
     const requestBodyJson = JSON.stringify(requestBody)
-    // 火山引擎Visual API使用POST请求，需要Action参数作为查询参数
-    // Action参数指定要调用的API操作
+    // 火山引擎API使用POST请求，需要Action参数作为查询参数
+    // 根据文档：https://www.volcengine.com/docs/82379/1520757?lang=zh
+    // 生成视频的Action参数为：CreateContentsGenerationsTasks
     const uri = '/'
     const queryParams = {
-      Action: 'VideoGeneration', // 视频生成操作
+      Action: 'CreateContentsGenerationsTasks', // 创建视频生成任务
     }
     
     // 解析API Host
@@ -389,9 +390,11 @@ export async function getVolcengineTaskStatus(taskId, model = 'volcengine-video-
     }
     
     const requestBodyJson = JSON.stringify(requestBody)
+    // 根据文档：https://www.volcengine.com/docs/82379/1521309?lang=zh
+    // 查询任务状态的Action参数为：GetContentsGenerationsTask
     const uri = '/'
     const queryParams = {
-      Action: 'VideoGenerationQuery', // 视频生成查询操作
+      Action: 'GetContentsGenerationsTask', // 查询视频生成任务状态
     }
     
     // 解析API Host
