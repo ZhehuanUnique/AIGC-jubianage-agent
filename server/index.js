@@ -6887,6 +6887,15 @@ async function startServer() {
         console.warn('⚠️  初始化默认用户失败:', error.message)
         console.warn('💡 提示：可以手动运行 node server/db/initDefaultUsers.js 来初始化用户')
       }
+      // 初始化首尾帧视频表和批注表
+      try {
+        const { initFirstLastFrameVideosTable, initVideoAnnotationsTable } = await import('./db/initFirstLastFrameVideosTable.js')
+        await initFirstLastFrameVideosTable()
+        await initVideoAnnotationsTable()
+      } catch (error) {
+        console.warn('⚠️  初始化数据库表失败:', error.message)
+        console.warn('💡 提示：可以手动运行 node server/db/initFirstLastFrameVideosTable.js 来初始化表')
+      }
     } else {
       console.warn('⚠️  数据库连接失败，部分功能可能不可用')
       console.warn('💡 提示：请检查 DATABASE_URL 环境变量配置')
