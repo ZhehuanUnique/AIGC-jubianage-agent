@@ -304,6 +304,11 @@ function VideoEditing() {
     return model === 'doubao-seedance-1-5-pro-251215'
   }
 
+  // 辅助函数：判断是否是 Kling 模型
+  const isKlingModel = (model: string): boolean => {
+    return model === 'kling-2.6-5s' || model === 'kling-2.6-10s' || model === 'kling-o1'
+  }
+
   // 辅助函数：获取可用的分辨率选项
   const getAvailableResolutions = (model: string): string[] => {
     if (isHailuoModel(model)) {
@@ -318,6 +323,9 @@ function VideoEditing() {
     } else if (isSeedanceModel(model)) {
       // 豆包 Seedance 支持 480p, 720p, 1080p
       return ['480p', '720p', '1080p']
+    } else if (isKlingModel(model)) {
+      // Kling 模型：根据图片自动适配，但为了兼容性，返回默认值
+      return ['720p', '1080p']
     }
     // 通义万相模型（wan2.x）支持 480p, 720p, 1080p
     return ['480p', '720p', '1080p']
@@ -341,6 +349,16 @@ function VideoEditing() {
     } else if (isSeedanceModel(model)) {
       // 豆包 Seedance：支持 2~12 秒
       return [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    } else if (isKlingModel(model)) {
+      // Kling 模型：2.6-5s 固定5秒，2.6-10s 固定10秒，O1 支持自定义时长
+      if (model === 'kling-2.6-5s') {
+        return [5]
+      } else if (model === 'kling-2.6-10s') {
+        return [10]
+      } else if (model === 'kling-o1') {
+        // Kling-O1 支持自定义时长，返回常用选项
+        return [5, 10, 15, 20]
+      }
     }
     // 通义万相模型（wan2.x）：默认支持 5 和 10 秒
     return [5, 10]

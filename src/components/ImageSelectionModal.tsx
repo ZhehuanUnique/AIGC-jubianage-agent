@@ -132,6 +132,9 @@ function ImageSelectionModal({ isOpen, onClose, rowId }: ImageSelectionModalProp
                   <option value="minimax-hailuo-02">MiniMax Hailuo-02</option>
                   <option value="minimax-hailuo-2.3">MiniMax Hailuo-2.3</option>
                   <option value="minimax-hailuo-2.3-fast">MiniMax Hailuo-2.3-fast</option>
+                  <option value="kling-2.6-5s">Kling-2.6-5秒</option>
+                  <option value="kling-2.6-10s">Kling-2.6-10秒</option>
+                  <option value="kling-o1">Kling-O1</option>
                 </select>
               </div>
 
