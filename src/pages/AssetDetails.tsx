@@ -2,18 +2,20 @@
 import { useNavigate, useLocation } from 'react-router-dom'
 import { X, Plus, Trash2, Upload, Eye } from 'lucide-react'
 import type { ScriptAnalysisResult, ScriptSegment } from '../services/api'
-import { updateTask, uploadCharacterImage, uploadSceneImage, uploadItemImage } from '../services/api'
+import { updateTask, uploadCharacterImage, uploadSceneImage, uploadItemImage, getProjectCharacters, getProjectScenes, getProjectItems, deleteCharacter, deleteScene, deleteItem, createCharacter, createScene, createItem, updateCharacter, updateScene, updateItem } from '../services/api'
 import CreateCharacterModal from '../components/CreateCharacterModal'
 import CreateSceneModal from '../components/CreateSceneModal'
 import CreateItemModal from '../components/CreateItemModal'
 import { alertError, alertInfo } from '../utils/alert'
 
 interface Asset {
-  id: string
+  id: string | number // 支持字符串（临时ID）和数字（数据库ID）
   name: string
   type: 'character' | 'scene' | 'item'
   selectionMethod: string
-  imageUrl?: string // 上传的图片URL
+  imageUrl?: string // 上传的图片URL（本地预览）
+  image?: string // 数据库中的图片URL
+  image_url?: string // 数据库中的图片URL（兼容字段）
 }
 
 interface LocationState {
@@ -23,6 +25,7 @@ interface LocationState {
   workStyle?: string
   workBackground?: string
   scriptContent?: string
+  projectId?: number // 项目ID
 }
 
 function AssetDetails() {
@@ -210,6 +213,86 @@ function AssetDetails() {
     checkBackendHealth()
   }, [])
 
+  // 从数据库加载资产数据
+  useEffect(() => {
+    const loadAssetsFromDatabase = async () => {
+      const projectId = state?.projectId
+      if (!projectId || typeof projectId !== 'number') {
+        console.log('⚠️ 没有项目ID，跳过从数据库加载资产')
+        return
+      }
+
+      if (backendStatus !== 'online') {
+        console.log('⚠️ 后端服务未在线，跳过从数据库加载资产')
+        return
+      }
+
+      try {
+        console.log(`📥 从数据库加载项目 ${projectId} 的资产数据...`)
+        
+        // 并行加载所有资产
+        const [dbCharacters, dbScenes, dbItems] = await Promise.all([
+          getProjectCharacters(projectId).catch(err => {
+            console.warn('加载角色失败:', err)
+            return []
+          }),
+          getProjectScenes(projectId).catch(err => {
+            console.warn('加载场景失败:', err)
+            return []
+          }),
+          getProjectItems(projectId).catch(err => {
+            console.warn('加载物品失败:', err)
+            return []
+          }),
+        ])
+
+        // 转换为Asset格式
+        const characterAssets: Asset[] = dbCharacters.map(char => ({
+          id: char.id,
+          name: char.name,
+          type: 'character' as const,
+          selectionMethod: '通过本地上传',
+          image: char.image || char.image_url,
+          image_url: char.image || char.image_url,
+        }))
+
+        const sceneAssets: Asset[] = dbScenes.map(scene => ({
+          id: scene.id,
+          name: scene.name,
+          type: 'scene' as const,
+          selectionMethod: '通过本地上传',
+          image: scene.image,
+        }))
+
+        const itemAssets: Asset[] = dbItems.map(item => ({
+          id: item.id,
+          name: item.name,
+          type: 'item' as const,
+          selectionMethod: '通过本地上传',
+          image: item.image,
+        }))
+
+        // 如果有数据库数据，使用数据库数据；否则保留现有数据（可能是从analysisResult初始化的）
+        if (characterAssets.length > 0) {
+          console.log(`✅ 从数据库加载了 ${characterAssets.length} 个角色`)
+          setCharacters(characterAssets)
+        }
+        if (sceneAssets.length > 0) {
+          console.log(`✅ 从数据库加载了 ${sceneAssets.length} 个场景`)
+          setScenes(sceneAssets)
+        }
+        if (itemAssets.length > 0) {
+          console.log(`✅ 从数据库加载了 ${itemAssets.length} 个物品`)
+          setItems(itemAssets)
+        }
+      } catch (error) {
+        console.error('从数据库加载资产失败:', error)
+      }
+    }
+
+    loadAssetsFromDatabase()
+  }, [state?.projectId, backendStatus])
+
   // 如果从上一页没有传递数据，使用默认数据继续流程
   useEffect(() => {
     if (!state) {
@@ -217,39 +300,154 @@ function AssetDetails() {
     }
   }, [state])
 
-  const addAsset = (type: 'character' | 'scene' | 'item') => {
-    const newAsset: Asset = {
-      id: Date.now().toString(),
-      name: '',
-      type,
-      selectionMethod: '通过本地上传',
+  const addAsset = async (type: 'character' | 'scene' | 'item') => {
+    const projectId = state?.projectId
+    if (!projectId || typeof projectId !== 'number') {
+      alertError('项目ID不存在，无法添加资产', '错误')
+      return
     }
-    if (type === 'character') {
-      setCharacters([...characters, newAsset])
-    } else if (type === 'scene') {
-      setScenes([...scenes, newAsset])
-    } else {
-      setItems([...items, newAsset])
+
+    try {
+      // 先创建临时资产（立即显示）
+      const tempId = `temp-${Date.now()}`
+      const newAsset: Asset = {
+        id: tempId,
+        name: '',
+        type,
+        selectionMethod: '通过本地上传',
+      }
+
+      // 立即更新UI
+      if (type === 'character') {
+        setCharacters([...characters, newAsset])
+      } else if (type === 'scene') {
+        setScenes([...scenes, newAsset])
+      } else {
+        setItems([...items, newAsset])
+      }
+
+      // 异步保存到数据库（当用户输入名称后）
+      // 这里不立即创建数据库记录，等用户输入名称后再创建
+    } catch (error) {
+      console.error('添加资产失败:', error)
+      alertError(error instanceof Error ? error.message : '添加资产失败', '错误')
     }
   }
 
-  const removeAsset = (type: 'character' | 'scene' | 'item', id: string) => {
-    if (type === 'character') {
-      setCharacters(characters.filter((c) => c.id !== id))
-    } else if (type === 'scene') {
-      setScenes(scenes.filter((s) => s.id !== id))
-    } else {
-      setItems(items.filter((i) => i.id !== id))
+  const removeAsset = async (type: 'character' | 'scene' | 'item', id: string | number) => {
+    // 如果是临时ID（字符串且以temp-开头），直接删除本地状态
+    if (typeof id === 'string' && id.startsWith('temp-')) {
+      if (type === 'character') {
+        setCharacters(characters.filter((c) => c.id !== id))
+      } else if (type === 'scene') {
+        setScenes(scenes.filter((s) => s.id !== id))
+      } else {
+        setItems(items.filter((i) => i.id !== id))
+      }
+      return
+    }
+
+    // 如果是数据库ID（数字），从数据库删除
+    try {
+      const numericId = typeof id === 'number' ? id : parseInt(id.toString(), 10)
+      if (isNaN(numericId)) {
+        console.warn('无效的资产ID:', id)
+        return
+      }
+
+      if (type === 'character') {
+        await deleteCharacter(numericId)
+        setCharacters(characters.filter((c) => {
+          const cId = typeof c.id === 'number' ? c.id : parseInt(c.id.toString(), 10)
+          return !isNaN(cId) && cId !== numericId
+        }))
+      } else if (type === 'scene') {
+        await deleteScene(numericId)
+        setScenes(scenes.filter((s) => {
+          const sId = typeof s.id === 'number' ? s.id : parseInt(s.id.toString(), 10)
+          return !isNaN(sId) && sId !== numericId
+        }))
+      } else {
+        await deleteItem(numericId)
+        setItems(items.filter((i) => {
+          const iId = typeof i.id === 'number' ? i.id : parseInt(i.id.toString(), 10)
+          return !isNaN(iId) && iId !== numericId
+        }))
+      }
+      console.log(`✅ ${type} 已从数据库删除: ID=${numericId}`)
+    } catch (error) {
+      console.error(`删除${type}失败:`, error)
+      alertError(error instanceof Error ? error.message : `删除${type}失败`, '错误')
     }
   }
 
-  const updateAssetName = (type: 'character' | 'scene' | 'item', id: string, name: string) => {
+  const updateAssetName = async (type: 'character' | 'scene' | 'item', id: string | number, name: string) => {
+    // 立即更新UI
     if (type === 'character') {
       setCharacters(characters.map((c) => (c.id === id ? { ...c, name } : c)))
     } else if (type === 'scene') {
       setScenes(scenes.map((s) => (s.id === id ? { ...s, name } : s)))
     } else {
       setItems(items.map((i) => (i.id === id ? { ...i, name } : i)))
+    }
+
+    // 如果是临时ID（字符串且以temp-开头），创建数据库记录
+    if (typeof id === 'string' && id.startsWith('temp-')) {
+      const projectId = state?.projectId
+      if (!projectId || typeof projectId !== 'number' || !name.trim()) {
+        return // 如果没有项目ID或名称为空，不创建数据库记录
+      }
+
+      try {
+        let createdAsset: { id: number; name: string; image?: string }
+        if (type === 'character') {
+          createdAsset = await createCharacter(projectId, name.trim())
+        } else if (type === 'scene') {
+          createdAsset = await createScene(projectId, name.trim())
+        } else {
+          createdAsset = await createItem(projectId, name.trim())
+        }
+
+        // 用数据库ID替换临时ID
+        if (type === 'character') {
+          setCharacters(characters.map((c) => 
+            c.id === id ? { ...c, id: createdAsset.id, name: createdAsset.name, image: createdAsset.image, image_url: createdAsset.image } : c
+          ))
+        } else if (type === 'scene') {
+          setScenes(scenes.map((s) => 
+            s.id === id ? { ...s, id: createdAsset.id, name: createdAsset.name, image: createdAsset.image, image_url: createdAsset.image } : s
+          ))
+        } else {
+          setItems(items.map((i) => 
+            i.id === id ? { ...i, id: createdAsset.id, name: createdAsset.name, image: createdAsset.image, image_url: createdAsset.image } : i
+          ))
+        }
+        console.log(`✅ ${type} 已保存到数据库: ID=${createdAsset.id}, 名称="${createdAsset.name}"`)
+      } catch (error) {
+        console.error(`创建${type}失败:`, error)
+        // 不显示错误提示，避免打断用户输入
+      }
+      return
+    }
+
+    // 如果是数据库ID（数字），更新数据库
+    const numericId = typeof id === 'number' ? id : parseInt(id.toString(), 10)
+    if (isNaN(numericId) || !name.trim()) {
+      return
+    }
+
+    try {
+      if (type === 'character') {
+        await updateCharacter(numericId, name.trim())
+      } else if (type === 'scene') {
+        await updateScene(numericId, name.trim())
+      } else {
+        await updateItem(numericId, name.trim())
+      }
+      console.log(`✅ ${type} 名称已更新到数据库: ID=${numericId}, 名称="${name.trim()}"`)
+    } catch (error) {
+      console.error(`更新${type}名称失败:`, error)
+      // 不显示错误提示，避免打断用户输入
     }
   }
 
@@ -904,10 +1102,10 @@ function AssetDetails() {
                     <option>通过本地上传</option>
                   </select>
                     <div className="relative w-full bg-white border border-gray-300 rounded overflow-hidden group" style={{ aspectRatio: '9/16' }}>
-                    {char.imageUrl ? (
+                    {(char.imageUrl || char.image || char.image_url) ? (
                       <>
                         <img
-                          src={char.imageUrl}
+                          src={char.imageUrl || char.image || char.image_url || ''}
                           alt={char.name || '角色图片'}
                             className="w-full h-full object-cover object-top"
                         />
@@ -915,7 +1113,7 @@ function AssetDetails() {
                         <button
                             onClick={(e) => {
                               e.stopPropagation()
-                              setPreviewImage(char.imageUrl || null)
+                              setPreviewImage(char.imageUrl || char.image || char.image_url || null)
                             }}
                             className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black bg-opacity-50 transition-opacity z-20"
                           >
@@ -1062,19 +1260,19 @@ function AssetDetails() {
                     <option>通过本地上传</option>
                   </select>
                   <div className="relative w-full bg-white border border-gray-300 rounded overflow-hidden group" style={{ aspectRatio: '16/9' }}>
-                    {scene.imageUrl ? (
+                    {(scene.imageUrl || scene.image || scene.image_url) ? (
                       <>
                         <img
-                          src={scene.imageUrl}
+                          src={scene.imageUrl || scene.image || scene.image_url || ''}
                           alt={scene.name || '场景图片'}
                           className="w-full h-full object-cover"
                         />
                         {/* 预览按钮 - hover 时显示 */}
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setPreviewImage(scene.imageUrl || null)
-                          }}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setPreviewImage(scene.imageUrl || scene.image || scene.image_url || null)
+                            }}
                           className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black bg-opacity-50 transition-opacity z-20"
                         >
                           <Eye className="text-white" size={24} />
@@ -1218,19 +1416,19 @@ function AssetDetails() {
                     <option>通过本地上传</option>
                   </select>
                   <div className="relative w-full bg-white border border-gray-300 rounded overflow-hidden group" style={{ aspectRatio: '16/9' }}>
-                    {item.imageUrl ? (
+                    {(item.imageUrl || item.image || item.image_url) ? (
                       <>
                         <img
-                          src={item.imageUrl}
+                          src={item.imageUrl || item.image || item.image_url || ''}
                           alt={item.name || '物品图片'}
                           className="w-full h-full object-cover"
                         />
                         {/* 预览按钮 - hover 时显示 */}
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setPreviewImage(item.imageUrl || null)
-                          }}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setPreviewImage(item.imageUrl || item.image || item.image_url || null)
+                            }}
                           className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black bg-opacity-50 transition-opacity z-20"
                         >
                           <Eye className="text-white" size={24} />

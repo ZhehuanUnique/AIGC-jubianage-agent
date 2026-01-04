@@ -203,6 +203,7 @@ function TaskList() {
           scriptTitle: task.title,
           scriptContent: task.script_content,
           workStyle: task.work_style,
+          projectId: task.project_id, // 传递项目ID
         }
       })
     } else {
@@ -214,6 +215,7 @@ function TaskList() {
           scriptTitle: task.title,
           scriptContent: task.script_content,
           workStyle: task.work_style,
+          projectId: task.project_id, // 传递项目ID
         }
       })
     }

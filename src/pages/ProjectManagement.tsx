@@ -657,9 +657,9 @@ function ProjectManagement() {
 
         {/* 分页 */}
         <div className="flex justify-center items-center gap-2 mt-8">
-          <button className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors">上一页</button>
+          <button className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors">‹</button>
           <button className="px-4 py-2 bg-purple-600 text-white rounded">1</button>
-          <button className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors">下一页</button>
+          <button className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors">›</button>
         </div>
       </div>
 

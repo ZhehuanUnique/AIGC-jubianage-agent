@@ -256,9 +256,9 @@ function SceneManagement() {
 
           {/* 分页 */}
           <div className="flex justify-center items-center gap-2 mt-8">
-            <button className="px-3 py-1 text-gray-600 hover:text-gray-900">上一页</button>
+            <button className="px-3 py-1 text-gray-600 hover:text-gray-900">‹</button>
             <button className="px-4 py-1 bg-purple-600 text-white rounded">1</button>
-            <button className="px-3 py-1 text-gray-600 hover:text-gray-900">下一页</button>
+            <button className="px-3 py-1 text-gray-600 hover:text-gray-900">›</button>
           </div>
         </div>
       </div>

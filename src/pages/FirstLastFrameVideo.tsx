@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import SidebarNavigation from '../components/SidebarNavigation'
 import { ArrowLeft, Upload, Loader2, X } from 'lucide-react'
 import { alertSuccess, alertError } from '../utils/alert'
-import { generateFirstLastFrameVideo, getFirstLastFrameVideoStatus, getFirstLastFrameVideos } from '../services/api'
+import { generateFirstLastFrameVideo, getFirstLastFrameVideoStatus, getFirstLastFrameVideos, createShot } from '../services/api'
 import { calculateVideoGenerationCredit } from '../utils/creditCalculator'
 
 interface VideoTask {
@@ -391,6 +391,29 @@ function FirstLastFrameVideo() {
             pollIntervalRef.current = null
             if (task.status === 'completed') {
               alertSuccess('视频生成完成', '成功')
+              
+              // 视频生成成功后，创建shot并关联视频到片段管理页面
+              if (projectId && task.videoUrl) {
+                try {
+                  const numericProjectId = parseInt(projectId, 10)
+                  if (!isNaN(numericProjectId)) {
+                    // 创建新的shot（分镜）
+                    const shotData = await createShot(numericProjectId, {
+                      description: prompt || '首尾帧生成的视频',
+                      prompt: prompt || '首尾帧生成的视频',
+                      segment: prompt || '首尾帧生成的视频',
+                    })
+                    
+                    console.log(`✅ 已创建分镜 ${shotData.id}，视频将自动关联到片段管理页面`)
+                    
+                    // 通知片段管理页面刷新
+                    window.dispatchEvent(new CustomEvent('fragment-updated', { detail: { projectId: numericProjectId } }))
+                  }
+                } catch (error) {
+                  console.error('创建分镜失败（视频已生成，但不影响主流程）:', error)
+                  // 不显示错误提示，避免打断用户体验
+                }
+              }
             } else {
               alertError(`视频生成失败: ${task.errorMessage || '未知错误'}`, '失败')
             }
@@ -521,9 +544,25 @@ function FirstLastFrameVideo() {
       {/* 历史视频区域（全屏滚动） */}
       <div className="pb-[600px] pt-8 ml-64">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* 顶部：标题和筛选 */}
+          {/* 顶部：返回按钮、标题和筛选 */}
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-800">今天</h2>
+            <div className="flex items-center gap-4">
+              {/* 返回按钮 */}
+              <button
+                onClick={() => {
+                  if (projectId) {
+                    navigate(`/project/${projectId}/fragments`)
+                  } else {
+                    navigate(-1)
+                  }
+                }}
+                className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
+              >
+                <ArrowLeft size={18} />
+                返回
+              </button>
+              <h2 className="text-2xl font-bold text-gray-800">今天</h2>
+            </div>
             
             {/* 筛选下拉菜单 */}
             <div className="flex items-center gap-2">

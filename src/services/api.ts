@@ -908,6 +908,50 @@ export async function getProjectCharacters(projectId: number): Promise<Array<{ i
 }
 
 /**
+ * 创建项目分镜（片段）
+ */
+export async function createShot(projectId: number, data: {
+  shotNumber?: number
+  description?: string
+  prompt?: string
+  segment?: string
+  style?: string
+}): Promise<{ id: number; shotNumber: number; description: string; prompt: string; segment: string; style: string; createdAt: string }> {
+  try {
+    const token = AuthService.getToken()
+    if (!token) {
+      throw new Error('未登录，请先登录')
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/shots`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || '创建分镜失败')
+    }
+
+    const result = await response.json()
+    if (result.success) {
+      return result.data
+    } else {
+      throw new Error(result.error || '创建分镜失败')
+    }
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('网络错误，请检查服务器连接')
+  }
+}
+
+/**
  * 获取项目分镜列表
  */
 export async function getProjectShots(projectId: number): Promise<Array<{
@@ -1187,6 +1231,210 @@ export async function deleteItem(itemId: number): Promise<void> {
       const error = await response.json()
       throw new Error(error.error || '删除物品失败')
     }
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('网络错误，请检查服务器连接')
+  }
+}
+
+/**
+ * 创建角色
+ */
+export async function createCharacter(projectId: number, name: string): Promise<{ id: number; name: string; image?: string }> {
+  try {
+    const token = AuthService.getToken()
+    if (!token) {
+      throw new Error('未登录，请先登录')
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/characters`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ projectId, name }),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || '创建角色失败')
+    }
+
+    const result = await response.json()
+    return result.data
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('网络错误，请检查服务器连接')
+  }
+}
+
+/**
+ * 更新角色名称
+ */
+export async function updateCharacter(characterId: number, name: string): Promise<{ id: number; name: string; image?: string }> {
+  try {
+    const token = AuthService.getToken()
+    if (!token) {
+      throw new Error('未登录，请先登录')
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/characters/${characterId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ name }),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || '更新角色失败')
+    }
+
+    const result = await response.json()
+    return result.data
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('网络错误，请检查服务器连接')
+  }
+}
+
+/**
+ * 创建场景
+ */
+export async function createScene(projectId: number, name: string): Promise<{ id: number; name: string; image?: string }> {
+  try {
+    const token = AuthService.getToken()
+    if (!token) {
+      throw new Error('未登录，请先登录')
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/scenes`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ projectId, name }),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || '创建场景失败')
+    }
+
+    const result = await response.json()
+    return result.data
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('网络错误，请检查服务器连接')
+  }
+}
+
+/**
+ * 更新场景名称
+ */
+export async function updateScene(sceneId: number, name: string): Promise<{ id: number; name: string; image?: string }> {
+  try {
+    const token = AuthService.getToken()
+    if (!token) {
+      throw new Error('未登录，请先登录')
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/scenes/${sceneId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ name }),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || '更新场景失败')
+    }
+
+    const result = await response.json()
+    return result.data
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('网络错误，请检查服务器连接')
+  }
+}
+
+/**
+ * 创建物品
+ */
+export async function createItem(projectId: number, name: string): Promise<{ id: number; name: string; image?: string }> {
+  try {
+    const token = AuthService.getToken()
+    if (!token) {
+      throw new Error('未登录，请先登录')
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/items`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ projectId, name }),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || '创建物品失败')
+    }
+
+    const result = await response.json()
+    return result.data
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('网络错误，请检查服务器连接')
+  }
+}
+
+/**
+ * 更新物品名称
+ */
+export async function updateItem(itemId: number, name: string): Promise<{ id: number; name: string; image?: string }> {
+  try {
+    const token = AuthService.getToken()
+    if (!token) {
+      throw new Error('未登录，请先登录')
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/items/${itemId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ name }),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || '更新物品失败')
+    }
+
+    const result = await response.json()
+    return result.data
   } catch (error) {
     if (error instanceof Error) {
       throw error

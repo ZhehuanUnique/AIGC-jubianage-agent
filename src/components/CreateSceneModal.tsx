@@ -921,9 +921,9 @@ function CreateSceneModal({ onClose, onSceneSelect, projectName }: CreateSceneMo
                   </div>
                   {completedScenes.length > 4 && (
                     <div className="flex justify-center items-center gap-2 mt-4">
-                      <button className="px-2 py-1 text-gray-600">上一页</button>
+                      <button className="px-2 py-1 text-gray-600">‹</button>
                       <span className="text-gray-600 text-sm">1 / {Math.ceil(completedScenes.length / 4)}</span>
-                      <button className="px-2 py-1 text-gray-600">下一页</button>
+                      <button className="px-2 py-1 text-gray-600">›</button>
                     </div>
                   )}
                 </>

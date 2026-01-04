@@ -26,6 +26,22 @@ function FragmentManagement() {
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const [deleteConfirmFragmentId, setDeleteConfirmFragmentId] = useState<string | null>(null)
 
+  // 监听片段更新事件
+  useEffect(() => {
+    const handleFragmentUpdated = (event: CustomEvent) => {
+      const eventProjectId = event.detail?.projectId
+      if (eventProjectId && projectId && parseInt(projectId, 10) === eventProjectId) {
+        console.log('📢 收到片段更新事件，刷新片段列表')
+        loadFragments(true) // 静默刷新
+      }
+    }
+    
+    window.addEventListener('fragment-updated', handleFragmentUpdated as EventListener)
+    return () => {
+      window.removeEventListener('fragment-updated', handleFragmentUpdated as EventListener)
+    }
+  }, [projectId])
+
   // 从数据库加载片段列表（包含视频）- 乐观更新优化
   const loadFragments = async (silent = false) => {
     if (!projectId) return
@@ -268,11 +284,11 @@ function FragmentManagement() {
           {fragments.map((fragment) => (
             <div
               key={fragment.id}
-              className="bg-gray-50 border border-gray-200 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-transform relative group"
+              className="w-64 h-48 bg-gray-50 border border-gray-200 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-transform relative group"
             >
               <div
                 onClick={() => navigate(`/project/${projectId}/fragments/${fragment.id}/review`)}
-                className="aspect-video bg-gray-700 flex items-center justify-center"
+                className="w-full h-full bg-gray-700 flex items-center justify-center"
               >
                 {fragment.videoUrls && fragment.videoUrls.length > 0 ? (
                   <video
@@ -288,12 +304,12 @@ function FragmentManagement() {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="w-24 h-24 rounded-lg bg-purple-600 flex items-center justify-center text-white text-xs text-center p-2">
+                  <div className="w-20 h-20 rounded-lg bg-purple-600 flex items-center justify-center text-white text-xs text-center p-2">
                     {fragment.name}
                   </div>
                 )}
               </div>
-              <div className="p-3 text-center text-sm text-gray-700 bg-white border-t border-gray-100">
+              <div className="absolute bottom-0 left-0 right-0 p-2 text-center text-sm text-white bg-black bg-opacity-50">
                 {fragment.name}
               </div>
               <button
@@ -313,9 +329,9 @@ function FragmentManagement() {
 
         {/* 分页 */}
         <div className="flex justify-center items-center gap-2 mt-8">
-          <button className="px-3 py-1 text-gray-600 hover:text-gray-900">上一页</button>
+          <button className="px-3 py-1 text-gray-600 hover:text-gray-900">‹</button>
           <button className="px-4 py-1 bg-purple-600 text-white rounded">1</button>
-          <button className="px-3 py-1 text-gray-600 hover:text-gray-900">下一页</button>
+          <button className="px-3 py-1 text-gray-600 hover:text-gray-900">›</button>
         </div>
         </div>
       </div>

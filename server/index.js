@@ -831,6 +831,39 @@ app.get('/api/first-last-frame-video/status/:taskId', authenticateToken, async (
 
             console.log(`✅ 视频已保存到项目文件夹: ${uploadResult.url}`)
 
+            // 自动创建shot（分镜）并关联视频
+            let shotId = null
+            try {
+              // 获取下一个shot_number
+              const maxShotResult = await db.query(
+                'SELECT MAX(shot_number) as max_shot FROM shots WHERE project_id = $1',
+                [projectId]
+              )
+              const nextShotNumber = (maxShotResult.rows[0]?.max_shot || 0) + 1
+              
+              // 创建shot
+              const shotResult = await db.query(
+                `INSERT INTO shots (project_id, shot_number, description, prompt, segment, style, created_at, updated_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                 RETURNING id`,
+                [
+                  projectId,
+                  nextShotNumber,
+                  req.body.text || req.query.text || '首尾帧生成的视频',
+                  req.body.text || req.query.text || '首尾帧生成的视频',
+                  req.body.text || req.query.text || '首尾帧生成的视频',
+                  '三维动漫风'
+                ]
+              )
+              
+              if (shotResult.rows.length > 0) {
+                shotId = shotResult.rows[0].id
+                console.log(`✅ 已自动创建分镜 ${shotId} (分镜号: ${nextShotNumber})`)
+              }
+            } catch (shotError) {
+              console.warn('自动创建分镜失败（继续保存视频）:', shotError)
+            }
+            
             // 保存到 files 表，包含更多元数据
             const metadata = {
               task_id: taskId,
@@ -844,6 +877,12 @@ app.get('/api/first-last-frame-video/status/:taskId', authenticateToken, async (
               first_frame_url: null, // 状态查询时无法获取，已在生成时保存
               last_frame_url: null, // 状态查询时无法获取，已在生成时保存
             }
+            
+            // 如果创建了shot，在metadata中关联shot_id
+            if (shotId) {
+              metadata.shot_id = shotId.toString()
+            }
+            
             await db.query(
               `INSERT INTO files (project_id, file_type, file_name, cos_key, cos_url, metadata)
                VALUES ($1, 'video', $2, $3, $4, $5)
@@ -4356,6 +4395,166 @@ app.delete('/api/fragments/:fragmentId', authenticateToken, async (req, res) => 
   }
 })
 
+// 创建场景
+app.post('/api/scenes', authenticateToken, async (req, res) => {
+  try {
+    const { projectId, name } = req.body
+    const userId = req.user?.id
+    
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: '未登录，请先登录',
+      })
+    }
+    
+    if (!projectId) {
+      return res.status(400).json({
+        success: false,
+        error: '项目ID不能为空',
+      })
+    }
+    
+    if (!name || name.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        error: '场景名称不能为空',
+      })
+    }
+    
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+    
+    // 验证项目是否属于当前用户
+    const projectCheck = await db.query(
+      'SELECT id FROM projects WHERE id = $1 AND user_id = $2',
+      [parseInt(projectId), userId]
+    )
+    
+    if (projectCheck.rows.length === 0) {
+      return res.status(403).json({
+        success: false,
+        error: '无权访问该项目',
+      })
+    }
+    
+    // 检查是否已存在同名场景
+    const existing = await db.query(
+      'SELECT id FROM scenes WHERE project_id = $1 AND name = $2',
+      [parseInt(projectId), name.trim()]
+    )
+    
+    if (existing.rows.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: '该场景已存在',
+      })
+    }
+    
+    // 创建场景
+    const result = await db.query(
+      'INSERT INTO scenes (project_id, name) VALUES ($1, $2) RETURNING id, name, image_url, created_at, updated_at',
+      [parseInt(projectId), name.trim()]
+    )
+    
+    res.json({
+      success: true,
+      data: {
+        id: result.rows[0].id,
+        name: result.rows[0].name,
+        image: result.rows[0].image_url,
+        image_url: result.rows[0].image_url,
+        createdAt: result.rows[0].created_at,
+        updatedAt: result.rows[0].updated_at,
+      }
+    })
+  } catch (error) {
+    console.error('创建场景失败:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '创建场景失败',
+    })
+  }
+})
+
+// 更新场景名称
+app.put('/api/scenes/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params
+    const { name } = req.body
+    const userId = req.user?.id
+    
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: '未登录，请先登录',
+      })
+    }
+    
+    if (!name || name.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        error: '场景名称不能为空',
+      })
+    }
+    
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+    
+    // 检查场景是否存在且属于当前用户的项目
+    const scene = await db.query(
+      `SELECT s.id, s.project_id, p.user_id 
+       FROM scenes s 
+       JOIN projects p ON s.project_id = p.id 
+       WHERE s.id = $1 AND p.user_id = $2`,
+      [parseInt(id), userId]
+    )
+    
+    if (scene.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: '场景不存在或无权访问',
+      })
+    }
+    
+    // 检查新名称是否与其他场景冲突
+    const existing = await db.query(
+      'SELECT id FROM scenes WHERE project_id = $1 AND name = $2 AND id != $3',
+      [scene.rows[0].project_id, name.trim(), parseInt(id)]
+    )
+    
+    if (existing.rows.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: '该场景名称已存在',
+      })
+    }
+    
+    // 更新场景名称
+    const result = await db.query(
+      'UPDATE scenes SET name = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING id, name, image_url, updated_at',
+      [name.trim(), parseInt(id)]
+    )
+    
+    res.json({
+      success: true,
+      data: {
+        id: result.rows[0].id,
+        name: result.rows[0].name,
+        image: result.rows[0].image_url,
+        image_url: result.rows[0].image_url,
+        updatedAt: result.rows[0].updated_at,
+      }
+    })
+  } catch (error) {
+    console.error('更新场景失败:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '更新场景失败',
+    })
+  }
+})
+
 // 上传 base64 图片到 COS
 app.post('/api/upload-base64-image', authenticateToken, async (req, res) => {
   try {
@@ -4470,6 +4669,166 @@ app.delete('/api/characters/:id', authenticateToken, async (req, res) => {
     res.status(500).json({
       success: false,
       error: error.message || '删除角色失败',
+    })
+  }
+})
+
+// 创建角色
+app.post('/api/characters', authenticateToken, async (req, res) => {
+  try {
+    const { projectId, name } = req.body
+    const userId = req.user?.id
+    
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: '未登录，请先登录',
+      })
+    }
+    
+    if (!projectId) {
+      return res.status(400).json({
+        success: false,
+        error: '项目ID不能为空',
+      })
+    }
+    
+    if (!name || name.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        error: '角色名称不能为空',
+      })
+    }
+    
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+    
+    // 验证项目是否属于当前用户
+    const projectCheck = await db.query(
+      'SELECT id FROM projects WHERE id = $1 AND user_id = $2',
+      [parseInt(projectId), userId]
+    )
+    
+    if (projectCheck.rows.length === 0) {
+      return res.status(403).json({
+        success: false,
+        error: '无权访问该项目',
+      })
+    }
+    
+    // 检查是否已存在同名角色
+    const existing = await db.query(
+      'SELECT id FROM characters WHERE project_id = $1 AND name = $2',
+      [parseInt(projectId), name.trim()]
+    )
+    
+    if (existing.rows.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: '该角色已存在',
+      })
+    }
+    
+    // 创建角色
+    const result = await db.query(
+      'INSERT INTO characters (project_id, name) VALUES ($1, $2) RETURNING id, name, image_url, created_at, updated_at',
+      [parseInt(projectId), name.trim()]
+    )
+    
+    res.json({
+      success: true,
+      data: {
+        id: result.rows[0].id,
+        name: result.rows[0].name,
+        image: result.rows[0].image_url,
+        image_url: result.rows[0].image_url,
+        createdAt: result.rows[0].created_at,
+        updatedAt: result.rows[0].updated_at,
+      }
+    })
+  } catch (error) {
+    console.error('创建角色失败:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '创建角色失败',
+    })
+  }
+})
+
+// 更新角色名称
+app.put('/api/characters/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params
+    const { name } = req.body
+    const userId = req.user?.id
+    
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: '未登录，请先登录',
+      })
+    }
+    
+    if (!name || name.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        error: '角色名称不能为空',
+      })
+    }
+    
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+    
+    // 检查角色是否存在且属于当前用户的项目
+    const character = await db.query(
+      `SELECT c.id, c.project_id, p.user_id 
+       FROM characters c 
+       JOIN projects p ON c.project_id = p.id 
+       WHERE c.id = $1 AND p.user_id = $2`,
+      [parseInt(id), userId]
+    )
+    
+    if (character.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: '角色不存在或无权访问',
+      })
+    }
+    
+    // 检查新名称是否与其他角色冲突
+    const existing = await db.query(
+      'SELECT id FROM characters WHERE project_id = $1 AND name = $2 AND id != $3',
+      [character.rows[0].project_id, name.trim(), parseInt(id)]
+    )
+    
+    if (existing.rows.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: '该角色名称已存在',
+      })
+    }
+    
+    // 更新角色名称
+    const result = await db.query(
+      'UPDATE characters SET name = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING id, name, image_url, updated_at',
+      [name.trim(), parseInt(id)]
+    )
+    
+    res.json({
+      success: true,
+      data: {
+        id: result.rows[0].id,
+        name: result.rows[0].name,
+        image: result.rows[0].image_url,
+        image_url: result.rows[0].image_url,
+        updatedAt: result.rows[0].updated_at,
+      }
+    })
+  } catch (error) {
+    console.error('更新角色失败:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '更新角色失败',
     })
   }
 })
@@ -4924,6 +5283,166 @@ app.delete('/api/items/:id', authenticateToken, async (req, res) => {
     res.status(500).json({
       success: false,
       error: error.message || '删除物品失败',
+    })
+  }
+})
+
+// 创建物品
+app.post('/api/items', authenticateToken, async (req, res) => {
+  try {
+    const { projectId, name } = req.body
+    const userId = req.user?.id
+    
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: '未登录，请先登录',
+      })
+    }
+    
+    if (!projectId) {
+      return res.status(400).json({
+        success: false,
+        error: '项目ID不能为空',
+      })
+    }
+    
+    if (!name || name.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        error: '物品名称不能为空',
+      })
+    }
+    
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+    
+    // 验证项目是否属于当前用户
+    const projectCheck = await db.query(
+      'SELECT id FROM projects WHERE id = $1 AND user_id = $2',
+      [parseInt(projectId), userId]
+    )
+    
+    if (projectCheck.rows.length === 0) {
+      return res.status(403).json({
+        success: false,
+        error: '无权访问该项目',
+      })
+    }
+    
+    // 检查是否已存在同名物品
+    const existing = await db.query(
+      'SELECT id FROM items WHERE project_id = $1 AND name = $2',
+      [parseInt(projectId), name.trim()]
+    )
+    
+    if (existing.rows.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: '该物品已存在',
+      })
+    }
+    
+    // 创建物品
+    const result = await db.query(
+      'INSERT INTO items (project_id, name) VALUES ($1, $2) RETURNING id, name, image_url, created_at, updated_at',
+      [parseInt(projectId), name.trim()]
+    )
+    
+    res.json({
+      success: true,
+      data: {
+        id: result.rows[0].id,
+        name: result.rows[0].name,
+        image: result.rows[0].image_url,
+        image_url: result.rows[0].image_url,
+        createdAt: result.rows[0].created_at,
+        updatedAt: result.rows[0].updated_at,
+      }
+    })
+  } catch (error) {
+    console.error('创建物品失败:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '创建物品失败',
+    })
+  }
+})
+
+// 更新物品名称
+app.put('/api/items/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params
+    const { name } = req.body
+    const userId = req.user?.id
+    
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: '未登录，请先登录',
+      })
+    }
+    
+    if (!name || name.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        error: '物品名称不能为空',
+      })
+    }
+    
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+    
+    // 检查物品是否存在且属于当前用户的项目
+    const item = await db.query(
+      `SELECT i.id, i.project_id, p.user_id 
+       FROM items i 
+       JOIN projects p ON i.project_id = p.id 
+       WHERE i.id = $1 AND p.user_id = $2`,
+      [parseInt(id), userId]
+    )
+    
+    if (item.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: '物品不存在或无权访问',
+      })
+    }
+    
+    // 检查新名称是否与其他物品冲突
+    const existing = await db.query(
+      'SELECT id FROM items WHERE project_id = $1 AND name = $2 AND id != $3',
+      [item.rows[0].project_id, name.trim(), parseInt(id)]
+    )
+    
+    if (existing.rows.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: '该物品名称已存在',
+      })
+    }
+    
+    // 更新物品名称
+    const result = await db.query(
+      'UPDATE items SET name = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING id, name, image_url, updated_at',
+      [name.trim(), parseInt(id)]
+    )
+    
+    res.json({
+      success: true,
+      data: {
+        id: result.rows[0].id,
+        name: result.rows[0].name,
+        image: result.rows[0].image_url,
+        image_url: result.rows[0].image_url,
+        updatedAt: result.rows[0].updated_at,
+      }
+    })
+  } catch (error) {
+    console.error('更新物品失败:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '更新物品失败',
     })
   }
 })

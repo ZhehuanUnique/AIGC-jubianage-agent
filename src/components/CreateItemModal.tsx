@@ -1313,7 +1313,7 @@ function CreateItemModal({ onClose, onItemSelect, projectName }: CreateItemModal
                             : 'text-gray-600 hover:bg-gray-100'
                         }`}
                       >
-                        上一页
+                        ‹
                       </button>
                       <span className="text-gray-600 text-sm">
                         {currentPage} / {Math.ceil(completedItems.length / itemsPerPage)}
@@ -1327,7 +1327,7 @@ function CreateItemModal({ onClose, onItemSelect, projectName }: CreateItemModal
                             : 'text-gray-600 hover:bg-gray-100'
                         }`}
                       >
-                        下一页
+                        ›
                       </button>
                     </div>
                   )}
