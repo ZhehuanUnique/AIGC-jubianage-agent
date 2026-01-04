@@ -23,6 +23,29 @@ export interface GenerateSpeechRequest {
   speed?: number
   pitch?: number
   format?: 'wav' | 'mp3' | 'ogg'
+  // 音色参考音频（base64或URL）
+  referenceAudio?: string
+  // 情感控制方式：0=与参考音频相同, 1=单独情感参考音频, 2=情感向量, 3=情感描述文本
+  emotionControlMethod?: 0 | 1 | 2 | 3
+  // 情感参考音频（base64或URL）
+  emotionReferenceAudio?: string
+  // 情感权重（0-1）
+  emotionWeight?: number
+  // 情感向量（8个情绪值）
+  emotionVectors?: {
+    joy?: number
+    anger?: number
+    sadness?: number
+    fear?: number
+    disgust?: number
+    low?: number
+    surprise?: number
+    calm?: number
+  }
+  // 情感描述文本
+  emotionText?: string
+  // 情感随机采样
+  emotionRandom?: boolean
 }
 
 export interface GenerateSpeechResponse {

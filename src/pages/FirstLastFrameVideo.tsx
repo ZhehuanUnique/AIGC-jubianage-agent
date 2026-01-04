@@ -1179,85 +1179,83 @@ function FirstLastFrameVideo() {
                   </div>
                 </div>
 
-                {/* 横向双箭头连接符 */}
-                <div className="flex items-center justify-center px-2">
-                  <svg className="w-5 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 12" strokeWidth="1.5">
-                    <path d="M3 6l3-3m0 6l-3-3" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d="M6 6h12" strokeLinecap="round" />
-                    <path d="M18 6l3-3m0 6l-3-3" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </div>
+                {/* 横向双箭头连接符 - 只在支持首尾帧时显示 */}
+                {currentModelSupportsFirstLastFrame && (
+                  <div className="flex items-center justify-center px-2">
+                    <svg className="w-8 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 16" strokeWidth="2">
+                      {/* 上箭头：左指向右 */}
+                      <path d="M2 4l4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M6 8h12" strokeLinecap="round" />
+                      {/* 下箭头：右指向左 */}
+                      <path d="M22 12l-4-4 4-4" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M18 8H6" strokeLinecap="round" />
+                    </svg>
+                  </div>
+                )}
 
-                {/* 尾帧卡片 */}
-                <div
-                  className={`relative group ${
-                    !currentModelSupportsFirstLastFrame 
-                      ? 'cursor-not-allowed opacity-50' 
-                      : 'cursor-pointer'
-                  }`}
-                  onMouseEnter={() => currentModelSupportsFirstLastFrame && setHoveredFrame('last')}
-                  onMouseLeave={() => setHoveredFrame(null)}
-                  onClick={currentModelSupportsFirstLastFrame ? triggerLastFrameUpload : undefined}
-                >
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleLastFrame}
-                    className="hidden"
-                    ref={lastFrameInputRef}
-                    disabled={!currentModelSupportsFirstLastFrame}
-                  />
+                {/* 尾帧卡片 - 只在支持首尾帧时显示 */}
+                {currentModelSupportsFirstLastFrame && (
                   <div
-                    className={`relative bg-gray-50 border-2 border-dashed rounded-xl flex flex-col items-center justify-center transition-all duration-300 ${
-                      !currentModelSupportsFirstLastFrame 
-                        ? 'border-gray-200 bg-gray-50' 
-                        : hoveredFrame === 'last' 
+                    className="relative cursor-pointer group"
+                    onMouseEnter={() => setHoveredFrame('last')}
+                    onMouseLeave={() => setHoveredFrame(null)}
+                    onClick={triggerLastFrameUpload}
+                  >
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleLastFrame}
+                      className="hidden"
+                      ref={lastFrameInputRef}
+                    />
+                    <div
+                      className={`relative bg-gray-50 border-2 border-dashed rounded-xl flex flex-col items-center justify-center transition-all duration-300 ${
+                        hoveredFrame === 'last' 
                           ? 'border-blue-500 shadow-lg transform scale-105' 
                           : 'border-gray-300',
-                      lastFramePreview ? 'border-blue-500 bg-white' : '',
-                      // 根据宽高比动态调整尺寸（与首帧保持一致）
-                      frameAspectRatio === '16:9' ? 'w-32 aspect-video' : 
-                      frameAspectRatio === '9:16' ? 'w-16 aspect-[9/16]' : 
-                      frameImageInfo ? '' : 'w-24 h-24'
-                    }`}
-                    style={frameImageInfo && frameAspectRatio === 'other' ? {
-                      width: `${Math.min(128, Math.max(64, frameImageInfo.width * 0.1))}px`,
-                      aspectRatio: `${frameImageInfo.width} / ${frameImageInfo.height}`
-                    } : undefined}
-                  >
-                    {lastFramePreview ? (
-                      <img
-                        src={lastFramePreview}
-                        alt="尾帧"
-                        className={`absolute inset-0 w-full h-full rounded-xl ${
-                          frameAspectRatio === 'other' ? 'object-cover object-top' : 'object-cover'
-                        }`}
-                      />
-                    ) : (
-                      <div className="flex flex-col items-center justify-center z-10">
-                        <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center mb-1">
-                          <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-                          </svg>
+                        lastFramePreview ? 'border-blue-500 bg-white' : '',
+                        // 根据宽高比动态调整尺寸（与首帧保持一致）
+                        frameAspectRatio === '16:9' ? 'w-32 aspect-video' : 
+                        frameAspectRatio === '9:16' ? 'w-16 aspect-[9/16]' : 
+                        frameImageInfo ? '' : 'w-24 h-24'
+                      }`}
+                      style={frameImageInfo && frameAspectRatio === 'other' ? {
+                        width: `${Math.min(128, Math.max(64, frameImageInfo.width * 0.1))}px`,
+                        aspectRatio: `${frameImageInfo.width} / ${frameImageInfo.height}`
+                      } : undefined}
+                    >
+                      {lastFramePreview ? (
+                        <img
+                          src={lastFramePreview}
+                          alt="尾帧"
+                          className={`absolute inset-0 w-full h-full rounded-xl ${
+                            frameAspectRatio === 'other' ? 'object-cover object-top' : 'object-cover'
+                          }`}
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center z-10">
+                          <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center mb-1">
+                            <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                            </svg>
+                          </div>
+                          <span className="text-xs text-gray-600 font-medium">尾帧</span>
                         </div>
-                        <span className="text-xs text-gray-600 font-medium">
-                          尾帧 {!currentModelSupportsFirstLastFrame && '(当前模型不支持)'}
-                        </span>
-                      </div>
-                    )}
-                    {lastFramePreview && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          clearLastFrame()
-                        }}
-                        className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600 z-20"
-                      >
-                        ×
-                      </button>
-                    )}
+                      )}
+                      {lastFramePreview && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            clearLastFrame()
+                          }}
+                          className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600 z-20"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
               {/* 右侧：提示词输入框 */}
@@ -1290,23 +1288,24 @@ function FirstLastFrameVideo() {
                 {/* 模型选择 */}
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-600 font-medium">模型:</span>
-                  <select
-                    value={selectedModel}
-                    onChange={(e) => setSelectedModel(e.target.value)}
-                    className="px-3 py-1.5 rounded-lg text-sm font-medium bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm cursor-pointer border-none outline-none appearance-none pr-8 min-w-[140px]"
-                    style={{
-                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='white' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
-                      backgroundRepeat: 'no-repeat',
-                      backgroundPosition: 'right 8px center',
-                      paddingRight: '32px'
-                    }}
-                  >
-                    {supportedModels.map((model) => (
-                      <option key={model.value} value={model.value} className="bg-white text-gray-900">
-                        {model.label}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <select
+                      value={selectedModel}
+                      onChange={(e) => setSelectedModel(e.target.value)}
+                      className="px-3 py-1.5 pr-8 rounded-lg text-sm font-medium bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm cursor-pointer border-none outline-none appearance-none min-w-[140px]"
+                      style={{
+                        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='white' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
+                        backgroundRepeat: 'no-repeat',
+                        backgroundPosition: 'right 8px center',
+                      }}
+                    >
+                      {supportedModels.map((model) => (
+                        <option key={model.value} value={model.value} className="bg-white text-gray-900">
+                          {model.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
                 
                 {/* 分辨率选择 */}

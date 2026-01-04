@@ -1,171 +1,76 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import SidebarNavigation from '../components/SidebarNavigation'
-import { Mic, Play, Pause, Download, Loader2, Volume2, VolumeX, Maximize, ChevronsRight, Settings, Film } from 'lucide-react'
+import { 
+  Mic, Play, Pause, Download, Loader2, Volume2, VolumeX, 
+  Upload, ChevronLeft, ChevronRight, RotateCcw, X, Music
+} from 'lucide-react'
 import { getVoices, generateSpeech, checkIndexTtsHealth, type Voice } from '../services/indexTtsApi'
 import { alert, alertError, alertWarning } from '../utils/alert'
+import AudioWaveform from '../components/AudioWaveform'
+
+// 情感控制方式
+type EmotionControlMethod = 0 | 1 | 2 | 3 // 0: 与参考音频相同, 1: 单独情感参考音频, 2: 情感向量, 3: 情感描述文本
 
 function VoiceCreation() {
   const { projectId } = useParams()
-  const [voices, setVoices] = useState<Voice[]>([])
-  const [selectedVoice, setSelectedVoice] = useState<string>('')
+  
+  // 基础状态
   const [text, setText] = useState('')
-  const [speed, setSpeed] = useState(1.0)
-  const [pitch, setPitch] = useState(0)
   const [isGenerating, setIsGenerating] = useState(false)
-  const [audioUrl, setAudioUrl] = useState<string | null>(null)
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null)
   const [serviceStatus, setServiceStatus] = useState<'checking' | 'online' | 'offline'>('checking')
-  const [isImporting, setIsImporting] = useState(false)
-  const [currentTime, setCurrentTime] = useState(0)
-  const [duration, setDuration] = useState(0)
-  const [volume, setVolume] = useState(100)
-  const [isMuted, setIsMuted] = useState(false)
-  const [isFullscreen, setIsFullscreen] = useState(false)
-  const [isLoop, setIsLoop] = useState(false)
+  
+  // 音色参考音频
+  const [referenceAudioUrl, setReferenceAudioUrl] = useState<string | null>(null)
+  const [referenceAudioFile, setReferenceAudioFile] = useState<File | null>(null)
+  const [referenceAudioElement, setReferenceAudioElement] = useState<HTMLAudioElement | null>(null)
+  const [isReferencePlaying, setIsReferencePlaying] = useState(false)
+  const [referenceCurrentTime, setReferenceCurrentTime] = useState(0)
+  const [referenceDuration, setReferenceDuration] = useState(0)
+  const [referenceVolume, setReferenceVolume] = useState(100)
+  const [referencePlaybackSpeed, setReferencePlaybackSpeed] = useState(1)
+  
+  // 生成结果音频
+  const [generatedAudioUrl, setGeneratedAudioUrl] = useState<string | null>(null)
+  const [generatedAudioElement, setGeneratedAudioElement] = useState<HTMLAudioElement | null>(null)
+  const [isGeneratedPlaying, setIsGeneratedPlaying] = useState(false)
+  const [generatedCurrentTime, setGeneratedCurrentTime] = useState(0)
+  const [generatedDuration, setGeneratedDuration] = useState(0)
+  const [generatedVolume, setGeneratedVolume] = useState(100)
+  const [generatedPlaybackSpeed, setGeneratedPlaybackSpeed] = useState(1)
+  
+  // 功能设置
+  const [emotionControlMethod, setEmotionControlMethod] = useState<EmotionControlMethod>(0)
+  const [emotionReferenceAudioUrl, setEmotionReferenceAudioUrl] = useState<string | null>(null)
+  const [emotionReferenceFile, setEmotionReferenceFile] = useState<File | null>(null)
+  const [emotionRandom, setEmotionRandom] = useState(false)
+  const [emotionWeight, setEmotionWeight] = useState(0.65)
+  
+  // 情感向量（8个情绪）
+  const [emotionVectors, setEmotionVectors] = useState({
+    joy: 0,      // 欢喜
+    anger: 0,   // 愤怒
+    sadness: 0, // 悲哀
+    fear: 0,     // 恐惧
+    disgust: 0,  // 厌恶
+    low: 0,      // 低落
+    surprise: 0, // 惊喜
+    calm: 0,     // 平静
+  })
+  
+  // 情感描述文本
+  const [emotionText, setEmotionText] = useState('')
+  
+  // 高级设置
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false)
+  
+  const referenceAudioInputRef = useRef<HTMLInputElement>(null)
+  const emotionAudioInputRef = useRef<HTMLInputElement>(null)
 
   // 检查服务状态
   useEffect(() => {
     checkServiceStatus()
-    loadVoices()
   }, [])
-
-  // 键盘快捷键支持
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // 如果用户在输入框中，不处理快捷键
-      const target = e.target as HTMLElement
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
-        return
-      }
-
-      // 如果没有音频，不处理快捷键
-      if (!audioUrl || !audioElement) {
-        return
-      }
-
-      switch (e.key) {
-        case ' ': // 空格键：播放/暂停
-          e.preventDefault()
-          if (isPlaying) {
-            audioElement.pause()
-            setIsPlaying(false)
-          } else {
-            audioElement.play()
-            setIsPlaying(true)
-          }
-          break
-        case 'ArrowLeft': // 左方向键：后退5秒
-          e.preventDefault()
-          audioElement.currentTime = Math.max(0, audioElement.currentTime - 5)
-          break
-        case 'ArrowRight': // 右方向键：前进5秒
-          e.preventDefault()
-          audioElement.currentTime = Math.min(audioElement.duration || 0, audioElement.currentTime + 5)
-          break
-        case 'ArrowUp': // 上方向键：增加音量
-          e.preventDefault()
-          const currentVol = audioElement.volume * 100
-          const newVolumeUp = Math.min(100, currentVol + 10)
-          setVolume(newVolumeUp)
-          audioElement.volume = newVolumeUp / 100
-          if (isMuted) {
-            setIsMuted(false)
-          }
-          break
-        case 'ArrowDown': // 下方向键：减少音量
-          e.preventDefault()
-          const currentVolDown = audioElement.volume * 100
-          const newVolumeDown = Math.max(0, currentVolDown - 10)
-          setVolume(newVolumeDown)
-          audioElement.volume = newVolumeDown / 100
-          if (newVolumeDown === 0) {
-            setIsMuted(true)
-          }
-          break
-        case 'f':
-        case 'F': // F键：全屏
-          e.preventDefault()
-          const playerContainer = document.getElementById('audio-player-container')
-          if (playerContainer) {
-            if (!isFullscreen) {
-              if (playerContainer.requestFullscreen) {
-                playerContainer.requestFullscreen()
-              } else if ((playerContainer as any).webkitRequestFullscreen) {
-                (playerContainer as any).webkitRequestFullscreen()
-              }
-              setIsFullscreen(true)
-            } else {
-              if (document.exitFullscreen) {
-                document.exitFullscreen()
-              } else if ((document as any).webkitExitFullscreen) {
-                (document as any).webkitExitFullscreen()
-              }
-              setIsFullscreen(false)
-            }
-          }
-          break
-        case 'Escape': // ESC键：退出全屏
-          if (isFullscreen) {
-            e.preventDefault()
-            if (document.exitFullscreen) {
-              document.exitFullscreen()
-            } else if ((document as any).webkitExitFullscreen) {
-              (document as any).webkitExitFullscreen()
-            }
-            setIsFullscreen(false)
-          }
-          break
-        case 'm':
-        case 'M': // M键：静音/取消静音
-          e.preventDefault()
-          if (isMuted) {
-            audioElement.volume = volume / 100
-            setIsMuted(false)
-          } else {
-            audioElement.volume = 0
-            setIsMuted(true)
-          }
-          break
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [audioUrl, audioElement, isPlaying, volume, isMuted, isFullscreen])
-
-  // 音频元素事件监听
-  useEffect(() => {
-    if (audioElement) {
-      const handleTimeUpdate = () => {
-        setCurrentTime(audioElement.currentTime)
-      }
-      const handleLoadedMetadata = () => {
-        setDuration(audioElement.duration)
-      }
-      const handleEnded = () => {
-        setIsPlaying(false)
-        if (isLoop) {
-          audioElement.currentTime = 0
-          audioElement.play()
-          setIsPlaying(true)
-        }
-      }
-
-      audioElement.addEventListener('timeupdate', handleTimeUpdate)
-      audioElement.addEventListener('loadedmetadata', handleLoadedMetadata)
-      audioElement.addEventListener('ended', handleEnded)
-
-      return () => {
-        audioElement.removeEventListener('timeupdate', handleTimeUpdate)
-        audioElement.removeEventListener('loadedmetadata', handleLoadedMetadata)
-        audioElement.removeEventListener('ended', handleEnded)
-      }
-    }
-  }, [audioElement, isLoop])
 
   const checkServiceStatus = async () => {
     setServiceStatus('checking')
@@ -177,48 +82,242 @@ function VoiceCreation() {
     }
   }
 
-  const loadVoices = async () => {
-    try {
-      const voicesList = await getVoices()
-      setVoices(voicesList)
-      if (voicesList.length > 0 && !selectedVoice) {
-        setSelectedVoice(voicesList[0].id)
+  // 格式化时间
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60)
+    const secs = Math.floor(seconds % 60)
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+  }
+
+  // 处理音色参考音频上传
+  const handleReferenceAudioUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      if (!file.type.startsWith('audio/')) {
+        alertError('请上传音频文件', '文件类型错误')
+        return
       }
-    } catch (error) {
-      console.error('加载音色列表失败:', error)
-      alertError('加载音色列表失败，请检查 IndexTTS2.5 服务是否运行')
+      setReferenceAudioFile(file)
+      const url = URL.createObjectURL(file)
+      setReferenceAudioUrl(url)
+      
+      // 创建音频元素
+      const audio = new Audio(url)
+      audio.onloadedmetadata = () => {
+        setReferenceDuration(audio.duration)
+      }
+      audio.ontimeupdate = () => {
+        setReferenceCurrentTime(audio.currentTime)
+      }
+      audio.onended = () => {
+        setIsReferencePlaying(false)
+      }
+      setReferenceAudioElement(audio)
     }
   }
 
+  // 情感参考音频相关状态
+  const [emotionAudioElement, setEmotionAudioElement] = useState<HTMLAudioElement | null>(null)
+  const [isEmotionPlaying, setIsEmotionPlaying] = useState(false)
+  const [emotionCurrentTime, setEmotionCurrentTime] = useState(0)
+  const [emotionDuration, setEmotionDuration] = useState(0)
+  const [emotionPlaybackSpeed, setEmotionPlaybackSpeed] = useState(1)
+
+  // 处理情感参考音频上传
+  const handleEmotionAudioUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      if (!file.type.startsWith('audio/')) {
+        alertError('请上传音频文件', '文件类型错误')
+        return
+      }
+      setEmotionReferenceFile(file)
+      const url = URL.createObjectURL(file)
+      setEmotionReferenceAudioUrl(url)
+      
+      // 创建音频元素
+      const audio = new Audio(url)
+      audio.onloadedmetadata = () => {
+        setEmotionDuration(audio.duration)
+      }
+      audio.ontimeupdate = () => {
+        setEmotionCurrentTime(audio.currentTime)
+      }
+      audio.onended = () => {
+        setIsEmotionPlaying(false)
+      }
+      setEmotionAudioElement(audio)
+    }
+  }
+
+  // 播放/暂停情感参考音频
+  const handleEmotionPlayPause = () => {
+    if (!emotionAudioElement) return
+    
+    if (isEmotionPlaying) {
+      emotionAudioElement.pause()
+      setIsEmotionPlaying(false)
+    } else {
+      emotionAudioElement.play()
+      setIsEmotionPlaying(true)
+    }
+  }
+
+  // 更新情感音频播放速度
+  useEffect(() => {
+    if (emotionAudioElement) {
+      emotionAudioElement.playbackRate = emotionPlaybackSpeed
+    }
+  }, [emotionPlaybackSpeed, emotionAudioElement])
+
+  // 播放/暂停音色参考音频
+  const handleReferencePlayPause = () => {
+    if (!referenceAudioElement) return
+    
+    if (isReferencePlaying) {
+      referenceAudioElement.pause()
+      setIsReferencePlaying(false)
+    } else {
+      referenceAudioElement.play()
+      setIsReferencePlaying(true)
+    }
+  }
+
+  // 播放/暂停生成结果音频
+  const handleGeneratedPlayPause = () => {
+    if (!generatedAudioElement) return
+    
+    if (isGeneratedPlaying) {
+      generatedAudioElement.pause()
+      setIsGeneratedPlaying(false)
+    } else {
+      generatedAudioElement.play()
+      setIsGeneratedPlaying(true)
+    }
+  }
+
+  // 切换音色参考音频静音
+  const handleReferenceToggleMute = () => {
+    if (!referenceAudioElement) return
+    const newMuted = referenceAudioElement.muted
+    referenceAudioElement.muted = !newMuted
+  }
+
+  // 切换生成结果音频静音
+  const handleGeneratedToggleMute = () => {
+    if (!generatedAudioElement) return
+    const newMuted = generatedAudioElement.muted
+    generatedAudioElement.muted = !newMuted
+  }
+
+  // 更新播放速度
+  useEffect(() => {
+    if (referenceAudioElement) {
+      referenceAudioElement.playbackRate = referencePlaybackSpeed
+    }
+  }, [referencePlaybackSpeed, referenceAudioElement])
+
+  useEffect(() => {
+    if (generatedAudioElement) {
+      generatedAudioElement.playbackRate = generatedPlaybackSpeed
+    }
+  }, [generatedPlaybackSpeed, generatedAudioElement])
+
+  // 生成语音
   const handleGenerate = async () => {
     if (!text.trim()) {
       alertWarning('请输入要转换的文本')
       return
     }
 
-    if (!selectedVoice) {
-      alertWarning('请选择音色')
+    if (!referenceAudioFile && !referenceAudioUrl) {
+      alertWarning('请上传音色参考音频')
       return
     }
 
     setIsGenerating(true)
     try {
+      // 准备音色参考音频（base64）
+      let referenceAudioBase64: string | undefined
+      if (referenceAudioFile) {
+        const reader = new FileReader()
+        referenceAudioBase64 = await new Promise<string>((resolve, reject) => {
+          reader.onloadend = () => {
+            if (reader.result) {
+              resolve(reader.result as string)
+            } else {
+              reject(new Error('读取音频文件失败'))
+            }
+          }
+          reader.onerror = reject
+          reader.readAsDataURL(referenceAudioFile)
+        })
+      }
+
+      // 准备情感参考音频（base64）
+      let emotionReferenceAudioBase64: string | undefined
+      if (emotionReferenceFile && emotionControlMethod === 1) {
+        const reader = new FileReader()
+        emotionReferenceAudioBase64 = await new Promise<string>((resolve, reject) => {
+          reader.onloadend = () => {
+            if (reader.result) {
+              resolve(reader.result as string)
+            } else {
+              reject(new Error('读取情感音频文件失败'))
+            }
+          }
+          reader.onerror = reject
+          reader.readAsDataURL(emotionReferenceFile)
+        })
+      }
+
+      // 准备情感向量
+      let emotionVectorsArray: number[] | undefined = undefined
+      if (emotionControlMethod === 2) {
+        emotionVectorsArray = [
+          emotionVectors.joy,
+          emotionVectors.anger,
+          emotionVectors.sadness,
+          emotionVectors.fear,
+          emotionVectors.disgust,
+          emotionVectors.low,
+          emotionVectors.surprise,
+          emotionVectors.calm,
+        ]
+      }
+
+      // 调用API生成语音
       const result = await generateSpeech({
         text: text.trim(),
-        voiceId: selectedVoice,
-        speed,
-        pitch,
+        voiceId: 'default',
+        speed: 1.0,
+        pitch: 0,
         format: 'wav',
+        referenceAudio: referenceAudioBase64,
+        emotionControlMethod,
+        emotionReferenceAudio: emotionReferenceAudioBase64,
+        emotionWeight: (emotionControlMethod === 1 || emotionControlMethod === 2 || emotionControlMethod === 3) ? emotionWeight : undefined,
+        emotionVectors: emotionControlMethod === 2 ? emotionVectorsArray : undefined,
+        emotionText: emotionControlMethod === 3 ? emotionText : undefined,
+        emotionRandom: emotionControlMethod === 2 ? emotionRandom : undefined,
       })
 
       if (result.success && result.audioUrl) {
-        setAudioUrl(result.audioUrl)
-        alert('语音生成成功！')
-      } else if (result.success && result.audioData) {
-        // 如果是 base64 数据，转换为 blob URL
-        const audioBlob = base64ToBlob(result.audioData, 'audio/wav')
-        const url = URL.createObjectURL(audioBlob)
-        setAudioUrl(url)
+        setGeneratedAudioUrl(result.audioUrl)
+        
+        // 创建音频元素
+        const audio = new Audio(result.audioUrl)
+        audio.onloadedmetadata = () => {
+          setGeneratedDuration(audio.duration)
+        }
+        audio.ontimeupdate = () => {
+          setGeneratedCurrentTime(audio.currentTime)
+        }
+        audio.onended = () => {
+          setIsGeneratedPlaying(false)
+        }
+        setGeneratedAudioElement(audio)
+        
         alert('语音生成成功！')
       } else {
         throw new Error(result.error || '生成失败')
@@ -231,256 +330,71 @@ function VoiceCreation() {
     }
   }
 
-  const base64ToBlob = (base64: string, mimeType: string): Blob => {
-    const byteCharacters = atob(base64)
-    const byteNumbers = new Array(byteCharacters.length)
-    for (let i = 0; i < byteCharacters.length; i++) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i)
+  // 清除音色参考音频
+  const clearReferenceAudio = () => {
+    if (referenceAudioUrl) {
+      URL.revokeObjectURL(referenceAudioUrl)
     }
-    const byteArray = new Uint8Array(byteNumbers)
-    return new Blob([byteArray], { type: mimeType })
-  }
-
-  const handlePlay = () => {
-    if (!audioUrl) return
-
-    if (audioElement) {
-      if (isPlaying) {
-        audioElement.pause()
-        setIsPlaying(false)
-      } else {
-        audioElement.play()
-        setIsPlaying(true)
-      }
-    } else {
-      const audio = new Audio(audioUrl)
-      audio.volume = volume / 100
-      audio.loop = isLoop
-      audio.onended = () => {
-        setIsPlaying(false)
-        if (isLoop) {
-          audio.currentTime = 0
-          audio.play()
-          setIsPlaying(true)
-        }
-      }
-      audio.onerror = () => {
-        alertError('音频播放失败')
-        setIsPlaying(false)
-      }
-      audio.ontimeupdate = () => {
-        setCurrentTime(audio.currentTime)
-      }
-      audio.onloadedmetadata = () => {
-        setDuration(audio.duration)
-      }
-      setAudioElement(audio)
-      audio.play()
-      setIsPlaying(true)
+    if (referenceAudioElement) {
+      referenceAudioElement.pause()
+      referenceAudioElement.src = ''
+    }
+    setReferenceAudioUrl(null)
+    setReferenceAudioFile(null)
+    setReferenceAudioElement(null)
+    setIsReferencePlaying(false)
+    setReferenceCurrentTime(0)
+    setReferenceDuration(0)
+    if (referenceAudioInputRef.current) {
+      referenceAudioInputRef.current.value = ''
     }
   }
 
-  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newVolume = parseInt(e.target.value)
-    setVolume(newVolume)
-    if (audioElement) {
-      audioElement.volume = newVolume / 100
-      if (newVolume === 0) {
-        setIsMuted(true)
-      } else if (isMuted) {
-        setIsMuted(false)
-      }
+  // 清除情感参考音频
+  const clearEmotionAudio = () => {
+    if (emotionReferenceAudioUrl) {
+      URL.revokeObjectURL(emotionReferenceAudioUrl)
+    }
+    if (emotionAudioElement) {
+      emotionAudioElement.pause()
+      emotionAudioElement.src = ''
+    }
+    setEmotionReferenceAudioUrl(null)
+    setEmotionReferenceFile(null)
+    setEmotionAudioElement(null)
+    setIsEmotionPlaying(false)
+    setEmotionCurrentTime(0)
+    setEmotionDuration(0)
+    if (emotionAudioInputRef.current) {
+      emotionAudioInputRef.current.value = ''
     }
   }
 
-  const handleToggleMute = () => {
-    if (!audioElement) return
-    
-    if (isMuted) {
-      audioElement.volume = volume / 100
-      setIsMuted(false)
-    } else {
-      audioElement.volume = 0
-      setIsMuted(true)
-    }
+  // 重置情感向量
+  const resetEmotionVectors = () => {
+    setEmotionVectors({
+      joy: 0,
+      anger: 0,
+      sadness: 0,
+      fear: 0,
+      disgust: 0,
+      low: 0,
+      surprise: 0,
+      calm: 0,
+    })
   }
 
-  const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!audioElement || !duration) return
-    
-    const progressBar = e.currentTarget
-    const rect = progressBar.getBoundingClientRect()
-    const clickX = e.clientX - rect.left
-    const percentage = clickX / rect.width
-    const newTime = percentage * duration
-    
-    audioElement.currentTime = newTime
-    setCurrentTime(newTime)
-  }
-
-  const handleSeek = (seconds: number) => {
-    if (!audioElement) return
-    const currentDuration = audioElement.duration || duration || 0
-    audioElement.currentTime = Math.max(0, Math.min(currentDuration, audioElement.currentTime + seconds))
-  }
-
-  const handleToggleFullscreen = () => {
-    const playerContainer = document.getElementById('audio-player-container')
-    if (!playerContainer) return
-
-    if (!isFullscreen) {
-      if (playerContainer.requestFullscreen) {
-        playerContainer.requestFullscreen()
-      } else if ((playerContainer as any).webkitRequestFullscreen) {
-        (playerContainer as any).webkitRequestFullscreen()
-      } else if ((playerContainer as any).mozRequestFullScreen) {
-        (playerContainer as any).mozRequestFullScreen()
-      } else if ((playerContainer as any).msRequestFullscreen) {
-        (playerContainer as any).msRequestFullscreen()
-      }
-      setIsFullscreen(true)
-    } else {
-      handleExitFullscreen()
-    }
-  }
-
-  const handleExitFullscreen = () => {
-    if (document.exitFullscreen) {
-      document.exitFullscreen()
-    } else if ((document as any).webkitExitFullscreen) {
-      (document as any).webkitExitFullscreen()
-    } else if ((document as any).mozCancelFullScreen) {
-      (document as any).mozCancelFullScreen()
-    } else if ((document as any).msExitFullscreen) {
-      (document as any).msExitFullscreen()
-    }
-    setIsFullscreen(false)
-  }
-
-  // 监听全屏状态变化
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      const isCurrentlyFullscreen = !!(
-        document.fullscreenElement ||
-        (document as any).webkitFullscreenElement ||
-        (document as any).mozFullScreenElement ||
-        (document as any).msFullscreenElement
-      )
-      setIsFullscreen(isCurrentlyFullscreen)
-    }
-
-    document.addEventListener('fullscreenchange', handleFullscreenChange)
-    document.addEventListener('webkitfullscreenchange', handleFullscreenChange)
-    document.addEventListener('mozfullscreenchange', handleFullscreenChange)
-    document.addEventListener('MSFullscreenChange', handleFullscreenChange)
-
-    return () => {
-      document.removeEventListener('fullscreenchange', handleFullscreenChange)
-      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange)
-      document.removeEventListener('mozfullscreenchange', handleFullscreenChange)
-      document.removeEventListener('MSFullscreenChange', handleFullscreenChange)
-    }
-  }, [])
-
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60)
-    const secs = Math.floor(seconds % 60)
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-  }
-
-  const handleDownload = () => {
-    if (!audioUrl) return
-
-    const link = document.createElement('a')
-    link.href = audioUrl
-    link.download = `voice_${Date.now()}.wav`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-  }
-
-  const handleImportToJianying = async () => {
-    if (!audioUrl) {
-      alertWarning('请先生成语音')
-      return
-    }
-
-    if (!text.trim()) {
-      alertWarning('请输入文本内容')
-      return
-    }
-
-    setIsImporting(true)
-    try {
-      const token = localStorage.getItem('token')
-      const projectName = `语音项目_${Date.now()}`
-      
-      // 如果 audioUrl 是 blob URL，需要先转换为可访问的 URL
-      let finalAudioUrl = audioUrl
-      if (audioUrl.startsWith('blob:')) {
-        // 如果是 blob URL，需要先转换为 base64 或上传到服务器
-        // 这里我们读取 blob 并转换为 base64
-        try {
-          const response = await fetch(audioUrl)
-          const blob = await response.blob()
-          const reader = new FileReader()
-          const base64Promise = new Promise<string>((resolve, reject) => {
-            reader.onloadend = () => {
-              if (reader.result) {
-                resolve(reader.result as string)
-              } else {
-                reject(new Error('读取 blob 失败'))
-              }
-            }
-            reader.onerror = reject
-          })
-          reader.readAsDataURL(blob)
-          finalAudioUrl = await base64Promise
-        } catch (error) {
-          alertError('无法处理音频文件，请先下载音频文件，然后使用本地文件导入')
-          setIsImporting(false)
-          return
-        }
-      }
-
-      const apiBaseUrl = (() => {
-        if (import.meta.env.VITE_API_BASE_URL !== undefined) return import.meta.env.VITE_API_BASE_URL
-        const isProduction = !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')
-        return isProduction ? '' : 'http://localhost:3002'
-      })()
-      const response = await fetch(`${apiBaseUrl}/api/jianying/generate-draft`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          projectName,
-          audioUrl: finalAudioUrl,
-          text: text.trim(),
-        }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || '导入剪映失败')
-      }
-
-      const result = await response.json()
-      alert(`剪映草稿文件已生成！\n路径: ${result.draftPath}\n\n请在剪映中打开该草稿文件。`, '导入成功')
-    } catch (error) {
-      console.error('导入剪映失败:', error)
-      alertError(error instanceof Error ? error.message : '导入剪映失败，请稍后重试')
-    } finally {
-      setIsImporting(false)
-    }
+  // 重置情感权重
+  const resetEmotionWeight = () => {
+    setEmotionWeight(0.65)
   }
 
   return (
     <div className="min-h-screen bg-white text-gray-900 flex">
       <SidebarNavigation activeTab="voice" />
       <div className="flex-1 flex flex-col">
-        <div className="border-b border-gray-200 px-6 py-4">
+        {/* 顶部标题栏 */}
+        <div className="border-b border-gray-200 px-6 py-4 bg-white">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold">音色创作</h2>
             <div className="flex items-center gap-2">
@@ -492,272 +406,523 @@ function VoiceCreation() {
                 {serviceStatus === 'online' ? '服务在线' : 
                  serviceStatus === 'offline' ? '服务离线' : '检查中...'}
               </span>
-              <button
-                onClick={checkServiceStatus}
-                className="text-sm text-blue-600 hover:text-blue-700"
-              >
-                刷新
-              </button>
             </div>
           </div>
         </div>
 
-        <div className="flex-1 p-6 overflow-y-auto">
-          {serviceStatus === 'offline' && (
-            <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <p className="text-yellow-800">
-                ⚠️ IndexTTS2.5 服务未运行，请先启动服务：
-              </p>
-              <p className="text-sm text-yellow-700 mt-2">
-                运行：<code className="bg-yellow-100 px-2 py-1 rounded">启动IndexTTS2.5服务.bat</code>
-              </p>
-            </div>
-          )}
-
-          <div className="max-w-4xl mx-auto space-y-6">
-            {/* 文本输入 */}
-            <div className="bg-gray-50 rounded-lg p-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                输入文本
-              </label>
-              <textarea
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                placeholder="请输入要转换为语音的文本..."
-                className="w-full h-32 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-              />
-              <div className="mt-2 text-sm text-gray-500">
-                字符数：{text.length}
-              </div>
-            </div>
-
-            {/* 音色选择 */}
-            <div className="bg-gray-50 rounded-lg p-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                选择音色
-              </label>
-              {voices.length > 0 ? (
-                <select
-                  value={selectedVoice}
-                  onChange={(e) => setSelectedVoice(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  {voices.map((voice) => (
-                    <option key={voice.id} value={voice.id}>
-                      {voice.name} {voice.description ? `- ${voice.description}` : ''}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <div className="text-sm text-gray-500">
-                  正在加载音色列表...
-                </div>
-              )}
-            </div>
-
-            {/* 参数设置 */}
-            <div className="bg-gray-50 rounded-lg p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <Settings className="w-5 h-5 text-gray-600" />
-                <label className="text-sm font-medium text-gray-700">参数设置</label>
-              </div>
+        {/* 主内容区域 */}
+        <div className="flex-1 p-6 overflow-y-auto bg-gray-50">
+          {/* 三栏布局：音色参考音频 | 文本输入 | 生成结果 */}
+          <div className="max-w-7xl mx-auto grid grid-cols-3 gap-6 mb-6">
+            {/* 左侧：音色参考音频 */}
+            <div className="bg-white rounded-lg border border-gray-200 p-4">
+              <div className="text-sm font-medium text-gray-700 mb-3">音色参考音频</div>
               
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm text-gray-600 mb-2">
-                    语速：{speed.toFixed(1)}x
-                  </label>
+              {!referenceAudioUrl ? (
+                <div
+                  onClick={() => referenceAudioInputRef.current?.click()}
+                  className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all"
+                >
+                  <Upload className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+                  <div className="text-sm text-gray-600 mb-1">将音频拖放到此处</div>
+                  <div className="text-xs text-gray-400 mb-1">- 或 -</div>
+                  <div className="text-sm text-gray-600">点击上传</div>
                   <input
-                    type="range"
-                    min="0.5"
-                    max="2.0"
-                    step="0.1"
-                    value={speed}
-                    onChange={(e) => setSpeed(parseFloat(e.target.value))}
-                    className="w-full"
+                    ref={referenceAudioInputRef}
+                    type="file"
+                    accept="audio/*"
+                    onChange={handleReferenceAudioUpload}
+                    className="hidden"
                   />
                 </div>
-
-                <div>
-                  <label className="block text-sm text-gray-600 mb-2">
-                    音调：{pitch > 0 ? '+' : ''}{pitch}
-                  </label>
-                  <input
-                    type="range"
-                    min="-12"
-                    max="12"
-                    step="1"
-                    value={pitch}
-                    onChange={(e) => setPitch(parseInt(e.target.value))}
-                    className="w-full"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* 生成按钮 */}
-            <button
-              onClick={handleGenerate}
-              disabled={isGenerating || !text.trim() || serviceStatus !== 'online'}
-              className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  生成中...
-                </>
               ) : (
-                <>
-                  <Mic className="w-5 h-5" />
-                  生成语音
-                </>
-              )}
-            </button>
-
-            {/* 导入剪映按钮 */}
-            {audioUrl && (
-              <button
-                onClick={handleImportToJianying}
-                disabled={isImporting || !audioUrl}
-                className="w-full bg-purple-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {isImporting ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    导入中...
-                  </>
-                ) : (
-                  <>
-                    <Film className="w-5 h-5" />
-                    导入剪映
-                  </>
-                )}
-              </button>
-            )}
-
-            {/* 音频播放器 */}
-            {audioUrl && (
-              <div id="audio-player-container" className="bg-gray-50 rounded-lg p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <Volume2 className="w-5 h-5 text-gray-600" />
-                  <label className="text-sm font-medium text-gray-700">生成的音频</label>
-                </div>
-                
-                <div className="space-y-4">
+                <div className="space-y-3">
+                  {/* 音频波形 */}
+                  <AudioWaveform
+                    audioUrl={referenceAudioUrl}
+                    audioElement={referenceAudioElement}
+                    currentTime={referenceCurrentTime}
+                    duration={referenceDuration}
+                    color="#ff6b35"
+                    height={80}
+                  />
+                  
+                  {/* 时间显示 */}
+                  <div className="flex items-center justify-between text-xs text-gray-500">
+                    <span>{formatTime(referenceCurrentTime)}</span>
+                    <span>{formatTime(referenceDuration)}</span>
+                  </div>
+                  
                   {/* 播放控制 */}
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
                     <button
-                      onClick={handlePlay}
-                      className="w-12 h-12 rounded-full bg-purple-600 text-white flex items-center justify-center hover:bg-purple-700 transition-colors"
-                      title="播放/暂停 (空格键)"
+                      onClick={handleReferenceToggleMute}
+                      className="p-1.5 hover:bg-gray-100 rounded transition-colors"
                     >
-                      {isPlaying ? (
+                      <Volume2 className="w-4 h-4 text-gray-600" />
+                    </button>
+                    <button
+                      onClick={() => setReferencePlaybackSpeed(prev => prev === 1 ? 1.5 : prev === 1.5 ? 2 : 1)}
+                      className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+                    >
+                      {referencePlaybackSpeed}x
+                    </button>
+                    <button
+                      onClick={() => referenceAudioElement && (referenceAudioElement.currentTime = Math.max(0, referenceAudioElement.currentTime - 5))}
+                      className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+                    >
+                      <ChevronLeft className="w-4 h-4 text-gray-600" />
+                    </button>
+                    <button
+                      onClick={handleReferencePlayPause}
+                      className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 transition-colors"
+                    >
+                      {isReferencePlaying ? (
                         <Pause className="w-5 h-5" />
                       ) : (
-                        <Play className="w-5 h-5" />
+                        <Play className="w-5 h-5 ml-0.5" />
                       )}
                     </button>
-                    
                     <button
-                      onClick={() => handleSeek(5)}
-                      className="w-10 h-10 rounded-full bg-white border border-gray-300 flex items-center justify-center hover:bg-gray-100 transition-colors"
-                      title="快进5秒 (右方向键)"
+                      onClick={() => referenceAudioElement && (referenceAudioElement.currentTime = Math.min(referenceAudioElement.duration || 0, referenceAudioElement.currentTime + 5))}
+                      className="p-1.5 hover:bg-gray-100 rounded transition-colors"
                     >
-                      <ChevronsRight className="w-5 h-5 text-gray-700" />
+                      <ChevronRight className="w-4 h-4 text-gray-600" />
                     </button>
-                    
-                    <span className="text-sm text-gray-600 min-w-[50px]">
-                      {formatTime(currentTime)}
-                    </span>
-                    
-                    {/* 进度条 */}
-                    <div 
-                      onClick={handleProgressClick}
-                      className="flex-1 h-2 bg-gray-300 rounded-full relative cursor-pointer"
-                      title="点击跳转到指定位置"
-                    >
-                      <div 
-                        className="h-full bg-purple-600 rounded-full transition-all" 
-                        style={{ 
-                          width: duration > 0 ? `${Math.min(100, Math.max(0, (currentTime / duration) * 100))}%` : '0%'
-                        }}
-                      ></div>
-                    </div>
-                    
-                    <span className="text-sm text-gray-600 min-w-[50px]">
-                      {formatTime(duration)}
-                    </span>
-                    
-                    {/* 单曲循环 */}
                     <button
                       onClick={() => {
-                        setIsLoop(!isLoop)
-                        if (audioElement) {
-                          audioElement.loop = !isLoop
+                        if (referenceAudioElement) {
+                          referenceAudioElement.loop = !referenceAudioElement.loop
                         }
                       }}
-                      className={`px-3 py-1 rounded text-sm border transition-colors ${
-                        isLoop 
-                          ? 'bg-purple-100 border-purple-300 text-purple-700' 
-                          : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                      }`}
-                      title="单曲循环"
+                      className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+                      title="循环播放"
                     >
-                      单
+                      <RotateCcw className="w-4 h-4 text-gray-600" />
                     </button>
-                    
-                    {/* 全屏 */}
                     <button
-                      onClick={handleToggleFullscreen}
-                      className="w-10 h-10 rounded-full bg-white border border-gray-300 flex items-center justify-center hover:bg-gray-100 transition-colors"
-                      title="全屏 (F键)"
+                      onClick={clearReferenceAudio}
+                      className="p-1.5 hover:bg-gray-100 rounded transition-colors ml-auto"
                     >
-                      <Maximize className="w-5 h-5 text-gray-700" />
-                    </button>
-                    
-                    {/* 音量控制 */}
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={handleToggleMute}
-                        className="w-10 h-10 rounded-full bg-white border border-gray-300 flex items-center justify-center hover:bg-gray-100 transition-colors"
-                        title="静音/取消静音 (M键或点击喇叭图标)"
-                      >
-                        {isMuted ? (
-                          <VolumeX className="w-5 h-5 text-gray-700" />
-                        ) : (
-                          <Volume2 className="w-5 h-5 text-gray-700" />
-                        )}
-                      </button>
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        value={isMuted ? 0 : volume}
-                        onChange={handleVolumeChange}
-                        className="w-20 h-1 bg-gray-300 rounded-lg appearance-none cursor-pointer"
-                        title="音量 (上下方向键)"
-                      />
-                    </div>
-                    
-                    {/* 下载按钮 */}
-                    <button
-                      onClick={handleDownload}
-                      className="p-2 bg-gray-200 text-gray-700 rounded-full hover:bg-gray-300 transition-colors"
-                      title="下载音频"
-                    >
-                      <Download className="w-5 h-5" />
+                      <X className="w-4 h-4 text-gray-600" />
                     </button>
                   </div>
                   
-                  {/* 快捷键提示 */}
-                  <div className="text-xs text-gray-500 space-x-4">
-                    <span>空格: 播放/暂停</span>
-                    <span>← →: 前进/后退</span>
-                    <span>↑ ↓: 音量</span>
-                    <span>F: 全屏</span>
-                    <span>ESC: 退出全屏</span>
-                    <span>M: 静音</span>
+                  {/* 上传和录音按钮 */}
+                  <div className="flex items-center gap-2 pt-2 border-t border-gray-200">
+                    <button
+                      onClick={() => referenceAudioInputRef.current?.click()}
+                      className="flex-1 px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Upload className="w-4 h-4" />
+                      上传
+                    </button>
+                    <button
+                      className="flex-1 px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Mic className="w-4 h-4" />
+                      录音
+                    </button>
                   </div>
+                </div>
+              )}
+            </div>
+
+            {/* 中间：文本输入 */}
+            <div className="bg-white rounded-lg border border-gray-200 p-4">
+              <div className="text-sm font-medium text-gray-700 mb-3">文本</div>
+              <div className="text-xs text-gray-500 mb-2">当前模型版本2.0</div>
+              <textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="请输入目标文本"
+                className="w-full h-64 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
+              />
+              <button
+                onClick={handleGenerate}
+                disabled={isGenerating || !text.trim() || !referenceAudioUrl || serviceStatus !== 'online'}
+                className="w-full mt-4 bg-gray-800 text-white py-2.5 px-4 rounded-lg font-medium hover:bg-gray-900 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    生成中...
+                  </>
+                ) : (
+                  '生成语音'
+                )}
+              </button>
+            </div>
+
+            {/* 右侧：生成结果 */}
+            <div className="bg-white rounded-lg border border-gray-200 p-4">
+              <div className="text-sm font-medium text-gray-700 mb-3">生成结果</div>
+              
+              {!generatedAudioUrl ? (
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center">
+                  <Music className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+                  <Music className="w-12 h-12 mx-auto text-gray-400" />
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {/* 音频波形 */}
+                  <AudioWaveform
+                    audioUrl={generatedAudioUrl}
+                    audioElement={generatedAudioElement}
+                    currentTime={generatedCurrentTime}
+                    duration={generatedDuration}
+                    color="#ff6b35"
+                    height={80}
+                  />
+                  
+                  {/* 时间显示 */}
+                  <div className="flex items-center justify-between text-xs text-gray-500">
+                    <span>{formatTime(generatedCurrentTime)}</span>
+                    <span>{formatTime(generatedDuration)}</span>
+                  </div>
+                  
+                  {/* 播放控制 */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleGeneratedToggleMute}
+                      className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+                    >
+                      <Volume2 className="w-4 h-4 text-gray-600" />
+                    </button>
+                    <button
+                      onClick={() => setGeneratedPlaybackSpeed(prev => prev === 1 ? 1.5 : prev === 1.5 ? 2 : 1)}
+                      className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+                    >
+                      {generatedPlaybackSpeed}x
+                    </button>
+                    <button
+                      onClick={() => generatedAudioElement && (generatedAudioElement.currentTime = Math.max(0, generatedAudioElement.currentTime - 5))}
+                      className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+                    >
+                      <ChevronLeft className="w-4 h-4 text-gray-600" />
+                    </button>
+                    <button
+                      onClick={handleGeneratedPlayPause}
+                      className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 transition-colors"
+                    >
+                      {isGeneratedPlaying ? (
+                        <Pause className="w-5 h-5" />
+                      ) : (
+                        <Play className="w-5 h-5 ml-0.5" />
+                      )}
+                    </button>
+                    <button
+                      onClick={() => generatedAudioElement && (generatedAudioElement.currentTime = Math.min(generatedAudioElement.duration || 0, generatedAudioElement.currentTime + 5))}
+                      className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+                    >
+                      <ChevronRight className="w-4 h-4 text-gray-600" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (generatedAudioUrl) {
+                          const link = document.createElement('a')
+                          link.href = generatedAudioUrl
+                          link.download = `voice_${Date.now()}.wav`
+                          document.body.appendChild(link)
+                          link.click()
+                          document.body.removeChild(link)
+                        }
+                      }}
+                      className="p-1.5 hover:bg-gray-100 rounded transition-colors ml-auto"
+                    >
+                      <Download className="w-4 h-4 text-gray-600" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 功能设置区域 */}
+          <div className="max-w-7xl mx-auto bg-white rounded-lg border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="text-sm font-medium text-gray-700">功能设置</div>
+              <button
+                onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
+                className="text-xs text-gray-500 hover:text-gray-700"
+              >
+                {showAdvancedSettings ? '收起' : '展开'}
+              </button>
+            </div>
+
+            {/* 情感控制方式 */}
+            <div className="mb-6">
+              <div className="text-sm font-medium text-gray-700 mb-3">情感控制方式</div>
+              <div className="grid grid-cols-4 gap-3">
+                {[
+                  { value: 0, label: '与参考音频的音色相同' },
+                  { value: 1, label: '使用单独的情感参考音频' },
+                  { value: 2, label: '使用情感向量控制' },
+                  { value: 3, label: '使用情感描述文本控制' },
+                ].map((option) => (
+                  <label
+                    key={option.value}
+                    className={`flex items-center p-3 border-2 rounded-lg cursor-pointer transition-all ${
+                      emotionControlMethod === option.value
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="emotionControl"
+                      value={option.value}
+                      checked={emotionControlMethod === option.value}
+                      onChange={(e) => setEmotionControlMethod(parseInt(e.target.value) as EmotionControlMethod)}
+                      className="sr-only"
+                    />
+                    <div className={`w-4 h-4 rounded-full border-2 mr-3 flex items-center justify-center ${
+                      emotionControlMethod === option.value
+                        ? 'border-blue-500'
+                        : 'border-gray-300'
+                    }`}>
+                      {emotionControlMethod === option.value && (
+                        <div className="w-2 h-2 rounded-full bg-blue-500" />
+                      )}
+                    </div>
+                    <span className="text-sm text-gray-700">{option.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* 根据选择显示不同的控制选项 */}
+            {emotionControlMethod === 1 && (
+              <div className="mb-6">
+                <div className="text-sm font-medium text-gray-700 mb-3">上传情感参考音频</div>
+                {!emotionReferenceAudioUrl ? (
+                  <div
+                    onClick={() => emotionAudioInputRef.current?.click()}
+                    className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all"
+                  >
+                    <Upload className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                    <div className="text-sm text-gray-600">点击上传情感参考音频</div>
+                    <input
+                      ref={emotionAudioInputRef}
+                      type="file"
+                      accept="audio/*"
+                      onChange={handleEmotionAudioUpload}
+                      className="hidden"
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <AudioWaveform
+                      audioUrl={emotionReferenceAudioUrl}
+                      audioElement={emotionAudioElement}
+                      currentTime={emotionCurrentTime}
+                      duration={emotionDuration}
+                      color="#ff6b35"
+                      height={60}
+                    />
+                    
+                    {/* 时间显示 */}
+                    <div className="flex items-center justify-between text-xs text-gray-500">
+                      <span>{formatTime(emotionCurrentTime)}</span>
+                      <span>{formatTime(emotionDuration)}</span>
+                    </div>
+                    
+                    {/* 播放控制 */}
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => emotionAudioElement && (emotionAudioElement.muted = !emotionAudioElement.muted)}
+                        className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+                      >
+                        <Volume2 className="w-4 h-4 text-gray-600" />
+                      </button>
+                      <button
+                        onClick={() => setEmotionPlaybackSpeed(prev => prev === 1 ? 1.5 : prev === 1.5 ? 2 : 1)}
+                        className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+                      >
+                        {emotionPlaybackSpeed}x
+                      </button>
+                      <button
+                        onClick={() => emotionAudioElement && (emotionAudioElement.currentTime = Math.max(0, emotionAudioElement.currentTime - 5))}
+                        className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+                      >
+                        <ChevronLeft className="w-4 h-4 text-gray-600" />
+                      </button>
+                      <button
+                        onClick={handleEmotionPlayPause}
+                        className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 transition-colors"
+                      >
+                        {isEmotionPlaying ? (
+                          <Pause className="w-5 h-5" />
+                        ) : (
+                          <Play className="w-5 h-5 ml-0.5" />
+                        )}
+                      </button>
+                      <button
+                        onClick={() => emotionAudioElement && (emotionAudioElement.currentTime = Math.min(emotionAudioElement.duration || 0, emotionAudioElement.currentTime + 5))}
+                        className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+                      >
+                        <ChevronRight className="w-4 h-4 text-gray-600" />
+                      </button>
+                      <button
+                        onClick={clearEmotionAudio}
+                        className="p-1.5 hover:bg-gray-100 rounded transition-colors ml-auto"
+                      >
+                        <X className="w-4 h-4 text-gray-600" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {emotionControlMethod === 2 && (
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-sm font-medium text-gray-700">情感随机采样</div>
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={emotionRandom}
+                      onChange={(e) => setEmotionRandom(e.target.checked)}
+                      className="sr-only"
+                    />
+                    <div className={`w-10 h-6 rounded-full transition-colors ${
+                      emotionRandom ? 'bg-blue-500' : 'bg-gray-300'
+                    }`}>
+                      <div className={`w-5 h-5 bg-white rounded-full shadow-md transform transition-transform ${
+                        emotionRandom ? 'translate-x-4' : 'translate-x-0.5'
+                      } mt-0.5`} />
+                    </div>
+                  </label>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  {[
+                    { key: 'joy', label: '欢喜' },
+                    { key: 'anger', label: '愤怒' },
+                    { key: 'sadness', label: '悲哀' },
+                    { key: 'fear', label: '恐惧' },
+                    { key: 'disgust', label: '厌恶' },
+                    { key: 'low', label: '低落' },
+                    { key: 'surprise', label: '惊喜' },
+                    { key: 'calm', label: '平静' },
+                  ].map(({ key, label }) => (
+                    <div key={key} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-700">{label}</span>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min="0"
+                            max="1"
+                            step="0.05"
+                            value={emotionVectors[key as keyof typeof emotionVectors]}
+                            onChange={(e) => setEmotionVectors(prev => ({
+                              ...prev,
+                              [key]: parseFloat(e.target.value) || 0
+                            }))}
+                            className="w-16 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                          <button
+                            onClick={() => setEmotionVectors(prev => ({ ...prev, [key]: 0 }))}
+                            className="p-1 hover:bg-gray-100 rounded transition-colors"
+                          >
+                            <RotateCcw className="w-3 h-3 text-gray-500" />
+                          </button>
+                        </div>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value={emotionVectors[key as keyof typeof emotionVectors]}
+                        onChange={(e) => setEmotionVectors(prev => ({
+                          ...prev,
+                          [key]: parseFloat(e.target.value)
+                        }))}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                      />
+                      <div className="flex items-center justify-between text-xs text-gray-400">
+                        <span>0</span>
+                        <span>1</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {emotionControlMethod === 3 && (
+              <div className="mb-6">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+                  <div className="text-xs text-blue-800">
+                    说明：此功能处于测试阶段，结果可能不太稳定。
+                  </div>
+                </div>
+                <div className="text-sm font-medium text-gray-700 mb-2">情感描述文本</div>
+                <div className="text-xs text-gray-500 mb-2">
+                  例如：极度愤怒、非常高兴、危险在悄悄逼近
+                </div>
+                <textarea
+                  value={emotionText}
+                  onChange={(e) => setEmotionText(e.target.value)}
+                  placeholder="请输入情绪描述(或留空以自动使用目标文本作为情绪描述)"
+                  className="w-full h-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
+                />
+              </div>
+            )}
+
+            {/* 情感权重（选项1、2、3都显示） */}
+            {(emotionControlMethod === 1 || emotionControlMethod === 2 || emotionControlMethod === 3) && (
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-sm font-medium text-gray-700">情感权重</div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={emotionWeight}
+                      onChange={(e) => setEmotionWeight(parseFloat(e.target.value) || 0)}
+                      className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    <button
+                      onClick={resetEmotionWeight}
+                      className="p-1.5 hover:bg-gray-100 rounded transition-colors"
+                    >
+                      <RotateCcw className="w-4 h-4 text-gray-500" />
+                    </button>
+                  </div>
+                </div>
+                <div className="relative">
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={emotionWeight}
+                    onChange={(e) => setEmotionWeight(parseFloat(e.target.value))}
+                    className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                    style={{
+                      background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${emotionWeight * 100}%, #e5e7eb ${emotionWeight * 100}%, #e5e7eb 100%)`
+                    }}
+                  />
+                  <div className="flex items-center justify-between text-xs text-gray-400 mt-1">
+                    <span>0</span>
+                    <span>1</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 高级生成参数设置 */}
+            {showAdvancedSettings && (
+              <div className="border-t border-gray-200 pt-6 mt-6">
+                <div className="text-sm font-medium text-gray-700 mb-4">高级生成参数设置</div>
+                <div className="text-xs text-gray-500">
+                  高级参数设置功能待实现...
                 </div>
               </div>
             )}

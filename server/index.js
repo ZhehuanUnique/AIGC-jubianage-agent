@@ -2498,7 +2498,20 @@ app.get('/api/indextts/voices', authenticateToken, async (req, res) => {
 // 生成语音
 app.post('/api/indextts/generate', authenticateToken, async (req, res) => {
   try {
-    const { text, voiceId, speed, pitch, format } = req.body
+    const { 
+      text, 
+      voiceId, 
+      speed, 
+      pitch, 
+      format,
+      referenceAudio,
+      emotionControlMethod,
+      emotionReferenceAudio,
+      emotionWeight,
+      emotionVectors,
+      emotionText,
+      emotionRandom,
+    } = req.body
     
     if (!text || !text.trim()) {
       return res.status(400).json({ 
@@ -2513,6 +2526,13 @@ app.post('/api/indextts/generate', authenticateToken, async (req, res) => {
       speed: speed || 1.0,
       pitch: pitch || 0,
       format: format || 'wav',
+      referenceAudio,
+      emotionControlMethod,
+      emotionReferenceAudio,
+      emotionWeight,
+      emotionVectors,
+      emotionText,
+      emotionRandom,
     })
 
     res.json(result)

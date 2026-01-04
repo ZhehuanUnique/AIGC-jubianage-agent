@@ -101,6 +101,13 @@ export async function getVoices() {
  * @param {number} options.speed - 语速（可选，默认1.0）
  * @param {number} options.pitch - 音调（可选，默认0）
  * @param {string} options.format - 输出格式（可选，默认wav）
+ * @param {string} options.referenceAudio - 音色参考音频（base64或URL，可选）
+ * @param {number} options.emotionControlMethod - 情感控制方式：0=与参考音频相同, 1=单独情感参考音频, 2=情感向量, 3=情感描述文本（可选）
+ * @param {string} options.emotionReferenceAudio - 情感参考音频（base64或URL，可选）
+ * @param {number} options.emotionWeight - 情感权重（0-1，可选）
+ * @param {Array<number>} options.emotionVectors - 情感向量（8个情绪值数组，可选）
+ * @param {string} options.emotionText - 情感描述文本（可选）
+ * @param {boolean} options.emotionRandom - 情感随机采样（可选）
  * @returns {Promise<Object>} 生成结果，包含音频URL或base64数据
  */
 export async function generateSpeech(options = {}) {
@@ -110,6 +117,13 @@ export async function generateSpeech(options = {}) {
     speed = 1.0,
     pitch = 0,
     format = 'wav',
+    referenceAudio,
+    emotionControlMethod,
+    emotionReferenceAudio,
+    emotionWeight,
+    emotionVectors,
+    emotionText,
+    emotionRandom,
   } = options
 
   if (!INDEXTTS_ENABLED) {
@@ -137,6 +151,35 @@ export async function generateSpeech(options = {}) {
       speed: speed,
       pitch: pitch,
       format: format,
+    }
+
+    // 添加音色参考音频
+    if (referenceAudio) {
+      requestBody.reference_audio = referenceAudio
+    }
+
+    // 添加情感控制参数
+    if (emotionControlMethod !== undefined) {
+      requestBody.emotion_control_method = emotionControlMethod
+      
+      if (emotionControlMethod === 1 && emotionReferenceAudio) {
+        // 使用单独的情感参考音频
+        requestBody.emotion_reference_audio = emotionReferenceAudio
+      } else if (emotionControlMethod === 2 && emotionVectors) {
+        // 使用情感向量
+        requestBody.emotion_vectors = emotionVectors
+        if (emotionRandom !== undefined) {
+          requestBody.emotion_random = emotionRandom
+        }
+      } else if (emotionControlMethod === 3 && emotionText !== undefined) {
+        // 使用情感描述文本
+        requestBody.emotion_text = emotionText
+      }
+
+      // 情感权重（选项1、2、3都支持）
+      if ((emotionControlMethod === 1 || emotionControlMethod === 2 || emotionControlMethod === 3) && emotionWeight !== undefined) {
+        requestBody.emotion_weight = emotionWeight
+      }
     }
 
     const response = await fetch(`${INDEXTTS_BASE_URL}/api/tts/generate`, {
