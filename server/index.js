@@ -2465,7 +2465,7 @@ app.post('/api/upload-video', authenticateToken, uploadVideo.single('video'), as
       }
       
       // 准备metadata
-      const metadata: any = {
+      const metadata = {
         source: 'upload',
         uploaded_at: new Date().toISOString(),
       }
