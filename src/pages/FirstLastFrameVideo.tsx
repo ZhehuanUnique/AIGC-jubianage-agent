@@ -447,7 +447,7 @@ function FirstLastFrameVideo() {
 
     pollIntervalRef.current = setInterval(async () => {
       try {
-        const result = await getFirstLastFrameVideoStatus(taskId, projectId, 'volcengine-video-3.0-pro')
+        const result = await getFirstLastFrameVideoStatus(taskId, projectId, selectedModel)
         if (result.success) {
           const task = result.data
           
