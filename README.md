@@ -1988,6 +1988,67 @@ pm2 save
 
 详细配置请参考 `skill/skill.md` 中的"PM2 管理"章节。
 
+## 🔧 服务器部署
+
+### 快速部署步骤
+
+按照以下步骤在服务器上部署最新代码：
+
+```bash
+# 1. 连接到服务器
+ssh ubuntu@119.45.121.152
+
+# 2. 进入项目目录
+cd /var/www/aigc-agent
+
+# 3. 强制拉取最新代码
+git fetch origin
+git reset --hard origin/main
+
+# 4. 清理并重新构建前端
+rm -rf dist node_modules/.vite
+npm run build
+
+# 5. 设置权限并重启服务
+sudo chown -R ubuntu:ubuntu dist/
+cd server
+pm2 restart aigc-agent
+cd ..
+sudo systemctl reload nginx
+```
+
+### 火山引擎API配置
+
+如果使用即梦AI-视频生成3.0 Pro，需要配置火山引擎API密钥：
+
+1. **获取密钥**：
+   - 登录火山引擎控制台：https://console.volcengine.com/
+   - 进入 **访问控制** → **密钥管理**
+   - 创建或查看 Access Key ID 和 Secret Access Key
+
+2. **配置到服务器**：
+   在服务器的 `server/.env` 文件中添加：
+   ```env
+   VOLCENGINE_AK=your_volcengine_access_key_id_here
+   VOLCENGINE_SK=your_volcengine_secret_access_key_here
+   VOLCENGINE_API_HOST=https://visual.volcengineapi.com
+   ```
+
+3. **检查配置**：
+   ```bash
+   cd server
+   node check-volcengine-config.js
+   ```
+
+4. **重启服务**：
+   ```bash
+   pm2 restart aigc-agent
+   ```
+
+### 数据库迁移
+
+如果添加了新功能需要数据库表，请在Supabase SQL编辑器中执行相应的迁移脚本。
+
 ## 📄 许可证
 
 MIT License
