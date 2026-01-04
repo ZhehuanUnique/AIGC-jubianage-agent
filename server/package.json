@@ -10,6 +10,7 @@
     "check-env": "node check-env.js",
     "check-cos": "node check-cos.js",
     "check-image-url": "node check-image-url.js",
+    "check-volcengine": "node check-volcengine-config.js",
     "init-db": "node db/init.js",
     "init-users": "node db/initDefaultUsers.js",
     "check-users": "node db/check-users.js",
