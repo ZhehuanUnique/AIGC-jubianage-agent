@@ -754,6 +754,40 @@ app.post('/api/first-last-frame-video/generate', authenticateToken, uploadImage.
       }
     }
 
+    // 在生成任务时，先保存到 first_last_frame_videos 表（状态为pending）
+    try {
+      const { calculateVideoGenerationCredit } = await import('./services/creditService.js')
+      const estimatedCredit = calculateVideoGenerationCredit(model, resolution, parseInt(duration))
+      
+      await db.query(
+        `INSERT INTO first_last_frame_videos 
+         (user_id, project_id, task_id, first_frame_url, last_frame_url, 
+          model, resolution, ratio, duration, prompt, text, status, estimated_credit)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+         ON CONFLICT (task_id) DO UPDATE SET
+           status = EXCLUDED.status,
+           updated_at = CURRENT_TIMESTAMP`,
+        [
+          userId,
+          projectId,
+          result.taskId,
+          firstFrameUrl,
+          lastFrameUrl || null,
+          model,
+          resolution,
+          ratio,
+          parseInt(duration),
+          text,
+          text,
+          result.status || 'pending',
+          estimatedCredit
+        ]
+      )
+      console.log(`✅ 任务已保存到 first_last_frame_videos 表: taskId=${result.taskId}`)
+    } catch (dbError) {
+      console.warn('保存任务到 first_last_frame_videos 表失败（不影响主流程）:', dbError)
+    }
+
     res.json({
       success: true,
       data: {
@@ -874,6 +908,14 @@ app.get('/api/first-last-frame-video/status/:taskId', authenticateToken, async (
               console.warn('自动创建分镜失败（继续保存视频）:', shotError)
             }
             
+            // 从 first_last_frame_videos 表获取首帧和尾帧URL
+            const videoRecord = await db.query(
+              'SELECT first_frame_url, last_frame_url FROM first_last_frame_videos WHERE task_id = $1',
+              [taskId]
+            )
+            const firstFrameUrl = videoRecord.rows[0]?.first_frame_url || null
+            const lastFrameUrl = videoRecord.rows[0]?.last_frame_url || null
+            
             // 保存到 files 表，包含更多元数据
             const metadata = {
               task_id: taskId,
@@ -884,8 +926,8 @@ app.get('/api/first-last-frame-video/status/:taskId', authenticateToken, async (
               duration: parseInt(req.body.duration) || 5,
               text: req.body.text || '',
               prompt: req.body.text || '',
-              first_frame_url: null, // 状态查询时无法获取，已在生成时保存
-              last_frame_url: null, // 状态查询时无法获取，已在生成时保存
+              first_frame_url: firstFrameUrl,
+              last_frame_url: lastFrameUrl,
             }
             
             // 如果创建了shot，在metadata中关联shot_id
@@ -905,11 +947,49 @@ app.get('/api/first-last-frame-video/status/:taskId', authenticateToken, async (
                 JSON.stringify(metadata)
               ]
             )
-
-            // 返回项目文件夹中的视频URL
-            result.videoUrl = uploadResult.url
+            
+            // 同时保存到 first_last_frame_videos 表
+            const { calculateVideoGenerationCredit: calcCredit } = await import('./services/creditService.js')
+            const estimatedCredit = calcCredit(
+              req.query.model || req.body.model || 'volcengine-video-3.0-pro', 
+              req.body.resolution || '720p', 
+              parseInt(req.body.duration) || 5
+            )
+            
+            await db.query(
+              `INSERT INTO first_last_frame_videos 
+               (user_id, project_id, task_id, video_url, cos_key, first_frame_url, last_frame_url, 
+                model, resolution, ratio, duration, prompt, text, status, shot_id, estimated_credit, actual_credit)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+               ON CONFLICT (task_id) DO UPDATE SET
+                 video_url = EXCLUDED.video_url,
+                 cos_key = EXCLUDED.cos_key,
+                 status = EXCLUDED.status,
+                 shot_id = EXCLUDED.shot_id,
+                 updated_at = CURRENT_TIMESTAMP`,
+              [
+                userId,
+                projectId,
+                taskId,
+                uploadResult.url,
+                cosKey,
+                firstFrameUrl,
+                lastFrameUrl,
+                req.query.model || req.body.model || 'volcengine-video-3.0-pro',
+                req.body.resolution || '720p',
+                req.body.ratio || '16:9',
+                parseInt(req.body.duration) || 5,
+                req.body.text || '',
+                req.body.text || '',
+                'completed',
+                shotId,
+                estimatedCredit,
+                actualCredit
+              ]
+            )
             
             // 计算并记录积分消耗（超级管理员不记录）
+            let actualCredit = null
             try {
               // 检查是否为超级管理员
               const userResult = await db.query('SELECT username FROM users WHERE id = $1', [userId])
@@ -932,9 +1012,9 @@ app.get('/api/first-last-frame-video/status/:taskId', authenticateToken, async (
               }
               
               // 计算积分消耗
-              const creditConsumed = calculateVideoGenerationCredit(model, resolution, duration, costInYuan > 0 ? costInYuan : null)
+              actualCredit = calculateVideoGenerationCredit(model, resolution, duration, costInYuan > 0 ? costInYuan : null)
               
-              if (creditConsumed > 0) {
+              if (actualCredit > 0) {
                 // 记录积分消耗到操作日志，同时保存真实成本到metadata
                 await logOperation(
                   userId,
@@ -943,13 +1023,19 @@ app.get('/api/first-last-frame-video/status/:taskId', authenticateToken, async (
                   '首尾帧视频生成',
                   'video',
                   taskId,
-                  creditConsumed,
+                  actualCredit,
                   'success',
                   null,
-                  { model, resolution, duration, creditConsumed, costInYuan: costInYuan > 0 ? costInYuan : null }
+                  { model, resolution, duration, creditConsumed: actualCredit, costInYuan: costInYuan > 0 ? costInYuan : null }
                 )
                 
-                console.log(`✅ 已记录积分消耗: ${creditConsumed} 积分 (模型: ${model}, 分辨率: ${resolution}, 时长: ${duration}秒, 实际成本: ${costInYuan > 0 ? costInYuan.toFixed(4) + '元' : '未知'})`)
+                // 更新 first_last_frame_videos 表的 actual_credit
+                await db.query(
+                  'UPDATE first_last_frame_videos SET actual_credit = $1 WHERE task_id = $2',
+                  [actualCredit, taskId]
+                )
+                
+                console.log(`✅ 已记录积分消耗: ${actualCredit} 积分 (模型: ${model}, 分辨率: ${resolution}, 时长: ${duration}秒, 实际成本: ${costInYuan > 0 ? costInYuan.toFixed(4) + '元' : '未知'})`)
               }
               } else {
                 console.log(`ℹ️ 超级管理员 ${username} 使用模型，跳过积分和费用统计`)
@@ -1007,34 +1093,37 @@ app.get('/api/projects/:projectId/first-last-frame-videos', authenticateToken, a
       })
     }
     
-    // 获取所有首尾帧视频（从files表中查找，metadata包含source='first_last_frame_video'）
+    // 从 first_last_frame_videos 表获取所有首尾帧视频
     const videosResult = await db.query(
-      `SELECT f.id, f.cos_url, f.file_name, f.created_at, f.metadata
-       FROM files f
-       WHERE f.project_id = $1 
-         AND f.file_type = 'video'
-         AND f.metadata->>'source' = 'first_last_frame_video'
-       ORDER BY f.created_at DESC
+      `SELECT id, task_id, video_url, first_frame_url, last_frame_url, 
+              model, resolution, ratio, duration, prompt, text, status, 
+              shot_id, estimated_credit, actual_credit, created_at, updated_at
+       FROM first_last_frame_videos
+       WHERE project_id = $1 AND user_id = $2
+       ORDER BY created_at DESC
        LIMIT 100`,
-      [projectId]
+      [projectId, userId]
     )
     
     // 格式化返回数据
-    const videos = videosResult.rows.map((file) => {
-      const metadata = file.metadata ? (typeof file.metadata === 'string' ? JSON.parse(file.metadata) : file.metadata) : {}
+    const videos = videosResult.rows.map((video) => {
       return {
-        id: file.id.toString(),
-        taskId: metadata.task_id || file.id.toString(),
-        videoUrl: file.cos_url,
-        status: 'completed', // 已保存到files表的都是完成的
-        firstFrameUrl: metadata.first_frame_url || null,
-        lastFrameUrl: metadata.last_frame_url || null,
-        model: metadata.model || 'doubao-seedance-1-5-pro-251215',
-        resolution: metadata.resolution || '720p',
-        ratio: metadata.ratio || '16:9',
-        duration: metadata.duration || 5,
-        text: metadata.text || metadata.prompt || null,
-        createdAt: file.created_at,
+        id: video.id.toString(),
+        taskId: video.task_id,
+        videoUrl: video.video_url,
+        status: video.status || 'completed',
+        firstFrameUrl: video.first_frame_url || null,
+        lastFrameUrl: video.last_frame_url || null,
+        model: video.model || 'volcengine-video-3.0-pro',
+        resolution: video.resolution || '720p',
+        ratio: video.ratio || '16:9',
+        duration: video.duration || 5,
+        text: video.text || video.prompt || null,
+        estimatedCredit: video.estimated_credit || null,
+        actualCredit: video.actual_credit || null,
+        shotId: video.shot_id || null,
+        createdAt: video.created_at,
+        updatedAt: video.updated_at,
       }
     })
     

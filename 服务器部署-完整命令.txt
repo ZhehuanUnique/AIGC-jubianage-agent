@@ -1,0 +1,83 @@
+# 服务器部署完整命令（适用于ubuntu用户）
+
+# ============================================
+# 步骤1: 查找项目目录
+# ============================================
+
+# 方法1: 检查常见位置
+ls -la /home/ubuntu/AIGC-jubianage-agent
+ls -la ~/AIGC-jubianage-agent
+ls -la /root/AIGC-jubianage-agent  # 需要sudo
+
+# 方法2: 全局搜索
+sudo find / -name "AIGC-jubianage-agent" -type d 2>/dev/null
+
+# 方法3: 检查当前目录
+pwd
+ls -la
+
+# ============================================
+# 步骤2: 进入项目目录（根据实际路径选择）
+# ============================================
+
+# 如果项目在 /home/ubuntu/AIGC-jubianage-agent
+cd /home/ubuntu/AIGC-jubianage-agent
+
+# 或者如果项目在 ~/AIGC-jubianage-agent
+cd ~/AIGC-jubianage-agent
+
+# 或者如果项目在 /root/AIGC-jubianage-agent（需要sudo权限）
+sudo su -
+cd /root/AIGC-jubianage-agent
+
+# ============================================
+# 步骤3: 拉取最新代码
+# ============================================
+
+git pull origin main
+
+# ============================================
+# 步骤4: 安装前端依赖并构建
+# ============================================
+
+cd src
+npm install
+npm run build
+cd ..
+
+# ============================================
+# 步骤5: 安装后端依赖
+# ============================================
+
+cd server
+npm install
+cd ..
+
+# ============================================
+# 步骤6: 重启后端服务
+# ============================================
+
+pm2 restart AIGC-jubianage-agent || pm2 start server/index.js --name AIGC-jubianage-agent
+
+# ============================================
+# 步骤7: 检查服务状态
+# ============================================
+
+pm2 status
+pm2 logs AIGC-jubianage-agent --lines 50
+
+# ============================================
+# 如果使用sudo访问/root目录的完整流程
+# ============================================
+
+# 切换到root用户
+sudo su -
+
+# 然后执行所有部署命令
+cd /root/AIGC-jubianage-agent
+git pull origin main
+cd src && npm install && npm run build && cd ..
+cd server && npm install && cd ..
+pm2 restart AIGC-jubianage-agent || pm2 start server/index.js --name AIGC-jubianage-agent
+pm2 status
+

@@ -606,7 +606,7 @@ function FirstLastFrameVideo() {
       <nav className="bg-white border-b border-gray-200 shadow-sm fixed top-0 left-0 right-0 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            {/* 左侧：返回按钮和标题 */}
+            {/* 左侧：返回按钮 */}
             <div className="flex items-center gap-4">
               <button
                 onClick={() => {
@@ -621,11 +621,16 @@ function FirstLastFrameVideo() {
                 <ArrowLeft size={18} />
                 返回
               </button>
-              <h2 className="text-xl font-bold text-gray-800">今天</h2>
             </div>
             
-            {/* 右侧：筛选下拉菜单 */}
+            {/* 右侧：日期和筛选下拉菜单 */}
             <div className="flex items-center gap-2">
+              {/* 日期显示（黄色框） */}
+              <div className="px-4 py-2 bg-yellow-100 border-2 border-yellow-300 rounded-lg">
+                <span className="text-sm font-semibold text-gray-800">
+                  {new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
+                </span>
+              </div>
               {/* 时间筛选 */}
               <div className="relative">
                 <button
