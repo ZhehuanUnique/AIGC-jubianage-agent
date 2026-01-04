@@ -12,17 +12,30 @@ import { dirname, join } from 'path'
 import { existsSync } from 'fs'
 
 // 加载.env文件
+// 注意：如果环境变量已经通过 server/index.js 加载，这里不会覆盖
+// 但为了确保在独立使用时也能工作，这里也尝试加载
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
-const envPath = join(__dirname, '../../.env')
-if (existsSync(envPath)) {
-  dotenv.config({ path: envPath })
+const rootEnvPath = join(__dirname, '../../.env')
+const serverEnvPath = join(__dirname, '../.env')
+
+// 优先加载根目录的 .env，如果不存在则加载 server/.env
+if (existsSync(rootEnvPath)) {
+  dotenv.config({ path: rootEnvPath, override: false }) // override: false 避免覆盖已存在的环境变量
+  console.log('📋 fluxService: 已加载根目录 .env 文件:', rootEnvPath)
+} else if (existsSync(serverEnvPath)) {
+  dotenv.config({ path: serverEnvPath, override: false })
+  console.log('📋 fluxService: 已加载 server/.env 文件:', serverEnvPath)
 } else {
-  // 尝试从 server/.env 加载
-  const serverEnvPath = join(__dirname, '../.env')
-  if (existsSync(serverEnvPath)) {
-    dotenv.config({ path: serverEnvPath })
-  }
+  console.warn('⚠️  fluxService: 未找到 .env 文件，尝试从默认位置加载')
+  dotenv.config({ override: false })
+}
+
+// 调试：检查 FLUX API 密钥是否已加载
+if (process.env.FLUX_2_MAX_API_KEY) {
+  console.log('✅ fluxService: FLUX_2_MAX_API_KEY 已加载')
+} else {
+  console.warn('⚠️  fluxService: FLUX_2_MAX_API_KEY 未找到')
 }
 
 /**
