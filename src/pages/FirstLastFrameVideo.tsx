@@ -134,9 +134,40 @@ function FirstLastFrameVideo() {
     setTasks(filtered)
   }
 
-  // 加载历史任务（支持静默模式）
+  // 加载历史任务（支持静默模式，优化首次加载）
   const loadHistory = async (silent: boolean = false) => {
     if (!projectId) return
+    
+    // 首次加载时，先尝试从缓存加载，提升用户体验
+    if (isInitialLoad && !silent) {
+      const storageKey = `first_last_frame_videos_${projectId}`
+      const cachedVideos = localStorage.getItem(storageKey)
+      if (cachedVideos) {
+        try {
+          const parsed = JSON.parse(cachedVideos)
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const videoTasks: VideoTask[] = parsed.map((v: any) => ({
+              id: v.taskId || v.id,
+              status: v.status || 'pending',
+              videoUrl: v.videoUrl,
+              firstFrameUrl: v.firstFrameUrl || '',
+              lastFrameUrl: v.lastFrameUrl,
+              model: v.model || 'volcengine-video-3.0-pro',
+              resolution: v.resolution || '720p',
+              ratio: v.ratio || '16:9',
+              duration: v.duration || 5,
+              text: v.text,
+              createdAt: v.createdAt || new Date().toISOString(),
+            }))
+            setAllTasks(videoTasks)
+            applyFilters(videoTasks)
+            setIsLoading(true) // 显示加载状态，但已有数据展示
+          }
+        } catch (e) {
+          console.warn('解析缓存视频失败:', e)
+        }
+      }
+    }
     
     // 只在首次加载或非静默模式时显示加载状态
     if (isInitialLoad || !silent) {
@@ -153,7 +184,7 @@ function FirstLastFrameVideo() {
           status: v.status as 'pending' | 'processing' | 'completed' | 'failed',
           videoUrl: v.videoUrl,
           firstFrameUrl: v.firstFrameUrl || '',
-          lastFrameUrl: v.lastFrameUrl,
+          lastFrameUrl: v.lastFrameUrl || undefined,
           model: v.model,
           resolution: v.resolution,
           ratio: v.ratio,
@@ -161,6 +192,10 @@ function FirstLastFrameVideo() {
           text: v.text,
           createdAt: v.createdAt,
         }))
+        
+        // 保存到缓存
+        const storageKey = `first_last_frame_videos_${projectId}`
+        localStorage.setItem(storageKey, JSON.stringify(videos))
         
         // 保存所有任务
         setAllTasks(videoTasks)
@@ -429,6 +464,28 @@ function FirstLastFrameVideo() {
           activeElement.blur()
         }
         
+        // 立即创建新任务并添加到本地状态（不等待数据库查询）
+        const newTask: VideoTask = {
+          id: result.data.taskId,
+          status: 'pending',
+          firstFrameUrl: firstFramePreview || '',
+          lastFrameUrl: lastFramePreview || undefined,
+          model: selectedModel,
+          resolution,
+          ratio: '16:9',
+          duration,
+          text: prompt.trim() || undefined,
+          createdAt: new Date().toISOString(),
+        }
+        
+        // 立即添加到本地状态，让用户立即看到
+        setAllTasks(prev => {
+          const updated = [newTask, ...prev]
+          // 同时更新筛选后的列表
+          applyFilters(updated)
+          return updated
+        })
+        
         // 清空输入
         setPrompt('')
         setFirstFrameFile(null)
@@ -438,8 +495,10 @@ function FirstLastFrameVideo() {
         setFrameAspectRatio(null)
         setFrameImageInfo(null)
         
-        // 刷新历史记录（静默模式，不显示加载状态）
-        loadHistory(true)
+        // 后台刷新历史记录（静默模式，不显示加载状态），确保数据同步
+        setTimeout(() => {
+          loadHistory(true)
+        }, 1000) // 延迟1秒，确保数据库已保存
         
         // 开始轮询任务状态
         pollTaskStatus(result.data.taskId)

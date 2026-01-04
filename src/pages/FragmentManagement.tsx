@@ -25,6 +25,7 @@ function FragmentManagement() {
   const [isLoading, setIsLoading] = useState(false)
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const [deleteConfirmFragmentId, setDeleteConfirmFragmentId] = useState<string | null>(null)
+  const deletingFragmentsRef = useRef<Set<string>>(new Set()) // 正在删除的片段ID集合，防止重复删除
 
   // 监听片段更新事件
   useEffect(() => {
@@ -173,6 +174,16 @@ function FragmentManagement() {
     if (!deleteConfirmFragmentId) return
 
     const fragmentIdToDelete = deleteConfirmFragmentId
+    
+    // 防止重复删除：如果正在删除，直接返回
+    if (deletingFragmentsRef.current.has(fragmentIdToDelete)) {
+      console.log('片段正在删除中，跳过重复请求')
+      setDeleteConfirmFragmentId(null)
+      return
+    }
+
+    // 标记为正在删除
+    deletingFragmentsRef.current.add(fragmentIdToDelete)
     setDeleteConfirmFragmentId(null)
 
     // 乐观更新：立即从列表中移除
@@ -196,6 +207,7 @@ function FragmentManagement() {
       if (!token) {
         alert('请先登录', 'warning')
         // 如果未登录，重新加载以恢复数据
+        deletingFragmentsRef.current.delete(fragmentIdToDelete)
         loadFragments(true)
         return
       }
@@ -209,19 +221,27 @@ function FragmentManagement() {
 
       const result = await response.json()
       
-      if (result.success) {
+      // 如果返回404或错误提示片段不存在，说明已经删除成功，静默处理
+      if (response.status === 404 || (result.error && result.error.includes('不存在'))) {
+        console.log('片段已不存在，删除成功（可能是重复请求）')
+        // 静默处理，不显示错误
+        loadFragments(true)
+      } else if (result.success) {
         // 删除成功，静默刷新以确保数据同步
         loadFragments(true)
       } else {
+        // 其他错误才显示提示
         alert(`删除失败: ${result.error}`, 'error')
         // 如果删除失败，重新加载以恢复数据
         loadFragments(true)
       }
     } catch (error) {
       console.error('删除片段失败:', error)
-      alert('删除片段失败，请稍后重试', 'error')
-      // 如果删除失败，重新加载以恢复数据
+      // 网络错误等，不显示错误提示，静默刷新
       loadFragments(true)
+    } finally {
+      // 移除删除标记
+      deletingFragmentsRef.current.delete(fragmentIdToDelete)
     }
   }
 
