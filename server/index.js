@@ -703,6 +703,66 @@ app.post('/api/first-last-frame-video/generate', authenticateToken, uploadImage.
         serviceTier: 'offline', // 使用离线推理，更稳定
         generateAudio: true,
       })
+    } else if (model === 'veo3.1' || model === 'veo3.1-pro') {
+      // 使用 Veo3.1 服务（仅支持单首帧）
+      console.log('📹 收到 Veo3.1 生视频请求（保存到项目文件夹）:', {
+        projectId,
+        projectName: project.name,
+        firstFrameUrl: firstFrameUrl.substring(0, 100) + '...',
+        model,
+        resolution,
+        duration,
+        hasText: !!text,
+        mode: 'single_frame',
+      })
+
+      if (hasLastFrame) {
+        console.log('⚠️  Veo3.1 不支持首尾帧模式，将使用首帧+提示词模式')
+      }
+
+      const { generateVideoFromImage } = await import('./services/imageToVideoService.js')
+      // Veo3.1 需要提示词，如果没有提供，使用默认提示词
+      const finalPrompt = text || 'Generate a video from the image with smooth motion and natural transitions.'
+      
+      // Veo3.1 仅支持 16:9 和 9:16，根据分辨率推断宽高比
+      let aspectRatio = '16:9'
+      if (ratio === '9:16' || ratio.includes('9:16')) {
+        aspectRatio = '9:16'
+      }
+      
+      result = await generateVideoFromImage(firstFrameUrl, {
+        model,
+        prompt: finalPrompt,
+        enhancePrompt: true,
+        aspectRatio,
+      })
+    } else if (model === 'viduq2-turbo' || model === 'viduq2-pro' || model === 'viduq1' || 
+               model === 'vidu2.0' || model === 'vidu1.5' || model === 'vidu1.0') {
+      // 使用 Vidu V2 服务（仅支持单首帧）
+      console.log('📹 收到 Vidu V2 生视频请求（保存到项目文件夹）:', {
+        projectId,
+        projectName: project.name,
+        firstFrameUrl: firstFrameUrl.substring(0, 100) + '...',
+        model,
+        resolution,
+        duration,
+        hasText: !!text,
+        mode: 'single_frame',
+      })
+
+      if (hasLastFrame) {
+        console.log('⚠️  Vidu V2 不支持首尾帧模式，将使用首帧+提示词模式')
+      }
+
+      const { generateVideoFromImage } = await import('./services/imageToVideoService.js')
+      result = await generateVideoFromImage(firstFrameUrl, {
+        model,
+        resolution,
+        duration: parseInt(duration),
+        text,
+        movementAmplitude: 'auto',
+        bgm: false,
+      })
     } else {
       // 使用豆包 Seedance 服务（3.5 Pro等）
       if (hasLastFrame) {
