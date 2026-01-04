@@ -391,7 +391,6 @@ export async function getVolcengineTaskStatus(taskId, model = 'volcengine-video-
     // 根据即梦AI-视频生成3.0 Pro接口文档：https://www.volcengine.com/docs/85621/1777001?lang=zh
     // 接口地址：https://visual.volcengineapi.com
     // 查询任务状态：使用POST方法，在Body中传递req_key和task_id
-    // 根据文档，查询任务也需要POST请求，Body中包含req_key和task_id
     const uri = '/'
     const queryParams = {} // Visual API所有参数在Body中
     
@@ -407,11 +406,10 @@ export async function getVolcengineTaskStatus(taskId, model = 'volcengine-video-
     const host = urlObj.host
     
     // 生成签名（根据官方Python示例）
-    // GET请求没有请求体，所以payload为空字符串
     const contentType = 'application/json'
-    const requestBodyJson = '' // GET请求没有请求体
+    const requestBodyJson = JSON.stringify(requestBody)
     const signatureInfo = generateVolcengineSignature(
-      'GET',
+      'POST',
       uri,
       queryParams,
       host,
@@ -432,10 +430,11 @@ export async function getVolcengineTaskStatus(taskId, model = 'volcengine-video-
     
     console.log('📤 查询请求到:', fullUrl)
     console.log('📤 查询参数:', JSON.stringify(queryParams, null, 2))
+    console.log('📤 查询请求体:', JSON.stringify(requestBody, null, 2))
     
-    // GET请求不需要body
+    // 查询任务状态也使用POST方法
     const response = await fetch(fullUrl, {
-      method: 'GET',
+      method: 'POST',
       headers: {
         'Content-Type': contentType,
         'Host': host,
@@ -443,6 +442,7 @@ export async function getVolcengineTaskStatus(taskId, model = 'volcengine-video-
         'X-Date': signatureInfo.timestamp,
         'Authorization': signatureInfo.authorization,
       },
+      body: requestBodyJson,
     })
 
     if (!response.ok) {
