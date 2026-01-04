@@ -268,32 +268,16 @@ function FragmentManagement() {
           {fragments.map((fragment) => (
             <div
               key={fragment.id}
-              onClick={() => navigate(`/project/${projectId}/fragments/${fragment.id}/review`)}
-              className="w-64 h-48 bg-gray-50 border border-gray-200 rounded-lg p-4 cursor-pointer hover:scale-105 transition-transform duration-300 relative group"
+              className="bg-gray-50 border border-gray-200 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-transform relative group"
             >
-              <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button className="w-6 h-6 flex items-center justify-center text-gray-600 hover:text-gray-900">
-                  <MoreVertical size={14} />
-                </button>
-              </div>
-              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    e.preventDefault()
-                    handleDeleteFragment(fragment.id)
-                  }}
-                  className="w-6 h-6 flex items-center justify-center text-red-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                  title="删除片段"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-              <div className="flex-1 flex items-center justify-center mb-2">
+              <div
+                onClick={() => navigate(`/project/${projectId}/fragments/${fragment.id}/review`)}
+                className="aspect-video bg-gray-700 flex items-center justify-center"
+              >
                 {fragment.videoUrls && fragment.videoUrls.length > 0 ? (
                   <video
                     src={fragment.videoUrls[0]}
-                    className="w-full h-full object-cover rounded-lg"
+                    className="w-full h-full object-cover"
                     controls
                     muted
                   />
@@ -301,19 +285,28 @@ function FragmentManagement() {
                   <img
                     src={fragment.imageUrl}
                     alt={fragment.name}
-                    className="w-full h-full object-cover rounded-lg"
+                    className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="w-20 h-20 rounded-lg bg-gray-700 flex items-center justify-center">
-                    <div className="w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center">
-                      <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
-                    </div>
+                  <div className="w-24 h-24 rounded-lg bg-purple-600 flex items-center justify-center text-white text-xs text-center p-2">
+                    {fragment.name}
                   </div>
                 )}
               </div>
-              <div className="text-center text-sm text-gray-700">{fragment.name}</div>
+              <div className="p-3 text-center text-sm text-gray-700 bg-white border-t border-gray-100">
+                {fragment.name}
+              </div>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  e.preventDefault()
+                  handleDeleteFragment(fragment.id)
+                }}
+                className="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 z-10"
+                title="删除片段"
+              >
+                <Trash2 size={14} />
+              </button>
             </div>
           ))}
         </div>

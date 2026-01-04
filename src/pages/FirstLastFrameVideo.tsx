@@ -47,7 +47,7 @@ function FirstLastFrameVideo() {
   const [isInitialLoad, setIsInitialLoad] = useState(true) // 标记是否为首次加载
   const [hoveredFrame, setHoveredFrame] = useState<'first' | 'last' | null>(null)
   const [isInputFocused, setIsInputFocused] = useState(false)
-  const [isBottomBarCollapsed, setIsBottomBarCollapsed] = useState(true) // 默认收缩，参考Vue项目
+  const [isBottomBarCollapsed, setIsBottomBarCollapsed] = useState(false) // 默认展开，不收缩
   const [isBottomBarHovered, setIsBottomBarHovered] = useState(false)
   const [isBottomEdgeHovered, setIsBottomEdgeHovered] = useState(false)
   const [hoveredVideoId, setHoveredVideoId] = useState<string | null>(null)
@@ -187,27 +187,27 @@ function FirstLastFrameVideo() {
         const documentHeight = document.documentElement.scrollHeight
         const distanceFromBottom = documentHeight - (scrollY + windowHeight)
         
-        // 如果不在底部附近（距离底部超过100px），则收缩 - 参考Vue项目
-        if (distanceFromBottom > 100) {
-          setIsBottomBarCollapsed(true)
-        }
+        // 不再自动收缩，保持展开状态
+        // if (distanceFromBottom > 100) {
+        //   setIsBottomBarCollapsed(true)
+        // }
       }, 100) // 防抖时间100ms，参考Vue项目
     }
     
     window.addEventListener('scroll', handleScroll, { passive: true })
     
-    // 初始状态：默认收缩
-    setTimeout(() => {
-      const scrollY = window.scrollY
-      const windowHeight = window.innerHeight
-      const documentHeight = document.documentElement.scrollHeight
-      const distanceFromBottom = documentHeight - (scrollY + windowHeight)
-      
-      // 如果不在底部附近（超过100px），默认收缩
-      if (distanceFromBottom > 100) {
-        setIsBottomBarCollapsed(true)
-      }
-    }, 200)
+    // 初始状态：保持展开，不再自动收缩
+    // setTimeout(() => {
+    //   const scrollY = window.scrollY
+    //   const windowHeight = window.innerHeight
+    //   const documentHeight = document.documentElement.scrollHeight
+    //   const distanceFromBottom = documentHeight - (scrollY + windowHeight)
+    //   
+    //   // 如果不在底部附近（超过100px），默认收缩
+    //   if (distanceFromBottom > 100) {
+    //     setIsBottomBarCollapsed(true)
+    //   }
+    // }, 200)
     
     // 点击外部关闭下拉菜单
     const handleClickOutside = (event: MouseEvent) => {
@@ -410,46 +410,48 @@ function FirstLastFrameVideo() {
 
   // 底部边缘悬停处理 - 参考Vue项目
   const handleBottomEdgeHover = (isHovering: boolean) => {
-    if (bottomEdgeHoverTimeoutRef.current) {
-      clearTimeout(bottomEdgeHoverTimeoutRef.current)
-    }
-    
-    setIsBottomEdgeHovered(isHovering)
-    
-    if (isHovering) {
-      // 鼠标靠近底部边缘时，立即展开悬浮窗口
-      setIsBottomBarCollapsed(false)
-    } else {
-      // 延迟检查是否需要收缩
-      bottomEdgeHoverTimeoutRef.current = setTimeout(() => {
-        // 如果输入框没有焦点且鼠标不在悬浮窗口上，则收缩
-        if (!isInputFocused && !isBottomBarHovered) {
-          setIsBottomBarCollapsed(true)
-        }
-      }, 300) // 延迟300ms，参考Vue项目
-    }
+    // 不再自动收缩，保持展开状态
+    // if (bottomEdgeHoverTimeoutRef.current) {
+    //   clearTimeout(bottomEdgeHoverTimeoutRef.current)
+    // }
+    // 
+    // setIsBottomEdgeHovered(isHovering)
+    // 
+    // if (isHovering) {
+    //   // 鼠标靠近底部边缘时，立即展开悬浮窗口
+    //   setIsBottomBarCollapsed(false)
+    // } else {
+    //   // 延迟检查是否需要收缩
+    //   bottomEdgeHoverTimeoutRef.current = setTimeout(() => {
+    //     // 如果输入框没有焦点且鼠标不在悬浮窗口上，则收缩
+    //     if (!isInputFocused && !isBottomBarHovered) {
+    //       setIsBottomBarCollapsed(true)
+    //     }
+    //   }, 300) // 延迟300ms，参考Vue项目
+    // }
   }
 
   // 底部悬浮栏悬停处理 - 参考Vue项目
   const handleBottomBarHover = (isHovering: boolean) => {
-    if (bottomBarHoverTimeoutRef.current) {
-      clearTimeout(bottomBarHoverTimeoutRef.current)
-    }
-    
-    setIsBottomBarHovered(isHovering)
-    
-    if (isHovering) {
-      // 鼠标悬停在悬浮窗口上时，保持展开
-      setIsBottomBarCollapsed(false)
-    } else {
-      // 延迟检查是否需要收缩
-      bottomBarHoverTimeoutRef.current = setTimeout(() => {
-        // 如果输入框没有焦点且鼠标不在底部边缘，则收缩
-        if (!isInputFocused && !isBottomEdgeHovered) {
-          setIsBottomBarCollapsed(true)
-        }
-      }, 300) // 延迟300ms，参考Vue项目
-    }
+    // 不再自动收缩，保持展开状态
+    // if (bottomBarHoverTimeoutRef.current) {
+    //   clearTimeout(bottomBarHoverTimeoutRef.current)
+    // }
+    // 
+    // setIsBottomBarHovered(isHovering)
+    // 
+    // if (isHovering) {
+    //   // 鼠标悬停在悬浮窗口上时，保持展开
+    //   setIsBottomBarCollapsed(false)
+    // } else {
+    //   // 延迟检查是否需要收缩
+    //   bottomBarHoverTimeoutRef.current = setTimeout(() => {
+    //     // 如果输入框没有焦点且鼠标不在底部边缘，则收缩
+    //     if (!isInputFocused && !isBottomEdgeHovered) {
+    //       setIsBottomBarCollapsed(true)
+    //     }
+    //   }, 300) // 延迟300ms，参考Vue项目
+    // }
   }
 
   // 输入框焦点处理 - 参考Vue项目
@@ -460,19 +462,19 @@ function FirstLastFrameVideo() {
 
   const handleInputBlur = () => {
     setIsInputFocused(false)
-    // 失去焦点后，如果不在底部附近且鼠标不在悬浮区域，则收缩
-    setTimeout(() => {
-      if (!isBottomBarHovered && !isBottomEdgeHovered) {
-        const scrollY = window.scrollY
-        const windowHeight = window.innerHeight
-        const documentHeight = document.documentElement.scrollHeight
-        const distanceFromBottom = documentHeight - (scrollY + windowHeight)
-        
-        if (distanceFromBottom > 100) {
-          setIsBottomBarCollapsed(true)
-        }
-      }
-    }, 200) // 延迟200ms，参考Vue项目
+    // 不再自动收缩，保持展开状态
+    // setTimeout(() => {
+    //   if (!isBottomBarHovered && !isBottomEdgeHovered) {
+    //     const scrollY = window.scrollY
+    //     const windowHeight = window.innerHeight
+    //     const documentHeight = document.documentElement.scrollHeight
+    //     const distanceFromBottom = documentHeight - (scrollY + windowHeight)
+    //     
+    //     if (distanceFromBottom > 100) {
+    //       setIsBottomBarCollapsed(true)
+    //     }
+    //   }
+    // }, 200) // 延迟200ms，参考Vue项目
   }
 
   // 获取状态文本
@@ -850,8 +852,8 @@ function FirstLastFrameVideo() {
         </div>
       </div>
 
-      {/* 底部边缘触发区域 */}
-      <div
+      {/* 底部边缘触发区域 - 已禁用，保持展开状态 */}
+      {/* <div
         className={`fixed bottom-0 left-0 right-0 z-50 transition-all duration-300 ${
           isBottomBarCollapsed ? 'h-16' : 'h-4'
         }`}
@@ -861,7 +863,6 @@ function FirstLastFrameVideo() {
           setIsBottomBarCollapsed(false)
         }}
       >
-        {/* 收缩时显示提示条 */}
         {isBottomBarCollapsed && (
           <div className="h-full flex items-end justify-center pb-1">
             <div className="bg-white/95 backdrop-blur-sm rounded-t-lg shadow-md border-t border-x border-gray-200 px-2 py-1.5 cursor-pointer hover:bg-white transition-all hover:shadow-lg">
@@ -871,13 +872,11 @@ function FirstLastFrameVideo() {
             </div>
           </div>
         )}
-      </div>
+      </div> */}
 
-      {/* 底部悬浮输入区域 */}
+      {/* 底部悬浮输入区域 - 始终保持展开 */}
       <div
-        className={`fixed bottom-0 left-0 right-0 z-40 transition-all duration-300 ease-in-out ${
-          isBottomBarCollapsed ? 'translate-y-full opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'
-        }`}
+        className="fixed bottom-0 left-0 right-0 z-40"
         onMouseEnter={() => handleBottomBarHover(true)}
         onMouseLeave={() => handleBottomBarHover(false)}
       >

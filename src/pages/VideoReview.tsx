@@ -428,7 +428,10 @@ function VideoReview() {
 
       switch (e.code) {
         case 'Space': // 空格键：播放/暂停
+          // 优先处理空格键，阻止默认行为和事件冒泡
           e.preventDefault()
+          e.stopPropagation()
+          e.stopImmediatePropagation()
           if (isPlaying) {
             videoRef.current.pause()
             setIsPlaying(false)
@@ -436,7 +439,7 @@ function VideoReview() {
             videoRef.current.play()
             setIsPlaying(true)
           }
-          break
+          return false // 额外确保阻止默认行为
         case 'ArrowLeft': // 左方向键：后退0.5秒
           e.preventDefault()
           if (videoRef.current) {
@@ -508,9 +511,10 @@ function VideoReview() {
       }
     }
 
-    window.addEventListener('keydown', handleKeyDown)
+    // 使用 capture 模式确保优先捕获事件，并设置 passive: false 以允许 preventDefault
+    window.addEventListener('keydown', handleKeyDown, { capture: true, passive: false })
     return () => {
-      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keydown', handleKeyDown, { capture: true })
     }
   }, [videoUrl, isPlaying, isFullscreen, isMuted, volume, duration])
 
@@ -594,6 +598,7 @@ function VideoReview() {
           try {
             setCosVideoUrl(result.url)
             setVideoUrl(result.url)
+            console.log('✅ 视频上传成功，URL已更新:', result.url)
           } catch (err) {
             console.error('设置视频URL失败:', err)
             // 如果设置失败，恢复本地URL
@@ -612,8 +617,11 @@ function VideoReview() {
       alertError(error instanceof Error ? error.message : '视频上传失败，请稍后重试', '上传失败')
       // 上传失败时仍使用本地URL预览（不释放）
     } finally {
-      setIsUploading(false)
-      setUploadProgress(0)
+      // 确保进度条关闭，即使有错误
+      setTimeout(() => {
+        setIsUploading(false)
+        setUploadProgress(0)
+      }, 500) // 延迟500ms关闭，确保用户能看到100%的完成状态
     }
   }
 

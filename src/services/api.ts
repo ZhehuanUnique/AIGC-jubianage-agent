@@ -1397,19 +1397,39 @@ export async function uploadVideo(
 
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest()
+      let isCompleted = false
+
+      // 添加超时处理（5分钟）
+      const timeout = setTimeout(() => {
+        if (!isCompleted) {
+          isCompleted = true
+          xhr.abort()
+          reject(new Error('上传超时，请检查网络连接后重试'))
+        }
+      }, 5 * 60 * 1000) // 5分钟超时
 
       xhr.upload.addEventListener('progress', (e) => {
         if (e.lengthComputable && onProgress) {
           const progress = Math.round((e.loaded / e.total) * 100)
           onProgress(progress)
+          // 如果上传完成但还没收到响应，不要显示100%，显示99%
+          if (progress >= 100 && !isCompleted) {
+            onProgress(99)
+          }
         }
       })
 
       xhr.addEventListener('load', () => {
+        clearTimeout(timeout)
+        if (isCompleted) return
+        isCompleted = true
+        
         if (xhr.status === 200) {
           try {
             const result = JSON.parse(xhr.responseText)
             if (result.success) {
+              // 确保进度显示100%
+              if (onProgress) onProgress(100)
               resolve(result.data)
             } else {
               reject(new Error(result.error || '上传视频失败'))
@@ -1428,7 +1448,17 @@ export async function uploadVideo(
       })
 
       xhr.addEventListener('error', () => {
+        clearTimeout(timeout)
+        if (isCompleted) return
+        isCompleted = true
         reject(new Error('网络错误，请检查服务器连接'))
+      })
+
+      xhr.addEventListener('abort', () => {
+        clearTimeout(timeout)
+        if (isCompleted) return
+        isCompleted = true
+        reject(new Error('上传已取消'))
       })
 
       xhr.open('POST', `${API_BASE_URL}/api/upload-video`)

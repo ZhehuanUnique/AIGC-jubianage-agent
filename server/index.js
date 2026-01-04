@@ -2638,7 +2638,7 @@ app.post('/api/upload-video', authenticateToken, uploadVideo.single('video'), as
       
       // 如果提供了fragmentId，将其作为shot_id保存
       if (fragmentId) {
-        // fragmentId可能是shot的ID
+        // fragmentId可能是shot的ID（数字）或fragment的ID（字符串）
         const shotId = parseInt(fragmentId, 10)
         if (!isNaN(shotId)) {
           metadata.shot_id = shotId.toString()
@@ -2651,9 +2651,12 @@ app.post('/api/upload-video', authenticateToken, uploadVideo.single('video'), as
           
           if (shotCheck.rows.length === 0) {
             console.warn(`⚠️ Shot ${shotId} 不存在或不属于项目 ${projectId}`)
+          } else {
+            console.log(`✅ 视频已关联到分镜 ${shotId}`)
           }
         } else {
           metadata.fragment_id = fragmentId
+          console.log(`✅ 视频已关联到片段 ${fragmentId}`)
         }
       }
       
@@ -4189,13 +4192,16 @@ app.get('/api/projects/:projectId/fragments', authenticateToken, async (req, res
     // 获取每个分镜的视频URL（从files表中查找video类型的文件）
     const fragments = await Promise.all(
       shotsResult.rows.map(async (shot) => {
-        // 查找该分镜关联的视频文件
+        // 查找该分镜关联的视频文件（支持 shot_id 和 fragment_id）
         const videoFiles = await db.query(
           `SELECT f.cos_url, f.file_name, f.created_at
            FROM files f
            WHERE f.project_id = $1 
              AND f.file_type = 'video'
-             AND f.metadata->>'shot_id' = $2::text
+             AND (
+               f.metadata->>'shot_id' = $2::text
+               OR f.metadata->>'fragment_id' = $2::text
+             )
            ORDER BY f.created_at DESC`,
           [projectId, shot.id.toString()]
         )
