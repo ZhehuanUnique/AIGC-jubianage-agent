@@ -275,8 +275,11 @@ export async function generateVideoWithVolcengine(imageUrl, options = {}) {
     )
     
     // 构建完整URL（包含查询参数）
+    // 确保Base URL和URI正确拼接（避免双斜杠）
+    const baseUrl = VOLCENGINE_API_HOST.endsWith('/') ? VOLCENGINE_API_HOST.slice(0, -1) : VOLCENGINE_API_HOST
+    const uriPath = uri.startsWith('/') ? uri : `/${uri}`
     const queryString = normalizeQueryString(queryParams)
-    const fullUrl = queryString ? `${VOLCENGINE_API_HOST}${uri}?${queryString}` : `${VOLCENGINE_API_HOST}${uri}`
+    const fullUrl = queryString ? `${baseUrl}${uriPath}?${queryString}` : `${baseUrl}${uriPath}`
     
     console.log('📤 发送请求到:', fullUrl)
     console.log('📤 查询参数:', JSON.stringify(queryParams, null, 2))
