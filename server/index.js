@@ -44,12 +44,18 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
 // 加载.env文件
-const envPath = join(__dirname, '.env')
-if (existsSync(envPath)) {
-  dotenv.config({ path: envPath })
-  console.log('✅ .env 文件已加载:', envPath)
+// 优先尝试加载根目录的 .env 文件（与 services 保持一致）
+const rootEnvPath = join(__dirname, '../.env')
+const serverEnvPath = join(__dirname, '.env')
+
+if (existsSync(rootEnvPath)) {
+  dotenv.config({ path: rootEnvPath })
+  console.log('✅ .env 文件已加载:', rootEnvPath)
+} else if (existsSync(serverEnvPath)) {
+  dotenv.config({ path: serverEnvPath })
+  console.log('✅ .env 文件已加载:', serverEnvPath)
 } else {
-  console.warn('⚠️  .env 文件不存在:', envPath)
+  console.warn('⚠️  .env 文件不存在，尝试从默认位置加载')
   dotenv.config() // 尝试从默认位置加载
 }
 
