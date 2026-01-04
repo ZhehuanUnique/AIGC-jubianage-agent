@@ -32,11 +32,13 @@ if (existsSync(envPath)) {
 // 支持多种环境变量名称（兼容火山引擎 SDK 标准和自定义名称）
 const VOLCENGINE_AK = process.env.VOLCENGINE_AK || process.env.VOLCENGINE_ACCESS_KEY || process.env.VOLC_ACCESSKEY
 const VOLCENGINE_SK = process.env.VOLCENGINE_SK || process.env.VOLCENGINE_SECRET_KEY || process.env.VOLC_SECRETKEY
-const VOLCENGINE_API_HOST = process.env.VOLCENGINE_API_HOST || 'https://visual.volcengineapi.com'
+// 根据API文档：https://api.volcengine.com/api-docs/view/overview?serviceCode=ark&version=2024-01-01
+// ark服务的endpoint应该是 https://ark.volcengineapi.com
+const VOLCENGINE_API_HOST = process.env.VOLCENGINE_API_HOST || 'https://ark.volcengineapi.com'
 
 // 火山引擎服务配置
 const VOLCENGINE_REGION = 'cn-north-1' // 默认区域
-const VOLCENGINE_SERVICE = 'cv' // Visual API 服务名
+const VOLCENGINE_SERVICE = 'ark' // ARK API 服务名（根据API文档：serviceCode=ark）
 
 /**
  * 根据模型名称获取对应的模型ID（req_key）
