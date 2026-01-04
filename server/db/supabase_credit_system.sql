@@ -110,3 +110,4 @@ EXECUTE FUNCTION update_daily_consumption_stats();
 
 
 
+

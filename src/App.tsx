@@ -22,6 +22,7 @@ import VoiceCreation from './pages/VoiceCreation'
 import PromotionCreation from './pages/PromotionCreation'
 import Analytics from './pages/Analytics'
 import VideoReview from './pages/VideoReview'
+import FragmentDetail from './pages/FragmentDetail'
 import CreditRecharge from './pages/CreditRecharge'
 import { useAlert } from './hooks/useAlert.tsx'
 
@@ -151,6 +152,14 @@ function App() {
           element={
             <ProtectedRoute>
               <FirstLastFrameVideo />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/project/:projectId/fragments/:fragmentId/detail"
+          element={
+            <ProtectedRoute>
+              <FragmentDetail />
             </ProtectedRoute>
           }
         />

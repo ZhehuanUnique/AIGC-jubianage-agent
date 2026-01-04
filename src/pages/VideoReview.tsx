@@ -599,6 +599,15 @@ function VideoReview() {
             setCosVideoUrl(result.url)
             setVideoUrl(result.url)
             console.log('✅ 视频上传成功，URL已更新:', result.url)
+            
+            // 触发片段更新事件，通知片段管理页面刷新
+            if (projectId) {
+              const event = new CustomEvent('fragment-updated', {
+                detail: { projectId: parseInt(projectId, 10) }
+              })
+              window.dispatchEvent(event)
+              console.log('📢 已触发片段更新事件')
+            }
           } catch (err) {
             console.error('设置视频URL失败:', err)
             // 如果设置失败，恢复本地URL

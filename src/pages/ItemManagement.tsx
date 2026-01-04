@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import SidebarNavigation from '../components/SidebarNavigation'
 import { Plus, Search, ArrowLeft, RefreshCw, Trash2 } from 'lucide-react'
 import CreateItemModal from '../components/CreateItemModal'
+import ItemDetailModal from '../components/ItemDetailModal'
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
 import { getProject } from '../services/projectStorage'
 import { getProjectItems, deleteItem } from '../services/api'
@@ -18,6 +19,7 @@ function ItemManagement() {
   const { projectId } = useParams()
   const navigate = useNavigate()
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [selectedItem, setSelectedItem] = useState<Item | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [items, setItems] = useState<Item[]>([])
   const [projectName, setProjectName] = useState<string>('')
@@ -267,7 +269,7 @@ function ItemManagement() {
               >
                 <div
                   onClick={() => {
-                    // 可以添加点击查看详情的逻辑
+                    setSelectedItem(item)
                   }}
                   className="aspect-video bg-gray-700 flex items-center justify-center"
                 >
@@ -326,6 +328,24 @@ function ItemManagement() {
             setTimeout(() => {
               loadItems()
             }, 500) // 延迟500ms确保数据库已保存
+          }}
+        />
+      )}
+
+      {/* 物品详情模态框 */}
+      {selectedItem && (
+        <ItemDetailModal
+          item={selectedItem}
+          onClose={() => setSelectedItem(null)}
+          onImageUpload={(itemId, imageUrl) => {
+            setItems(items.map(i => 
+              i.id === itemId ? { ...i, image: imageUrl } : i
+            ))
+            setSelectedItem({ ...selectedItem, image: imageUrl })
+          }}
+          onDelete={(itemId) => {
+            setItems(items.filter(i => i.id !== itemId))
+            setSelectedItem(null)
           }}
         />
       )}

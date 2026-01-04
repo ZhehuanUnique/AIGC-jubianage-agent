@@ -2726,6 +2726,25 @@ app.post('/api/upload-video', authenticateToken, uploadVideo.single('video'), as
       )
       
       console.log(`✅ 视频已保存到数据库: ${result.url}, projectId: ${projectId}, fragmentId: ${fragmentId || '无'}`)
+      
+      // 如果上传到审片页面（有fragmentId），确保视频能正确关联到shot
+      // 这样在片段管理页面就能看到这个视频
+      if (fragmentId) {
+        const shotId = parseInt(fragmentId, 10)
+        if (!isNaN(shotId)) {
+          // 验证shot是否存在，如果不存在则创建（可选）
+          const shotCheck = await db.query(
+            'SELECT id FROM shots WHERE id = $1 AND project_id = $2',
+            [shotId, projectId]
+          )
+          
+          if (shotCheck.rows.length === 0) {
+            console.warn(`⚠️ Shot ${shotId} 不存在，视频已保存但未关联到分镜`)
+          } else {
+            console.log(`✅ 视频已关联到分镜 ${shotId}，片段列表将自动更新`)
+          }
+        }
+      }
     } catch (dbError) {
       console.error('保存视频到数据库失败:', dbError)
       // 不阻止返回结果，只记录错误
