@@ -243,17 +243,12 @@ export async function generateVideoWithVolcengine(imageUrl, options = {}) {
     }
 
     const requestBodyJson = JSON.stringify(requestBody)
-    // 火山引擎API使用POST请求，需要Action和Version参数作为查询参数
-    // 根据文档：https://www.volcengine.com/docs/82379/1520757?lang=zh
-    // 生成视频的Action参数为：CreateContentsGenerationsTasks
     // 根据火山方舟API文档：https://www.volcengine.com/docs/82379/1544136?lang=zh
     // 数据面API的Base URL是 https://ark.cn-beijing.volces.com/api/v3/
-    // 如果使用Action参数方式，URI应该是相对于Base URL的路径
-    const uri = '/api/v3/'
-    const queryParams = {
-      Action: 'CreateContentsGenerationsTasks', // 创建视频生成任务
-      Version: '2024-01-01', // API版本（根据火山引擎API文档）
-    }
+    // 视频生成API使用RESTful风格，endpoint是 /contents/generations/tasks
+    // 不使用Action参数，而是直接使用RESTful路径
+    const uri = '/api/v3/contents/generations/tasks'
+    const queryParams = {} // RESTful API不需要Action和Version参数
     
     // 解析API Host（从Base URL中提取host，不包含路径）
     const urlObj = new URL(VOLCENGINE_API_HOST)
@@ -391,34 +386,23 @@ export async function getVolcengineTaskStatus(taskId, model = 'volcengine-video-
   try {
     console.log(`🔍 查询火山引擎任务状态: ${taskId} (模型: ${model})`)
 
-    const modelId = getModelId(model)
-    // 查询任务状态：使用POST请求
-    // 注意：根据实际API文档，查询接口的req_key可能需要调整
-    // 可能的格式：使用相同的req_key + task_id参数，或使用专门的查询接口
-    const requestBody = {
-      req_key: modelId, // 使用相同的模型req_key，或使用查询专用req_key
-      task_id: taskId, // 任务ID
-    }
-    
-    const requestBodyJson = JSON.stringify(requestBody)
-    // 根据文档：https://www.volcengine.com/docs/82379/1521309?lang=zh
-    // 查询任务状态的Action参数为：GetContentsGenerationsTask
     // 根据火山方舟API文档：https://www.volcengine.com/docs/82379/1544136?lang=zh
     // 数据面API的Base URL是 https://ark.cn-beijing.volces.com/api/v3/
-    const uri = '/api/v3/'
-    const queryParams = {
-      Action: 'GetContentsGenerationsTask', // 查询视频生成任务状态
-      Version: '2024-01-01', // API版本（根据火山引擎API文档）
-    }
+    // 查询任务状态使用RESTful风格，endpoint是 /contents/generations/tasks/{task_id}
+    // 使用GET方法，不需要请求体
+    const uri = `/api/v3/contents/generations/tasks/${taskId}`
+    const queryParams = {} // RESTful API不需要Action和Version参数
     
     // 解析API Host（从Base URL中提取host，不包含路径）
     const urlObj = new URL(VOLCENGINE_API_HOST)
     const host = urlObj.host
     
     // 生成签名（根据官方Python示例）
+    // GET请求没有请求体，所以payload为空字符串
     const contentType = 'application/json'
+    const requestBodyJson = '' // GET请求没有请求体
     const signatureInfo = generateVolcengineSignature(
-      'POST',
+      'GET',
       uri,
       queryParams,
       host,
