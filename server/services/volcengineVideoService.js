@@ -29,8 +29,9 @@ if (existsSync(envPath)) {
 }
 
 // 火山引擎 API 配置
-const VOLCENGINE_AK = process.env.VOLCENGINE_AK || process.env.VOLCENGINE_ACCESS_KEY
-const VOLCENGINE_SK = process.env.VOLCENGINE_SK || process.env.VOLCENGINE_SECRET_KEY
+// 支持多种环境变量名称（兼容火山引擎 SDK 标准和自定义名称）
+const VOLCENGINE_AK = process.env.VOLCENGINE_AK || process.env.VOLCENGINE_ACCESS_KEY || process.env.VOLC_ACCESSKEY
+const VOLCENGINE_SK = process.env.VOLCENGINE_SK || process.env.VOLCENGINE_SECRET_KEY || process.env.VOLC_SECRETKEY
 const VOLCENGINE_API_HOST = process.env.VOLCENGINE_API_HOST || 'https://visual.volcengineapi.com'
 
 // 火山引擎服务配置
@@ -278,8 +279,33 @@ export async function generateVideoWithVolcengine(imageUrl, options = {}) {
     })
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      const errorMessage = errorData.message || errorData.error || `HTTP ${response.status}`
+      let errorMessage = `HTTP ${response.status}`
+      try {
+        const errorData = await response.json()
+        console.error('❌ 火山引擎API错误响应:', JSON.stringify(errorData, null, 2))
+        
+        // 尝试从不同位置提取错误信息
+        if (errorData.message) {
+          errorMessage = typeof errorData.message === 'string' ? errorData.message : JSON.stringify(errorData.message)
+        } else if (errorData.error) {
+          errorMessage = typeof errorData.error === 'string' ? errorData.error : JSON.stringify(errorData.error)
+        } else if (errorData.ResponseMetadata && errorData.ResponseMetadata.Error) {
+          const error = errorData.ResponseMetadata.Error
+          errorMessage = error.Message || error.Code || JSON.stringify(error)
+        } else if (errorData.Result && errorData.Result.error) {
+          errorMessage = typeof errorData.Result.error === 'string' ? errorData.Result.error : JSON.stringify(errorData.Result.error)
+        } else {
+          errorMessage = JSON.stringify(errorData)
+        }
+      } catch (parseError) {
+        // 如果无法解析JSON，尝试读取文本
+        try {
+          const text = await response.text()
+          errorMessage = text || `HTTP ${response.status} ${response.statusText}`
+        } catch (textError) {
+          errorMessage = `HTTP ${response.status} ${response.statusText}`
+        }
+      }
       throw new Error(`火山引擎视频生成API调用失败: ${errorMessage}`)
     }
 

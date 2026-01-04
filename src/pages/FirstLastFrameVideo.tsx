@@ -29,6 +29,8 @@ function FirstLastFrameVideo() {
   const [lastFrameFile, setLastFrameFile] = useState<File | null>(null)
   const [firstFramePreview, setFirstFramePreview] = useState<string | null>(null)
   const [lastFramePreview, setLastFramePreview] = useState<string | null>(null)
+  const [frameAspectRatio, setFrameAspectRatio] = useState<'16:9' | '9:16' | 'other' | null>(null) // 图片宽高比
+  const [frameImageInfo, setFrameImageInfo] = useState<{ width: number; height: number } | null>(null) // 图片尺寸信息
   
   const [videoVersion, setVideoVersion] = useState<'3.0pro'>('3.0pro')
   const [resolution, setResolution] = useState<'720p' | '1080p'>('720p')
@@ -240,6 +242,34 @@ function FirstLastFrameVideo() {
     firstFrameInputRef.current?.click()
   }
 
+  // 检测图片宽高比
+  const detectImageAspectRatio = (imageUrl: string): Promise<'16:9' | '9:16' | 'other'> => {
+    return new Promise((resolve) => {
+      const img = new Image()
+      img.onload = () => {
+        const width = img.width
+        const height = img.height
+        const ratio = width / height
+        
+        // 16:9 ≈ 1.778, 允许一定误差 (±0.05)
+        if (Math.abs(ratio - 16/9) < 0.05) {
+          resolve('16:9')
+        }
+        // 9:16 ≈ 0.5625, 允许一定误差 (±0.05)
+        else if (Math.abs(ratio - 9/16) < 0.05) {
+          resolve('9:16')
+        }
+        else {
+          resolve('other')
+        }
+      }
+      img.onerror = () => {
+        resolve('other') // 如果加载失败，默认使用 other
+      }
+      img.src = imageUrl
+    })
+  }
+
   const handleFirstFrame = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
@@ -249,8 +279,20 @@ function FirstLastFrameVideo() {
       }
       setFirstFrameFile(file)
       const reader = new FileReader()
-      reader.onload = (e) => {
-        setFirstFramePreview(e.target?.result as string)
+      reader.onload = async (e) => {
+        const imageUrl = e.target?.result as string
+        setFirstFramePreview(imageUrl)
+        
+        // 检测图片宽高比
+        const aspectRatio = await detectImageAspectRatio(imageUrl)
+        setFrameAspectRatio(aspectRatio)
+        
+        // 获取图片尺寸信息
+        const img = new Image()
+        img.onload = () => {
+          setFrameImageInfo({ width: img.width, height: img.height })
+        }
+        img.src = imageUrl
       }
       reader.readAsDataURL(file)
     }
@@ -270,8 +312,23 @@ function FirstLastFrameVideo() {
       }
       setLastFrameFile(file)
       const reader = new FileReader()
-      reader.onload = (e) => {
-        setLastFramePreview(e.target?.result as string)
+      reader.onload = async (e) => {
+        const imageUrl = e.target?.result as string
+        setLastFramePreview(imageUrl)
+        
+        // 如果首帧已存在，保持首帧的宽高比；否则检测尾帧的宽高比
+        if (!firstFramePreview) {
+          const aspectRatio = await detectImageAspectRatio(imageUrl)
+          setFrameAspectRatio(aspectRatio)
+          
+          // 获取图片尺寸信息
+          const img = new Image()
+          img.onload = () => {
+            setFrameImageInfo({ width: img.width, height: img.height })
+          }
+          img.src = imageUrl
+        }
+        // 如果首帧已存在，尾帧使用首帧的宽高比（不重新检测）
       }
       reader.readAsDataURL(file)
     }
@@ -280,6 +337,8 @@ function FirstLastFrameVideo() {
   const clearFirstFrame = () => {
     setFirstFrameFile(null)
     setFirstFramePreview(null)
+    setFrameAspectRatio(null)
+    setFrameImageInfo(null)
     if (firstFrameInputRef.current) {
       firstFrameInputRef.current.value = ''
     }
@@ -288,6 +347,11 @@ function FirstLastFrameVideo() {
   const clearLastFrame = () => {
     setLastFrameFile(null)
     setLastFramePreview(null)
+    // 如果清空尾帧但还有首帧，保持首帧的宽高比
+    if (!firstFramePreview) {
+      setFrameAspectRatio(null)
+      setFrameImageInfo(null)
+    }
     if (lastFrameInputRef.current) {
       lastFrameInputRef.current.value = ''
     }
@@ -940,16 +1004,22 @@ function FirstLastFrameVideo() {
                     ref={firstFrameInputRef}
                   />
                   <div
-                    className={`relative w-24 h-24 bg-gray-50 border-2 border-dashed rounded-xl flex flex-col items-center justify-center transition-all duration-300 ${
+                    className={`relative bg-gray-50 border-2 border-dashed rounded-xl flex flex-col items-center justify-center transition-all duration-300 ${
                       hoveredFrame === 'first' ? 'border-blue-500 shadow-lg transform scale-105' : 'border-gray-300',
-                      firstFramePreview ? 'border-blue-500 bg-white' : ''
+                      firstFramePreview ? 'border-blue-500 bg-white' : '',
+                      // 根据宽高比动态调整尺寸
+                      frameAspectRatio === '16:9' ? 'w-32 aspect-video' : 
+                      frameAspectRatio === '9:16' ? 'w-16 aspect-[9/16]' : 
+                      'w-24 h-24'
                     }`}
                   >
                     {firstFramePreview ? (
                       <img
                         src={firstFramePreview}
                         alt="首帧"
-                        className="absolute inset-0 w-full h-full object-cover rounded-xl"
+                        className={`absolute inset-0 w-full h-full rounded-xl ${
+                          frameAspectRatio === 'other' ? 'object-cover object-top' : 'object-cover'
+                        }`}
                       />
                     ) : (
                       <div className="flex flex-col items-center justify-center z-10">
@@ -999,16 +1069,22 @@ function FirstLastFrameVideo() {
                     ref={lastFrameInputRef}
                   />
                   <div
-                    className={`relative w-24 h-24 bg-gray-50 border-2 border-dashed rounded-xl flex flex-col items-center justify-center transition-all duration-300 ${
+                    className={`relative bg-gray-50 border-2 border-dashed rounded-xl flex flex-col items-center justify-center transition-all duration-300 ${
                       hoveredFrame === 'last' ? 'border-blue-500 shadow-lg transform scale-105' : 'border-gray-300',
-                      lastFramePreview ? 'border-blue-500 bg-white' : ''
+                      lastFramePreview ? 'border-blue-500 bg-white' : '',
+                      // 根据宽高比动态调整尺寸（与首帧保持一致）
+                      frameAspectRatio === '16:9' ? 'w-32 aspect-video' : 
+                      frameAspectRatio === '9:16' ? 'w-16 aspect-[9/16]' : 
+                      'w-24 h-24'
                     }`}
                   >
                     {lastFramePreview ? (
                       <img
                         src={lastFramePreview}
                         alt="尾帧"
-                        className="absolute inset-0 w-full h-full object-cover rounded-xl"
+                        className={`absolute inset-0 w-full h-full rounded-xl ${
+                          frameAspectRatio === 'other' ? 'object-cover object-top' : 'object-cover'
+                        }`}
                       />
                     ) : (
                       <div className="flex flex-col items-center justify-center z-10">

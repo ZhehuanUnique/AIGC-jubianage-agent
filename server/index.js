@@ -764,9 +764,19 @@ app.post('/api/first-last-frame-video/generate', authenticateToken, uploadImage.
     })
   } catch (error) {
     console.error('首尾帧生视频错误:', error)
+    console.error('错误堆栈:', error.stack)
+    
+    // 确保错误信息是字符串
+    let errorMessage = '首尾帧生视频失败，请稍后重试'
+    if (error.message) {
+      errorMessage = typeof error.message === 'string' ? error.message : JSON.stringify(error.message)
+    } else if (error) {
+      errorMessage = typeof error === 'string' ? error : JSON.stringify(error)
+    }
+    
     res.status(500).json({
       success: false,
-      error: error.message || '首尾帧生视频失败，请稍后重试',
+      error: errorMessage,
     })
   }
 })
