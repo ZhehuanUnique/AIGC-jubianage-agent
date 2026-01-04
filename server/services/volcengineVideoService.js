@@ -18,6 +18,7 @@ import dotenv from 'dotenv'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 import { existsSync } from 'fs'
+import crypto from 'crypto'
 
 // 加载.env文件
 const __filename = fileURLToPath(import.meta.url)
@@ -32,10 +33,14 @@ const VOLCENGINE_AK = process.env.VOLCENGINE_AK || process.env.VOLCENGINE_ACCESS
 const VOLCENGINE_SK = process.env.VOLCENGINE_SK || process.env.VOLCENGINE_SECRET_KEY
 const VOLCENGINE_API_HOST = process.env.VOLCENGINE_API_HOST || 'https://visual.volcengineapi.com'
 
+// 火山引擎服务配置
+const VOLCENGINE_REGION = 'cn-north-1' // 默认区域
+const VOLCENGINE_SERVICE = 'cv' // Visual API 服务名
+
 /**
- * 根据模型名称获取对应的模型ID
+ * 根据模型名称获取对应的模型ID（req_key）
  * @param {string} model - 模型名称
- * @returns {string} 模型ID
+ * @returns {string} 模型ID（req_key）
  */
 function getModelId(model) {
   const modelMap = {
@@ -49,6 +54,79 @@ function getModelId(model) {
   }
   
   return modelMap[model]
+}
+
+/**
+ * 生成火山引擎API签名
+ * @param {string} method - HTTP方法
+ * @param {string} uri - 请求URI
+ * @param {string} queryString - 查询字符串
+ * @param {Object} headers - 请求头
+ * @param {string} payload - 请求体（JSON字符串）
+ * @param {string} ak - Access Key ID
+ * @param {string} sk - Secret Access Key
+ * @param {string} region - 区域
+ * @param {string} service - 服务名
+ * @returns {Object} 包含签名和Authorization头的对象
+ */
+function generateVolcengineSignature(method, uri, queryString, headers, payload, ak, sk, region, service) {
+  // 1. 获取当前时间
+  const now = new Date()
+  const dateStamp = now.toISOString().slice(0, 10).replace(/-/g, '') // YYYYMMDD
+  const timeStamp = now.toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z' // YYYYMMDDTHHMMSSZ
+  
+  // 2. 规范化请求头
+  const canonicalHeaders = Object.keys(headers)
+    .sort()
+    .map(key => `${key.toLowerCase()}:${headers[key].trim()}`)
+    .join('\n') + '\n'
+  
+  const signedHeaders = Object.keys(headers)
+    .sort()
+    .map(key => key.toLowerCase())
+    .join(';')
+  
+  // 3. 计算请求体哈希
+  const payloadHash = crypto.createHash('sha256').update(payload || '').digest('hex')
+  
+  // 4. 构建规范化请求
+  const canonicalRequest = [
+    method,
+    uri,
+    queryString || '',
+    canonicalHeaders,
+    signedHeaders,
+    payloadHash,
+  ].join('\n')
+  
+  // 5. 构建待签名字符串
+  const algorithm = 'HMAC-SHA256'
+  const credentialScope = `${dateStamp}/${region}/${service}/request`
+  const canonicalRequestHash = crypto.createHash('sha256').update(canonicalRequest).digest('hex')
+  const stringToSign = [
+    algorithm,
+    timeStamp,
+    credentialScope,
+    canonicalRequestHash,
+  ].join('\n')
+  
+  // 6. 计算签名密钥
+  const kDate = crypto.createHmac('sha256', sk).update(dateStamp).digest()
+  const kRegion = crypto.createHmac('sha256', kDate).update(region).digest()
+  const kService = crypto.createHmac('sha256', kRegion).update(service).digest()
+  const kSigning = crypto.createHmac('sha256', kService).update('request').digest()
+  
+  // 7. 计算签名
+  const signature = crypto.createHmac('sha256', kSigning).update(stringToSign).digest('hex')
+  
+  // 8. 构建Authorization头
+  const authorization = `${algorithm} Credential=${ak}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`
+  
+  return {
+    authorization,
+    timestamp: timeStamp,
+    dateStamp,
+  }
 }
 
 /**
@@ -93,63 +171,58 @@ export async function generateVideoWithVolcengine(imageUrl, options = {}) {
       generateAudio,
     })
 
-    // 构建请求体（根据火山引擎API文档格式）
+    // 构建请求体（根据火山引擎Visual API文档格式）
+    // 火山引擎Visual API使用req_key来指定服务类型
+    // 根据文档：https://www.volcengine.com/docs/85621/1777001?lang=zh
     const requestBody = {
-      model: modelId,
-      content: [
-        {
-          type: 'image_url',
-          image_url: {
-            url: imageUrl,
-          },
-        },
-      ],
-      service_tier: serviceTier, // 'default' 在线推理, 'offline' 离线推理
-      generate_audio: generateAudio,
+      req_key: modelId, // 使用req_key指定模型：video_generation_3_0_pro
+      prompt: text && text.trim() ? text.trim() : '', // 文本提示词（可选）
+      image_url: imageUrl, // 图片URL（必须是可访问的HTTP/HTTPS URL）
+      resolution: resolution || '720p', // 分辨率：480p, 720p, 1080p
+      duration: duration || 5, // 视频时长（秒），支持 2~12 秒
+      service_tier: serviceTier || 'default', // 'default' 在线推理, 'offline' 离线推理
+      generate_audio: generateAudio !== false, // 是否生成音频，默认 true
     }
 
-    // 如果有文本提示词，添加到 content 中
-    if (text && text.trim()) {
-      requestBody.content.unshift({
-        type: 'text',
-        text: text.trim(),
-      })
-    }
-
-    // 设置视频参数
-    if (resolution) {
-      requestBody.resolution = resolution
-    }
+    // 设置宽高比（如果指定且不是adaptive）
     if (ratio && ratio !== 'adaptive') {
       requestBody.ratio = ratio
     }
-    if (duration) {
-      requestBody.duration = duration
-    }
 
-    // 使用火山引擎的签名算法构建请求
-    // 注意：这里需要使用火山引擎的签名算法，而不是简单的 Bearer Token
-    // 由于 Node.js 环境，我们可能需要使用 volc-sdk-nodejs 或手动实现签名
+    const requestBodyJson = JSON.stringify(requestBody)
+    // 火山引擎Visual API使用POST请求到根路径，通过req_key指定服务
+    const uri = '/'
+    const queryString = ''
     
-    // 临时方案：使用 HTTP 请求（需要实现签名）
-    // 完整实现需要使用火山引擎的 SDK 或实现签名算法
+    // 生成签名
+    const headers = {
+      'Content-Type': 'application/json',
+    }
     
-    console.log('📤 发送请求到:', `${VOLCENGINE_API_HOST}/api/v1/video_generation`)
+    const signatureInfo = generateVolcengineSignature(
+      'POST',
+      uri,
+      queryString,
+      headers,
+      requestBodyJson,
+      VOLCENGINE_AK,
+      VOLCENGINE_SK,
+      VOLCENGINE_REGION,
+      VOLCENGINE_SERVICE
+    )
+    
+    console.log('📤 发送请求到:', `${VOLCENGINE_API_HOST}${uri}`)
     console.log('📤 请求体:', JSON.stringify(requestBody, null, 2))
 
-    // TODO: 实现火山引擎的签名算法
-    // 这里需要根据火山引擎的签名规范实现
-    // 参考：https://www.volcengine.com/docs/6444/1340578?lang=zh
-    
-    // 临时使用 fetch，但需要添加正确的签名头
-    const response = await fetch(`${VOLCENGINE_API_HOST}/api/v1/video_generation`, {
+    // 使用签名发送请求
+    const response = await fetch(`${VOLCENGINE_API_HOST}${uri}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        // TODO: 添加火山引擎的签名头
-        // 'Authorization': `Bearer ${signature}`,
+        'Authorization': signatureInfo.authorization,
+        'X-Date': signatureInfo.timestamp,
       },
-      body: JSON.stringify(requestBody),
+      body: requestBodyJson,
     })
 
     if (!response.ok) {
@@ -161,16 +234,44 @@ export async function generateVideoWithVolcengine(imageUrl, options = {}) {
     const result = await response.json()
     console.log('✅ 火山引擎API响应:', JSON.stringify(result, null, 2))
 
-    // 解析响应
-    if (result.task_id) {
+    // 解析响应（根据火山引擎Visual API响应格式）
+    // 响应格式可能是：{ ResponseMetadata: {...}, Result: {...} }
+    const responseData = result.Result || result
+    
+    // 检查是否有错误
+    if (result.ResponseMetadata && result.ResponseMetadata.Error) {
+      const error = result.ResponseMetadata.Error
+      throw new Error(`火山引擎API错误: ${error.Message || error.Code || '未知错误'}`)
+    }
+    
+    // 解析任务ID和状态
+    if (responseData.task_id || responseData.taskId) {
       return {
-        taskId: result.task_id,
-        status: 'processing',
+        taskId: responseData.task_id || responseData.taskId,
+        status: responseData.status || 'processing',
+        provider: 'volcengine',
+        model: modelId,
+      }
+    } else if (responseData.data && responseData.data.task_id) {
+      // 某些API可能返回嵌套的data结构
+      return {
+        taskId: responseData.data.task_id,
+        status: responseData.data.status || 'processing',
         provider: 'volcengine',
         model: modelId,
       }
     } else {
-      throw new Error('火山引擎API返回数据格式错误：缺少 task_id')
+      // 如果是在线推理，可能直接返回视频URL
+      if (responseData.video_url || responseData.videoUrl) {
+        return {
+          taskId: null,
+          status: 'completed',
+          videoUrl: responseData.video_url || responseData.videoUrl,
+          provider: 'volcengine',
+          model: modelId,
+        }
+      }
+      throw new Error('火山引擎API返回数据格式错误：缺少 task_id 或 video_url')
     }
   } catch (error) {
     console.error('❌ 火山引擎视频生成失败:', error)
@@ -192,14 +293,47 @@ export async function getVolcengineTaskStatus(taskId, model = 'volcengine-video-
   try {
     console.log(`🔍 查询火山引擎任务状态: ${taskId} (模型: ${model})`)
 
-    // TODO: 实现查询接口
-    // 根据火山引擎文档实现任务状态查询
+    const modelId = getModelId(model)
+    // 查询任务状态：使用POST请求
+    // 注意：根据实际API文档，查询接口的req_key可能需要调整
+    // 可能的格式：使用相同的req_key + task_id参数，或使用专门的查询接口
+    const requestBody = {
+      req_key: modelId, // 使用相同的模型req_key，或使用查询专用req_key
+      task_id: taskId, // 任务ID
+    }
     
-    const response = await fetch(`${VOLCENGINE_API_HOST}/api/v1/video_generation/${taskId}`, {
-      method: 'GET',
+    const requestBodyJson = JSON.stringify(requestBody)
+    const uri = '/'
+    const queryString = ''
+    
+    // 生成签名
+    const headers = {
+      'Content-Type': 'application/json',
+    }
+    
+    const signatureInfo = generateVolcengineSignature(
+      'POST',
+      uri,
+      queryString,
+      headers,
+      requestBodyJson,
+      VOLCENGINE_AK,
+      VOLCENGINE_SK,
+      VOLCENGINE_REGION,
+      VOLCENGINE_SERVICE
+    )
+    
+    console.log('📤 查询请求到:', `${VOLCENGINE_API_HOST}${uri}`)
+    console.log('📤 查询请求体:', JSON.stringify(requestBody, null, 2))
+    
+    const response = await fetch(`${VOLCENGINE_API_HOST}${uri}`, {
+      method: 'POST',
       headers: {
-        // TODO: 添加火山引擎的签名头
+        'Content-Type': 'application/json',
+        'Authorization': signatureInfo.authorization,
+        'X-Date': signatureInfo.timestamp,
       },
+      body: requestBodyJson,
     })
 
     if (!response.ok) {
@@ -207,24 +341,36 @@ export async function getVolcengineTaskStatus(taskId, model = 'volcengine-video-
     }
 
     const result = await response.json()
-    console.log('📥 火山引擎查询响应:', result)
+    console.log('📥 火山引擎查询响应:', JSON.stringify(result, null, 2))
 
+    // 检查是否有错误
+    if (result.ResponseMetadata && result.ResponseMetadata.Error) {
+      const error = result.ResponseMetadata.Error
+      throw new Error(`火山引擎API错误: ${error.Message || error.Code || '未知错误'}`)
+    }
+
+    // 解析响应（根据火山引擎Visual API响应格式）
+    const responseData = result.Result || result
+    
     // 解析状态
     let status = 'processing'
     let progress = 0
     let videoUrl = null
 
     // 根据实际API响应格式解析
-    if (result.status === 'completed' || result.status === 'success') {
+    const taskStatus = responseData.status || responseData.Status || responseData.state
+    const taskProgress = responseData.progress || responseData.Progress || 0
+    
+    if (taskStatus === 'completed' || taskStatus === 'success' || taskStatus === 'SUCCESS') {
       status = 'completed'
       progress = 100
-      videoUrl = result.video_url || result.output_url
-    } else if (result.status === 'failed' || result.status === 'error') {
+      videoUrl = responseData.video_url || responseData.videoUrl || responseData.output_url || responseData.outputUrl
+    } else if (taskStatus === 'failed' || taskStatus === 'error' || taskStatus === 'FAILED') {
       status = 'failed'
       progress = 0
     } else {
       status = 'processing'
-      progress = result.progress || 50
+      progress = typeof taskProgress === 'number' ? taskProgress : 50
     }
 
     return {
