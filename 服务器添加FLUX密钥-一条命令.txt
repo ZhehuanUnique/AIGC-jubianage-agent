@@ -1,0 +1,82 @@
+在服务器上执行以下一条命令即可添加 FLUX API 密钥：
+
+===========================================
+方式1：SSH 连接后执行脚本
+===========================================
+
+ssh ubuntu@119.45.121.152 "cd /var/www/aigc-agent/server && \
+cp .env .env.backup.\$(date +%Y%m%d_%H%M%S) && \
+sed -i '/# ==================== Flux 系列文生图配置 ====================/,/^FLUX_API_HOST=/d' .env && \
+echo '' >> .env && \
+echo '# ==================== Flux 系列文生图配置 ====================' >> .env && \
+echo 'FLUX_2_MAX_API_KEY=sk-pt7fNXMnTz9yjUCeWpyQiSe4TLqgVCcQh2SlYuJZsKbXNEvc' >> .env && \
+echo 'FLUX_2_FLEX_API_KEY=sk-5jaNdKCnz2NqbXxE1Q53L5y8Dw8SMz3HA9KPzeolNJdCbPyu' >> .env && \
+echo 'FLUX_2_PRO_API_KEY=sk-FhVXrURRgdWLhZWFaHaNKEexAWu1DXod8ixFijuchuZaBKsd' >> .env && \
+echo 'FLUX_API_HOST=https://api.302.ai' >> .env && \
+pm2 restart aigc-agent && \
+sleep 2 && \
+pm2 logs aigc-agent --lines 20"
+
+
+===========================================
+方式2：分步执行（更清晰）
+===========================================
+
+# 1. SSH 连接到服务器
+ssh ubuntu@119.45.121.152
+
+# 2. 进入项目目录
+cd /var/www/aigc-agent/server
+
+# 3. 备份 .env 文件
+cp .env .env.backup.$(date +%Y%m%d_%H%M%S)
+
+# 4. 删除旧的 FLUX 配置（如果存在）
+sed -i '/# ==================== Flux 系列文生图配置 ====================/,/^FLUX_API_HOST=/d' .env
+
+# 5. 添加新的 FLUX 配置
+echo '' >> .env
+echo '# ==================== Flux 系列文生图配置 ====================' >> .env
+echo 'FLUX_2_MAX_API_KEY=sk-pt7fNXMnTz9yjUCeWpyQiSe4TLqgVCcQh2SlYuJZsKbXNEvc' >> .env
+echo 'FLUX_2_FLEX_API_KEY=sk-5jaNdKCnz2NqbXxE1Q53L5y8Dw8SMz3HA9KPzeolNJdCbPyu' >> .env
+echo 'FLUX_2_PRO_API_KEY=sk-FhVXrURRgdWLhZWFaHaNKEexAWu1DXod8ixFijuchuZaBKsd' >> .env
+echo 'FLUX_API_HOST=https://api.302.ai' >> .env
+
+# 6. 重启 PM2 服务
+pm2 restart aigc-agent
+
+# 7. 检查服务状态
+pm2 logs aigc-agent --lines 20
+
+
+===========================================
+方式3：使用 nano 编辑器（如果上面的命令不工作）
+===========================================
+
+# SSH 连接到服务器
+ssh ubuntu@119.45.121.152
+
+# 进入项目目录
+cd /var/www/aigc-agent/server
+
+# 备份 .env 文件
+cp .env .env.backup.$(date +%Y%m%d_%H%M%S)
+
+# 编辑 .env 文件
+nano .env
+
+# 在文件末尾添加以下内容：
+# ==================== Flux 系列文生图配置 ====================
+FLUX_2_MAX_API_KEY=sk-pt7fNXMnTz9yjUCeWpyQiSe4TLqgVCcQh2SlYuJZsKbXNEvc
+FLUX_2_FLEX_API_KEY=sk-5jaNdKCnz2NqbXxE1Q53L5y8Dw8SMz3HA9KPzeolNJdCbPyu
+FLUX_2_PRO_API_KEY=sk-FhVXrURRgdWLhZWFaHaNKEexAWu1DXod8ixFijuchuZaBKsd
+FLUX_API_HOST=https://api.302.ai
+
+# 保存并退出（Ctrl+O 保存，Enter 确认，Ctrl+X 退出）
+
+# 重启 PM2 服务
+pm2 restart aigc-agent
+
+# 检查服务状态
+pm2 logs aigc-agent --lines 20
+

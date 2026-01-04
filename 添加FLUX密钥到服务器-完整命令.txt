@@ -1,0 +1,80 @@
+在服务器上执行以下命令来添加 FLUX API 密钥：
+
+===========================================
+方式1：使用 nano 编辑器手动添加
+===========================================
+
+# SSH 连接到服务器
+ssh ubuntu@119.45.121.152
+
+# 进入项目目录
+cd /var/www/aigc-agent/server
+
+# 备份 .env 文件
+cp .env .env.backup.$(date +%Y%m%d_%H%M%S)
+
+# 编辑 .env 文件
+nano .env
+
+# 在文件末尾添加以下内容（请将 YOUR_FLUX_2_MAX_API_KEY 等替换为实际的 API 密钥）：
+# ==================== Flux 系列文生图配置 ====================
+# Flux-2-Max API Key（从 https://302.ai 获取）
+FLUX_2_MAX_API_KEY=YOUR_FLUX_2_MAX_API_KEY
+# Flux-2-Flex API Key（从 https://302.ai 获取）
+FLUX_2_FLEX_API_KEY=YOUR_FLUX_2_FLEX_API_KEY
+# Flux-2-Pro API Key（从 https://302.ai 获取）
+FLUX_2_PRO_API_KEY=YOUR_FLUX_2_PRO_API_KEY
+# 可选：Flux API Host（默认使用正式环境，所有 Flux 模型共用）
+FLUX_API_HOST=https://api.302.ai
+
+# 保存并退出（Ctrl+O 保存，Enter 确认，Ctrl+X 退出）
+
+# 重启 PM2 服务
+pm2 restart aigc-agent
+
+# 检查服务状态
+pm2 logs aigc-agent --lines 20
+
+
+===========================================
+方式2：使用 echo 命令直接添加（需要替换密钥）
+===========================================
+
+# SSH 连接到服务器
+ssh ubuntu@119.45.121.152
+
+# 进入项目目录
+cd /var/www/aigc-agent/server
+
+# 备份 .env 文件
+cp .env .env.backup.$(date +%Y%m%d_%H%M%S)
+
+# 添加 FLUX 配置（请替换下面的 YOUR_FLUX_2_MAX_API_KEY 等为实际的 API 密钥）
+echo "" >> .env
+echo "# ==================== Flux 系列文生图配置 ====================" >> .env
+echo "FLUX_2_MAX_API_KEY=YOUR_FLUX_2_MAX_API_KEY" >> .env
+echo "FLUX_2_FLEX_API_KEY=YOUR_FLUX_2_FLEX_API_KEY" >> .env
+echo "FLUX_2_PRO_API_KEY=YOUR_FLUX_2_PRO_API_KEY" >> .env
+echo "FLUX_API_HOST=https://api.302.ai" >> .env
+
+# 重启 PM2 服务
+pm2 restart aigc-agent
+
+# 检查服务状态
+pm2 logs aigc-agent --lines 20
+
+
+===========================================
+方式3：使用 sed 命令替换（如果已存在配置）
+===========================================
+
+# 如果 .env 文件中已经有 FLUX 配置但密钥不正确，可以使用 sed 替换
+# 请将 YOUR_FLUX_2_MAX_API_KEY 等替换为实际的 API 密钥
+
+sed -i 's/^FLUX_2_MAX_API_KEY=.*/FLUX_2_MAX_API_KEY=YOUR_FLUX_2_MAX_API_KEY/' .env
+sed -i 's/^FLUX_2_FLEX_API_KEY=.*/FLUX_2_FLEX_API_KEY=YOUR_FLUX_2_FLEX_API_KEY/' .env
+sed -i 's/^FLUX_2_PRO_API_KEY=.*/FLUX_2_PRO_API_KEY=YOUR_FLUX_2_PRO_API_KEY/' .env
+
+# 重启 PM2 服务
+pm2 restart aigc-agent
+
