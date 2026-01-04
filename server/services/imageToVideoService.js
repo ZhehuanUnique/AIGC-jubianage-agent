@@ -10,6 +10,7 @@ import { generateVideoWithViduV2, getViduV2TaskStatus } from './viduV2Service.js
 import { generateVideoWithVeo3, getVeo3TaskStatus } from './veo3Service.js'
 import { generateVideoWithHailuo, getHailuoTaskStatus } from './hailuoService.js'
 import { generateVideoWithKling26, generateVideoWithKlingO1, getKlingTaskStatus } from './klingService.js'
+import { generateVideoWithVolcengine, getVolcengineTaskStatus } from './volcengineVideoService.js'
 
 // 加载.env文件
 const __filename = fileURLToPath(import.meta.url)
@@ -36,6 +37,41 @@ export async function generateVideoFromImage(imageUrl, options = {}) {
     text = '',
     ratio = 'adaptive',
   } = options
+
+  // 如果是火山引擎即梦AI-3.0 Pro模型，使用专门的服务
+  if (model === 'volcengine-video-3.0-pro' || model === 'doubao-seedance-3.0-pro') {
+    // 火山引擎需要图片URL，如果是base64，需要先上传到COS
+    let finalImageUrl = imageUrl
+    
+    // 如果是base64图片，需要上传到COS获取URL
+    if (imageUrl.startsWith('data:image/')) {
+      try {
+        console.log('📤 上传base64图片到COS（火山引擎需要HTTP URL）...')
+        const base64Data = imageUrl.split(',')[1]
+        const buffer = Buffer.from(base64Data, 'base64')
+        const mimeType = imageUrl.match(/data:image\/([^;]+)/)?.[1] || 'png'
+        const ext = mimeType === 'jpeg' || mimeType === 'jpg' ? 'jpg' : 'png'
+        const key = generateCosKey('images', ext)
+        
+        const cosUrl = await uploadBuffer(buffer, key, `image/${mimeType}`)
+        finalImageUrl = cosUrl
+        console.log('✅ 图片已上传到COS:', cosUrl.substring(0, 100) + '...')
+      } catch (error) {
+        console.error('❌ 上传图片到COS失败:', error)
+        throw new Error('上传图片到COS失败，火山引擎需要可访问的HTTP URL')
+      }
+    }
+    
+    return await generateVideoWithVolcengine(finalImageUrl, {
+      model: 'volcengine-video-3.0-pro',
+      resolution,
+      ratio,
+      duration,
+      text,
+      serviceTier: options.serviceTier || 'default', // 'default' 在线推理, 'offline' 离线推理
+      generateAudio: options.generateAudio !== false,
+    })
+  }
 
   // 如果是 Kling 模型，使用专门的服务
   if (model === 'kling-2.6-5s' || model === 'kling-2.6-10s') {
