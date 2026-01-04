@@ -71,6 +71,7 @@ function FirstLastFrameVideo() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [tasks, setTasks] = useState<VideoTask[]>([])
   const [allTasks, setAllTasks] = useState<VideoTask[]>([]) // 存储所有任务（未筛选）
+  const allTasksRef = useRef<VideoTask[]>([]) // 用于在异步函数中获取最新的任务列表
   const [isLoading, setIsLoading] = useState(false)
   const [isInitialLoad, setIsInitialLoad] = useState(true) // 标记是否为首次加载
   const [hoveredFrame, setHoveredFrame] = useState<'first' | 'last' | null>(null)
@@ -160,6 +161,7 @@ function FirstLastFrameVideo() {
               createdAt: v.createdAt || new Date().toISOString(),
             }))
             setAllTasks(videoTasks)
+            allTasksRef.current = videoTasks
             applyFilters(videoTasks)
             setIsLoading(true) // 显示加载状态，但已有数据展示
           }
@@ -177,9 +179,13 @@ function FirstLastFrameVideo() {
     try {
       const numericProjectId = parseInt(projectId, 10)
       if (!isNaN(numericProjectId)) {
+        // 保存当前本地任务（可能包含刚添加但数据库还没有的任务）
+        // 使用ref获取最新值，避免闭包问题
+        const currentLocalTasks = allTasksRef.current
+        
         const videos = await getFirstLastFrameVideos(numericProjectId)
         // 转换为VideoTask格式
-        const videoTasks: VideoTask[] = videos.map(v => ({
+        const dbVideoTasks: VideoTask[] = videos.map(v => ({
           id: v.taskId,
           status: v.status as 'pending' | 'processing' | 'completed' | 'failed',
           videoUrl: v.videoUrl,
@@ -189,19 +195,31 @@ function FirstLastFrameVideo() {
           resolution: v.resolution,
           ratio: v.ratio,
           duration: v.duration,
-          text: v.text,
+          text: v.text || undefined,
           createdAt: v.createdAt,
         }))
+        
+        // 合并本地任务和数据库任务：保留本地新添加的任务（如果数据库还没有）
+        const dbTaskIds = new Set(dbVideoTasks.map(t => t.id))
+        const localOnlyTasks = currentLocalTasks.filter(t => !dbTaskIds.has(t.id))
+        
+        // 合并：本地独有的任务 + 数据库任务（按创建时间排序）
+        const mergedTasks = [...localOnlyTasks, ...dbVideoTasks].sort((a, b) => {
+          const timeA = new Date(a.createdAt).getTime()
+          const timeB = new Date(b.createdAt).getTime()
+          return timeB - timeA // 最新的在前
+        })
         
         // 保存到缓存
         const storageKey = `first_last_frame_videos_${projectId}`
         localStorage.setItem(storageKey, JSON.stringify(videos))
         
-        // 保存所有任务
-        setAllTasks(videoTasks)
+        // 保存合并后的任务
+        setAllTasks(mergedTasks)
+        allTasksRef.current = mergedTasks // 同步更新ref
         
         // 应用筛选
-        applyFilters(videoTasks)
+        applyFilters(mergedTasks)
         
         // 首次加载完成后，标记为非首次加载
         if (isInitialLoad) {
@@ -210,9 +228,12 @@ function FirstLastFrameVideo() {
       }
     } catch (error) {
       console.error('加载历史失败:', error)
-      // 即使失败也设置空数组，显示"暂无历史视频"而不是错误
-      setAllTasks([])
-      setTasks([])
+      // 即使失败也保留本地任务，不覆盖
+      if (allTasksRef.current.length === 0) {
+        setAllTasks([])
+        allTasksRef.current = []
+        setTasks([])
+      }
       if (isInitialLoad) {
         setIsInitialLoad(false)
       }
@@ -220,6 +241,11 @@ function FirstLastFrameVideo() {
       setIsLoading(false)
     }
   }
+
+  // 同步allTasks到ref，确保异步函数中能获取最新值
+  useEffect(() => {
+    allTasksRef.current = allTasks
+  }, [allTasks])
 
   // 当筛选条件改变时，重新应用筛选
   useEffect(() => {
@@ -481,6 +507,7 @@ function FirstLastFrameVideo() {
         // 立即添加到本地状态，让用户立即看到
         setAllTasks(prev => {
           const updated = [newTask, ...prev]
+          allTasksRef.current = updated // 同步更新ref
           // 同时更新筛选后的列表
           applyFilters(updated)
           return updated
@@ -1244,6 +1271,15 @@ function FirstLastFrameVideo() {
                   }`}
                   onFocus={handleInputFocus}
                   onBlur={handleInputBlur}
+                  onKeyDown={(e) => {
+                    // 按回车键（不按Shift）触发生成视频
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      if (prompt.trim() && firstFrameFile && !isGenerating) {
+                        generateVideo()
+                      }
+                    }
+                  }}
                 />
               </div>
             </div>
@@ -1271,10 +1307,6 @@ function FirstLastFrameVideo() {
                       </option>
                     ))}
                   </select>
-                  {/* 显示当前选中的模型名称 */}
-                  <span className="text-sm text-gray-700 font-medium">
-                    {supportedModels.find(m => m.value === selectedModel)?.label || selectedModel}
-                  </span>
                 </div>
                 
                 {/* 分辨率选择 */}
