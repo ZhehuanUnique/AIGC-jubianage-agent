@@ -423,10 +423,10 @@ export async function getVolcengineTaskStatus(taskId, model = 'volcengine-video-
     
     console.log('📤 查询请求到:', fullUrl)
     console.log('📤 查询参数:', JSON.stringify(queryParams, null, 2))
-    console.log('📤 查询请求体:', JSON.stringify(requestBody, null, 2))
     
+    // GET请求不需要body
     const response = await fetch(fullUrl, {
-      method: 'POST',
+      method: 'GET',
       headers: {
         'Content-Type': contentType,
         'Host': host,
@@ -434,7 +434,6 @@ export async function getVolcengineTaskStatus(taskId, model = 'volcengine-video-
         'X-Date': signatureInfo.timestamp,
         'Authorization': signatureInfo.authorization,
       },
-      body: requestBodyJson,
     })
 
     if (!response.ok) {
