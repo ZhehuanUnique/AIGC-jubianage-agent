@@ -1,9 +1,10 @@
 /**
  * PM2 进程管理配置文件
  * 用于确保后端服务 24 小时稳定运行
+ * 注意：由于项目使用 ES 模块，需要使用 .cjs 扩展名或使用 export default
  */
 
-module.exports = {
+export default {
   apps: [
     {
       name: 'aigc-agent',
