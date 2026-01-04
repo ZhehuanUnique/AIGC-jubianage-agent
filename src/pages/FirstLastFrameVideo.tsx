@@ -11,7 +11,7 @@ interface VideoTask {
   videoUrl?: string
   errorMessage?: string
   firstFrameUrl: string
-  lastFrameUrl: string
+  lastFrameUrl?: string
   model: string
   resolution: string
   ratio: string
@@ -422,19 +422,12 @@ function FirstLastFrameVideo() {
       if (result.success && result.data?.taskId) {
         alertSuccess('视频生成任务已提交', '成功')
         
-        const newTask: VideoTask = {
-          id: result.data.taskId,
-          status: 'pending',
-          firstFrameUrl: firstFramePreview || '',
-          lastFrameUrl: lastFramePreview || undefined,
-          model: selectedModel,
-          resolution,
-          ratio: '16:9',
-          duration,
-          text: prompt.trim() || undefined,
-          createdAt: new Date().toISOString(),
+        // 移除输入框聚焦状态，恢复样式
+        setIsInputFocused(false)
+        const activeElement = document.activeElement as HTMLElement
+        if (activeElement && (activeElement.tagName === 'TEXTAREA' || activeElement.tagName === 'INPUT')) {
+          activeElement.blur()
         }
-        setTasks(prev => [newTask, ...prev])
         
         // 清空输入
         setPrompt('')
@@ -442,6 +435,11 @@ function FirstLastFrameVideo() {
         setLastFrameFile(null)
         setFirstFramePreview(null)
         setLastFramePreview(null)
+        setFrameAspectRatio(null)
+        setFrameImageInfo(null)
+        
+        // 刷新历史记录（静默模式，不显示加载状态）
+        loadHistory(true)
         
         // 开始轮询任务状态
         pollTaskStatus(result.data.taskId)
@@ -467,7 +465,7 @@ function FirstLastFrameVideo() {
     pollIntervalRef.current = setInterval(async () => {
       try {
         const result = await getFirstLastFrameVideoStatus(taskId, projectId, selectedModel)
-        if (result.success) {
+        if (result.success && result.data) {
           const task = result.data
           
           setTasks(prev => prev.map(t => 
@@ -476,11 +474,14 @@ function FirstLastFrameVideo() {
               : t
           ))
 
-          if (task.status === 'completed' || task.status === 'failed') {
+          if (task && (task.status === 'completed' || task.status === 'failed')) {
             clearInterval(pollIntervalRef.current!)
             pollIntervalRef.current = null
             if (task.status === 'completed') {
               alertSuccess('视频生成完成', '成功')
+              
+              // 刷新历史记录（静默模式）
+              loadHistory(true)
               
               // 视频生成成功后，创建shot并关联视频到片段管理页面
               if (projectId && task.videoUrl) {
@@ -504,7 +505,7 @@ function FirstLastFrameVideo() {
                   // 不显示错误提示，避免打断用户体验
                 }
               }
-            } else {
+            } else if (task) {
               alertError(`视频生成失败: ${task.errorMessage || '未知错误'}`, '失败')
             }
           }
@@ -1197,7 +1198,7 @@ function FirstLastFrameVideo() {
                   <select
                     value={selectedModel}
                     onChange={(e) => setSelectedModel(e.target.value)}
-                    className="px-3 py-1.5 rounded-lg text-sm font-medium bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm cursor-pointer border-none outline-none appearance-none pr-8"
+                    className="px-3 py-1.5 rounded-lg text-sm font-medium bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm cursor-pointer border-none outline-none appearance-none pr-8 min-w-[140px]"
                     style={{
                       backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='white' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
                       backgroundRepeat: 'no-repeat',
@@ -1211,6 +1212,10 @@ function FirstLastFrameVideo() {
                       </option>
                     ))}
                   </select>
+                  {/* 显示当前选中的模型名称 */}
+                  <span className="text-sm text-gray-700 font-medium">
+                    {supportedModels.find(m => m.value === selectedModel)?.label || selectedModel}
+                  </span>
                 </div>
                 
                 {/* 分辨率选择 */}
