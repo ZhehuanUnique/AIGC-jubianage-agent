@@ -57,52 +57,94 @@ function getModelId(model) {
 }
 
 /**
- * 生成火山引擎API签名
+ * URL编码规范化（根据火山引擎规范）
+ * @param {string} str - 要编码的字符串
+ * @returns {string} 编码后的字符串
+ */
+function urlEncode(str) {
+  return encodeURIComponent(str)
+    .replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`)
+    .replace(/%20/g, '+')
+}
+
+/**
+ * 规范化查询字符串（根据火山引擎规范）
+ * @param {Object} params - 查询参数对象
+ * @returns {string} 规范化后的查询字符串
+ */
+function normalizeQueryString(params) {
+  if (!params || Object.keys(params).length === 0) {
+    return ''
+  }
+  
+  const sortedKeys = Object.keys(params).sort()
+  const pairs = sortedKeys.map(key => {
+    const value = params[key]
+    if (Array.isArray(value)) {
+      return value.map(v => `${urlEncode(key)}=${urlEncode(String(v))}`).join('&')
+    }
+    return `${urlEncode(key)}=${urlEncode(String(value))}`
+  })
+  
+  return pairs.join('&').replace(/\+/g, '%20')
+}
+
+/**
+ * 生成火山引擎API签名（根据官方Python示例和文档）
+ * 参考：https://github.com/volcengine/volc-openapi-demos/blob/main/signature/python/sign.py
+ * 文档：https://www.volcengine.com/docs/6369/67270?lang=zh
  * @param {string} method - HTTP方法
  * @param {string} uri - 请求URI
- * @param {string} queryString - 查询字符串
- * @param {Object} headers - 请求头
+ * @param {Object} queryParams - 查询参数对象
+ * @param {string} host - 请求主机
+ * @param {string} contentType - Content-Type
  * @param {string} payload - 请求体（JSON字符串）
  * @param {string} ak - Access Key ID
  * @param {string} sk - Secret Access Key
  * @param {string} region - 区域
  * @param {string} service - 服务名
- * @returns {Object} 包含签名和Authorization头的对象
+ * @returns {Object} 包含签名和请求头的对象
  */
-function generateVolcengineSignature(method, uri, queryString, headers, payload, ak, sk, region, service) {
-  // 1. 获取当前时间
+function generateVolcengineSignature(method, uri, queryParams, host, contentType, payload, ak, sk, region, service) {
+  // 1. 获取当前UTC时间
   const now = new Date()
   const dateStamp = now.toISOString().slice(0, 10).replace(/-/g, '') // YYYYMMDD
   const timeStamp = now.toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z' // YYYYMMDDTHHMMSSZ
   
-  // 2. 规范化请求头
-  const canonicalHeaders = Object.keys(headers)
-    .sort()
-    .map(key => `${key.toLowerCase()}:${headers[key].trim()}`)
-    .join('\n') + '\n'
-  
-  const signedHeaders = Object.keys(headers)
-    .sort()
-    .map(key => key.toLowerCase())
-    .join(';')
-  
-  // 3. 计算请求体哈希
+  // 2. 计算请求体哈希（X-Content-Sha256）
   const payloadHash = crypto.createHash('sha256').update(payload || '').digest('hex')
   
-  // 4. 构建规范化请求
+  // 3. 规范化查询字符串
+  const canonicalQueryString = normalizeQueryString(queryParams)
+  
+  // 4. 构建规范化请求头（必须包含：content-type, host, x-content-sha256, x-date）
+  // 注意：所有header key必须小写，按ASCII排序
+  const canonicalHeaders = [
+    `content-type:${contentType}`,
+    `host:${host}`,
+    `x-content-sha256:${payloadHash}`,
+    `x-date:${timeStamp}`,
+  ].join('\n') + '\n'
+  
+  // 5. SignedHeaders（参与签名的header列表，小写，分号分隔）
+  const signedHeaders = 'content-type;host;x-content-sha256;x-date'
+  
+  // 6. 构建规范化请求（CanonicalRequest）
   const canonicalRequest = [
-    method,
+    method.toUpperCase(),
     uri,
-    queryString || '',
+    canonicalQueryString,
     canonicalHeaders,
     signedHeaders,
     payloadHash,
   ].join('\n')
   
-  // 5. 构建待签名字符串
+  // 7. 计算规范化请求的哈希
+  const canonicalRequestHash = crypto.createHash('sha256').update(canonicalRequest).digest('hex')
+  
+  // 8. 构建待签名字符串（StringToSign）
   const algorithm = 'HMAC-SHA256'
   const credentialScope = `${dateStamp}/${region}/${service}/request`
-  const canonicalRequestHash = crypto.createHash('sha256').update(canonicalRequest).digest('hex')
   const stringToSign = [
     algorithm,
     timeStamp,
@@ -110,22 +152,28 @@ function generateVolcengineSignature(method, uri, queryString, headers, payload,
     canonicalRequestHash,
   ].join('\n')
   
-  // 6. 计算签名密钥
+  // 9. 计算签名密钥（SigningKey）
+  // kSecret = SK
+  // kDate = HMAC(kSecret, dateStamp)
+  // kRegion = HMAC(kDate, region)
+  // kService = HMAC(kRegion, service)
+  // kSigning = HMAC(kService, "request")
   const kDate = crypto.createHmac('sha256', sk).update(dateStamp).digest()
   const kRegion = crypto.createHmac('sha256', kDate).update(region).digest()
   const kService = crypto.createHmac('sha256', kRegion).update(service).digest()
   const kSigning = crypto.createHmac('sha256', kService).update('request').digest()
   
-  // 7. 计算签名
+  // 10. 计算签名（Signature）
   const signature = crypto.createHmac('sha256', kSigning).update(stringToSign).digest('hex')
   
-  // 8. 构建Authorization头
+  // 11. 构建Authorization头
   const authorization = `${algorithm} Credential=${ak}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`
   
   return {
     authorization,
     timestamp: timeStamp,
     dateStamp,
+    xContentSha256: payloadHash,
   }
 }
 
@@ -192,18 +240,20 @@ export async function generateVideoWithVolcengine(imageUrl, options = {}) {
     const requestBodyJson = JSON.stringify(requestBody)
     // 火山引擎Visual API使用POST请求到根路径，通过req_key指定服务
     const uri = '/'
-    const queryString = ''
+    const queryParams = {} // Visual API通常不使用查询参数，req_key在body中
     
-    // 生成签名
-    const headers = {
-      'Content-Type': 'application/json',
-    }
+    // 解析API Host
+    const urlObj = new URL(VOLCENGINE_API_HOST)
+    const host = urlObj.host
     
+    // 生成签名（根据官方Python示例）
+    const contentType = 'application/json'
     const signatureInfo = generateVolcengineSignature(
       'POST',
       uri,
-      queryString,
-      headers,
+      queryParams,
+      host,
+      contentType,
       requestBodyJson,
       VOLCENGINE_AK,
       VOLCENGINE_SK,
@@ -214,13 +264,15 @@ export async function generateVideoWithVolcengine(imageUrl, options = {}) {
     console.log('📤 发送请求到:', `${VOLCENGINE_API_HOST}${uri}`)
     console.log('📤 请求体:', JSON.stringify(requestBody, null, 2))
 
-    // 使用签名发送请求
+    // 使用签名发送请求（必须包含所有签名相关的header）
     const response = await fetch(`${VOLCENGINE_API_HOST}${uri}`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': signatureInfo.authorization,
+        'Content-Type': contentType,
+        'Host': host,
+        'X-Content-Sha256': signatureInfo.xContentSha256,
         'X-Date': signatureInfo.timestamp,
+        'Authorization': signatureInfo.authorization,
       },
       body: requestBodyJson,
     })
@@ -304,18 +356,20 @@ export async function getVolcengineTaskStatus(taskId, model = 'volcengine-video-
     
     const requestBodyJson = JSON.stringify(requestBody)
     const uri = '/'
-    const queryString = ''
+    const queryParams = {} // Visual API通常不使用查询参数
     
-    // 生成签名
-    const headers = {
-      'Content-Type': 'application/json',
-    }
+    // 解析API Host
+    const urlObj = new URL(VOLCENGINE_API_HOST)
+    const host = urlObj.host
     
+    // 生成签名（根据官方Python示例）
+    const contentType = 'application/json'
     const signatureInfo = generateVolcengineSignature(
       'POST',
       uri,
-      queryString,
-      headers,
+      queryParams,
+      host,
+      contentType,
       requestBodyJson,
       VOLCENGINE_AK,
       VOLCENGINE_SK,
@@ -329,9 +383,11 @@ export async function getVolcengineTaskStatus(taskId, model = 'volcengine-video-
     const response = await fetch(`${VOLCENGINE_API_HOST}${uri}`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': signatureInfo.authorization,
+        'Content-Type': contentType,
+        'Host': host,
+        'X-Content-Sha256': signatureInfo.xContentSha256,
         'X-Date': signatureInfo.timestamp,
+        'Authorization': signatureInfo.authorization,
       },
       body: requestBodyJson,
     })
