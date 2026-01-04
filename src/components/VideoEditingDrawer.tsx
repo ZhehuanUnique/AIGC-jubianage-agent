@@ -140,7 +140,7 @@ function VideoEditingDrawer({
     } else if (isSeedanceModel(model)) {
       return ['480p', '720p', '1080p']
     } else if (isKlingModel(model)) {
-      // Kling 模型：根据图片自动适配，但为了兼容性，返回默认值
+      // Kling 模型：支持 720p(768p) 和 1080p
       return ['720p', '1080p']
     }
     return ['480p', '720p', '1080p']
