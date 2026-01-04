@@ -32,15 +32,13 @@ if (existsSync(envPath)) {
 // 支持多种环境变量名称（兼容火山引擎 SDK 标准和自定义名称）
 const VOLCENGINE_AK = process.env.VOLCENGINE_AK || process.env.VOLCENGINE_ACCESS_KEY || process.env.VOLC_ACCESSKEY
 const VOLCENGINE_SK = process.env.VOLCENGINE_SK || process.env.VOLCENGINE_SECRET_KEY || process.env.VOLC_SECRETKEY
-// 根据火山方舟API文档：https://www.volcengine.com/docs/82379/1544136?lang=zh
-// 数据面API（模型/应用调用）的Base URL：https://ark.cn-beijing.volces.com/api/v3/
-// 但是，如果使用Action参数的方式（通用API格式），可能需要使用不同的endpoint
-// 默认使用数据面API的Base URL
-const VOLCENGINE_API_HOST = process.env.VOLCENGINE_API_HOST || 'https://ark.cn-beijing.volces.com'
+// 根据即梦AI-视频生成3.0 Pro接口文档：https://www.volcengine.com/docs/85621/1777001?lang=zh
+// 接口地址：https://visual.volcengineapi.com
+const VOLCENGINE_API_HOST = process.env.VOLCENGINE_API_HOST || 'https://visual.volcengineapi.com'
 
 // 火山引擎服务配置
 const VOLCENGINE_REGION = 'cn-north-1' // 默认区域
-const VOLCENGINE_SERVICE = 'ark' // ARK API 服务名（根据API文档：serviceCode=ark）
+const VOLCENGINE_SERVICE = 'cv' // Visual API 服务名
 
 /**
  * 根据模型名称获取对应的模型ID（req_key）
@@ -49,9 +47,9 @@ const VOLCENGINE_SERVICE = 'ark' // ARK API 服务名（根据API文档：servic
  */
 function getModelId(model) {
   const modelMap = {
-    'volcengine-video-3.0-pro': 'video_generation_3_0_pro',
+    'volcengine-video-3.0-pro': 'jimeng_ti2v_v30_pro', // 根据文档：https://www.volcengine.com/docs/85621/1777001?lang=zh
     // 兼容旧名称
-    'doubao-seedance-3.0-pro': 'video_generation_3_0_pro',
+    'doubao-seedance-3.0-pro': 'jimeng_ti2v_v30_pro',
   }
   
   if (!modelMap[model]) {
@@ -224,31 +222,35 @@ export async function generateVideoWithVolcengine(imageUrl, options = {}) {
       generateAudio,
     })
 
-    // 构建请求体（根据火山引擎Visual API文档格式）
-    // 火山引擎Visual API使用req_key来指定服务类型
+    // 构建请求体（根据即梦AI-视频生成3.0 Pro接口文档格式）
     // 根据文档：https://www.volcengine.com/docs/85621/1777001?lang=zh
+    // req_key固定值为 "jimeng_ti2v_v30_pro"
+    // 使用 image_urls 数组格式，或 binary_data_base64
+    // frames: 121帧=5秒，241帧=10秒
     const requestBody = {
-      req_key: modelId, // 使用req_key指定模型：video_generation_3_0_pro
-      prompt: text && text.trim() ? text.trim() : '', // 文本提示词（可选）
-      image_url: imageUrl, // 图片URL（必须是可访问的HTTP/HTTPS URL）
-      resolution: resolution || '720p', // 分辨率：480p, 720p, 1080p
-      duration: duration || 5, // 视频时长（秒），支持 2~12 秒
-      service_tier: serviceTier || 'default', // 'default' 在线推理, 'offline' 离线推理
-      generate_audio: generateAudio !== false, // 是否生成音频，默认 true
+      req_key: modelId, // 固定值：jimeng_ti2v_v30_pro
+      image_urls: [imageUrl], // 图片URL数组（必须是可访问的HTTP/HTTPS URL）
+      seed: -1, // 随机种子，-1表示随机
+      frames: duration === 5 ? 121 : duration === 10 ? 241 : 121, // 帧数：121=5秒，241=10秒
+    }
+
+    // 添加文本提示词（可选）
+    if (text && text.trim()) {
+      requestBody.prompt = text.trim()
     }
 
     // 设置宽高比（如果指定且不是adaptive）
     if (ratio && ratio !== 'adaptive') {
-      requestBody.ratio = ratio
+      requestBody.aspect_ratio = ratio
     }
 
     const requestBodyJson = JSON.stringify(requestBody)
-    // 根据火山方舟API文档：https://www.volcengine.com/docs/82379/1544136?lang=zh
-    // 数据面API的Base URL是 https://ark.cn-beijing.volces.com/api/v3/
-    // 视频生成API使用RESTful风格，endpoint是 /contents/generations/tasks
-    // 不使用Action参数，而是直接使用RESTful路径
-    const uri = '/api/v3/contents/generations/tasks'
-    const queryParams = {} // RESTful API不需要Action和Version参数
+    // 根据即梦AI-视频生成3.0 Pro接口文档：https://www.volcengine.com/docs/85621/1777001?lang=zh
+    // 接口地址：https://visual.volcengineapi.com
+    // 请求方式：POST
+    // 根据Visual API的调用方式，直接POST到根路径
+    const uri = '/'
+    const queryParams = {} // Visual API所有参数在Body中
     
     // 解析API Host（从Base URL中提取host，不包含路径）
     const urlObj = new URL(VOLCENGINE_API_HOST)
@@ -386,12 +388,19 @@ export async function getVolcengineTaskStatus(taskId, model = 'volcengine-video-
   try {
     console.log(`🔍 查询火山引擎任务状态: ${taskId} (模型: ${model})`)
 
-    // 根据火山方舟API文档：https://www.volcengine.com/docs/82379/1544136?lang=zh
-    // 数据面API的Base URL是 https://ark.cn-beijing.volces.com/api/v3/
-    // 查询任务状态使用RESTful风格，endpoint是 /contents/generations/tasks/{task_id}
-    // 使用GET方法，不需要请求体
-    const uri = `/api/v3/contents/generations/tasks/${taskId}`
-    const queryParams = {} // RESTful API不需要Action和Version参数
+    // 根据即梦AI-视频生成3.0 Pro接口文档：https://www.volcengine.com/docs/85621/1777001?lang=zh
+    // 接口地址：https://visual.volcengineapi.com
+    // 查询任务状态：使用POST方法，在Body中传递req_key和task_id
+    // 根据文档，查询任务也需要POST请求，Body中包含req_key和task_id
+    const uri = '/'
+    const queryParams = {} // Visual API所有参数在Body中
+    
+    // 构建查询请求体
+    const modelId = getModelId(model)
+    const requestBody = {
+      req_key: modelId,
+      task_id: taskId,
+    }
     
     // 解析API Host（从Base URL中提取host，不包含路径）
     const urlObj = new URL(VOLCENGINE_API_HOST)
