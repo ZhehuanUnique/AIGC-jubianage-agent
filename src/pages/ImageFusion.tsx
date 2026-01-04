@@ -89,7 +89,7 @@ function ImageFusion() {
         ...f,
         shotNumber: f.shotNumber || f.id,
         quantity: f.quantity || 1,
-        model: f.model || 'doubao-seedance-1-5-pro-251215',
+        model: f.model || 'volcengine-video-3.0-pro',
         resolution: f.resolution || '720p',
         duration: f.duration || 5,
         generatingStatus: f.generatingStatus || 'idle',
@@ -121,7 +121,7 @@ function ImageFusion() {
             ...f,
             shotNumber: f.shotNumber || f.id,
             quantity: f.quantity || 1,
-            model: f.model || 'doubao-seedance-1-5-pro-251215',
+            model: f.model || 'volcengine-video-3.0-pro',
             resolution: f.resolution || '720p',
             duration: f.duration || 5,
             generatingStatus: f.generatingStatus || 'idle',
@@ -160,7 +160,7 @@ function ImageFusion() {
         shotNumber: 1,
         image: '/placeholder-image.jpg',
         videoPrompt: '真人电影风格，风轻轻吹过，两人的长发和衣角微微飘动。她们静静地站着，没有任何交流，气氛沉静而压抑。镜头缓慢从两人身后向前推进，越过她们的肩膀，展现下方的宫城全貌。',
-        model: 'doubao-seedance-1-5-pro-251215',
+        model: 'volcengine-video-3.0-pro',
         resolution: '720p',
         duration: 5,
         quantity: 1,
@@ -171,7 +171,7 @@ function ImageFusion() {
         shotNumber: 2,
         image: '/placeholder-image.jpg',
         videoPrompt: '真人电影风格，画面描述...',
-        model: 'doubao-seedance-1-5-pro-251215',
+        model: 'volcengine-video-3.0-pro',
         resolution: '720p',
         duration: 5,
         quantity: 1,
@@ -182,7 +182,7 @@ function ImageFusion() {
         shotNumber: 3,
         image: '/placeholder-image.jpg',
         videoPrompt: '真人电影风格，画面描述...',
-        model: 'doubao-seedance-1-5-pro-251215',
+        model: 'volcengine-video-3.0-pro',
         resolution: '720p',
         duration: 5,
         quantity: 1,
@@ -193,7 +193,7 @@ function ImageFusion() {
         shotNumber: 4,
         image: '/placeholder-image.jpg',
         videoPrompt: '真人电影风格，画面描述...',
-        model: 'doubao-seedance-1-5-pro-251215',
+        model: 'volcengine-video-3.0-pro',
         resolution: '720p',
         duration: 5,
         quantity: 1,
@@ -203,7 +203,7 @@ function ImageFusion() {
   })
 
   // 视频生成全局设置
-  const [globalModel, setGlobalModel] = useState('doubao-seedance-1-5-pro-251215') // 视频模型
+  const [globalModel, setGlobalModel] = useState('volcengine-video-3.0-pro') // 视频模型
   const [globalResolution, setGlobalResolution] = useState('720p') // 视频分辨率
   const [globalDuration, setGlobalDuration] = useState(5) // 视频时长
   const [globalQuantity, setGlobalQuantity] = useState(1) // 每个分镜生成几个视频（1或2）
@@ -288,7 +288,7 @@ function ImageFusion() {
         shotNumber: shotNumber,
         image: image,
         videoPrompt: shot.videoPrompt || shot.prompt || '真人电影风格，画面描述...',
-        model: 'doubao-seedance-1-5-pro-251215',
+        model: 'volcengine-video-3.0-pro',
         resolution: '720p',
         duration: 5,
         quantity: 1,
@@ -337,7 +337,7 @@ function ImageFusion() {
         ...f,
         shotNumber: f.shotNumber || f.id,
         quantity: f.quantity || 1,
-        model: f.model || 'doubao-seedance-1-5-pro-251215',
+        model: f.model || 'volcengine-video-3.0-pro',
         resolution: f.resolution || '720p',
         duration: f.duration || 5,
         generatingStatus: f.generatingStatus || 'idle',
@@ -411,7 +411,7 @@ function ImageFusion() {
               ...f,
               shotNumber: f.shotNumber || f.id,
               quantity: f.quantity || 1,
-              model: f.model || 'doubao-seedance-1-5-pro-251215',
+              model: f.model || 'volcengine-video-3.0-pro',
               resolution: f.resolution || '720p',
               duration: f.duration || 5,
               generatingStatus: f.generatingStatus || 'idle',
@@ -554,7 +554,7 @@ function ImageFusion() {
     return model === 'veo3.1' || model === 'veo3.1-pro'
   }
 
-  // 辅助函数：判断是否是豆包 Seedance 模型
+  // 辅助函数：判断是否是豆包 Seedance 模型（3.5 Pro）
   const isSeedanceModel = (model: string): boolean => {
     return model === 'doubao-seedance-1-5-pro-251215'
   }
@@ -1368,8 +1368,8 @@ function ImageFusion() {
                 onChange={(e) => handleGlobalModelChange(e.target.value)}
                 className="px-3 py-1 bg-white border border-gray-300 rounded text-sm focus:outline-none focus:border-purple-500"
               >
+                <option value="volcengine-video-3.0-pro">即梦AI-视频生成3.0pro</option>
                 <option value="doubao-seedance-1-5-pro-251215">即梦AI-视频生成3.5pro</option>
-                <option value="volcengine-video-3.0-pro">即梦AI-视频生成3.0 Pro</option>
                 <option value="viduq2-turbo">ViduQ2-Turbo</option>
                 <option value="veo3.1">Google Veo3.1</option>
                 <option value="veo3.1-pro">Google Veo3.1-Pro</option>
@@ -1524,8 +1524,8 @@ function ImageFusion() {
                       className="px-2 py-1 bg-white border border-gray-300 rounded text-sm focus:outline-none focus:border-purple-500"
                       onClick={(e) => e.stopPropagation()}
                     >
+                      <option value="volcengine-video-3.0-pro">即梦AI-视频生成3.0pro</option>
                       <option value="doubao-seedance-1-5-pro-251215">即梦AI-视频生成3.5pro</option>
-                      <option value="volcengine-video-3.0-pro">即梦AI-视频生成3.0 Pro</option>
                       <option value="viduq2-turbo">ViduQ2-Turbo</option>
                       <option value="veo3.1">Google Veo3.1</option>
                       <option value="veo3.1-pro">Google Veo3.1-Pro</option>

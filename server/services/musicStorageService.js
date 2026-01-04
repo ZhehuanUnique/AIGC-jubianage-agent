@@ -156,28 +156,7 @@ export async function saveMusicToDatabase(musicData) {
       contentType = null,
     } = musicData
 
-    // 检查是否有 music_files 表，如果没有则创建
-    const createTableQuery = `
-      CREATE TABLE IF NOT EXISTS music_files (
-        id SERIAL PRIMARY KEY,
-        title VARCHAR(255),
-        prompt TEXT,
-        provider VARCHAR(50),
-        original_url TEXT,
-        cos_url TEXT,
-        cos_key VARCHAR(500),
-        size BIGINT,
-        content_type VARCHAR(100),
-        user_id INTEGER REFERENCES users(id),
-        project_id INTEGER REFERENCES projects(id),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `
-
-    await db.query(createTableQuery)
-
-    // 插入音乐记录
+    // 插入音乐记录（表已在 Supabase 中创建）
     const insertQuery = `
       INSERT INTO music_files (
         title, prompt, provider, original_url, cos_url, cos_key, 

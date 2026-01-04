@@ -1,6 +1,8 @@
 # IndexTTS2.5 Docker 镜像
 # 基于 Python 3.10，支持 CUDA（如果有 GPU）
 
+# 使用国内镜像源（如果 Docker Hub 连接失败）
+# FROM registry.cn-hangzhou.aliyuncs.com/acs/python:3.10-slim
 FROM python:3.10-slim
 
 # 设置工作目录

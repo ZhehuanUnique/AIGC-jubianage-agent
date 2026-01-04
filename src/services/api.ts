@@ -1708,14 +1708,14 @@ export async function generateFirstLastFrameVideo(formData: FormData): Promise<{
   }
 }
 
-export async function getFirstLastFrameVideoStatus(taskId: string, projectId: string): Promise<{ success: boolean; data?: { status: string; videoUrl?: string; errorMessage?: string }; error?: string }> {
+export async function getFirstLastFrameVideoStatus(taskId: string, projectId: string, model: string = 'volcengine-video-3.0-pro'): Promise<{ success: boolean; data?: { status: string; videoUrl?: string; errorMessage?: string }; error?: string }> {
   const token = AuthService.getToken()
   if (!token) {
     return { success: false, error: '未登录，请先登录' }
   }
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api/first-last-frame-video/status/${taskId}?projectId=${projectId}`, {
+    const response = await fetch(`${API_BASE_URL}/api/first-last-frame-video/status/${taskId}?projectId=${projectId}&model=${encodeURIComponent(model)}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
       },

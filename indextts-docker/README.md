@@ -2,6 +2,38 @@
 
 本目录包含 IndexTTS2.5 的 Docker 部署方案，用于在生产环境中长期稳定运行文本转语音（TTS）服务。
 
+**基于 IndexTTS2 官方 API**：https://github.com/index-tts/index-tts
+
+## 🎯 两种部署方案
+
+### 方案1：本地运行（推荐，无需传输文件）
+
+**适合场景：**
+- 模型文件在本地（E:\IndexTTS2.5\checkpoints）
+- 不需要传输 20GB 文件到服务器
+- 快速测试和开发
+
+**使用方法：**
+```powershell
+cd indextts-docker
+docker-compose -f docker-compose.local.yml up -d
+```
+
+详细说明请查看：[本地运行说明.md](./本地运行说明.md)
+
+### 方案2：服务器运行（需要传输文件）
+
+**适合场景：**
+- 需要在服务器上稳定运行
+- 需要从任何地方访问 API
+- 不占用本地资源
+
+**使用方法：**
+1. 先传输模型文件到服务器（见下方步骤）
+2. 在服务器上运行 `docker-compose up -d`
+
+---
+
 ## 🏗️ 目录结构
 
 ```
@@ -21,19 +53,25 @@ indextts-docker/
 
 #### 步骤1：准备模型文件
 
-将 IndexTTS2.5 的模型文件复制到服务器：
+IndexTTS2 需要以下文件：
+- `checkpoints/config.yaml` - 配置文件
+- `checkpoints/` - 模型权重文件（从官方仓库下载）
+
+将模型文件复制到服务器：
 
 ```bash
 # 在服务器上创建目录
 ssh ubuntu@119.45.121.152
-mkdir -p /var/www/indextts-docker/{models,checkpoints,outputs}
+mkdir -p /var/www/indextts-docker/{checkpoints,outputs}
 ```
 
 ```powershell
 # 从本地复制模型文件（Windows PowerShell）
-scp -r E:\IndexTTS2.5\models ubuntu@119.45.121.152:/var/www/indextts-docker/models
+# 假设 E:\IndexTTS2.5\ 包含 checkpoints 目录（内有 config.yaml 和模型权重）
 scp -r E:\IndexTTS2.5\checkpoints ubuntu@119.45.121.152:/var/www/indextts-docker/checkpoints
 ```
+
+**注意**：`checkpoints` 目录必须包含 `config.yaml` 文件。
 
 #### 步骤2：复制项目文件
 
@@ -65,11 +103,14 @@ docker-compose logs -f
 
 在 `docker-compose.yml` 中可以配置以下环境变量：
 
-- `MODEL_PATH`: 模型文件路径（默认：`/app/models`）
 - `CHECKPOINT_PATH`: 检查点路径（默认：`/app/checkpoints`）
+- `CONFIG_PATH`: 配置文件路径（默认：`/app/checkpoints/config.yaml`）
 - `OUTPUT_PATH`: 输出路径（默认：`/app/outputs`）
 - `PORT`: API 端口（默认：`8000`）
-- `DEVICE`: 设备类型（`cpu` 或 `cuda`，默认：`cpu`）
+- `DEVICE`: 设备类型（`cpu` 或 `cuda`，默认：`cuda`）
+- `USE_FP16`: 是否使用 FP16 精度（默认：`True`，减少显存占用）
+- `USE_CUDA_KERNEL`: 是否使用 CUDA 内核加速（默认：`True`）
+- `USE_DEEPSPEED`: 是否启用 DeepSpeed（默认：`False`）
 
 ### GPU 支持
 
@@ -103,30 +144,34 @@ docker-compose logs -f
    torchaudio==2.1.0+cu118
    ```
 
-## 📝 实现 IndexTTS2.5 集成
+## 📝 IndexTTS2 API 集成
 
-**重要**：`app.py` 中的模型加载和语音生成功能需要根据 IndexTTS2.5 的实际 API 实现。
+**已完成**：`app.py` 已根据 IndexTTS2 官方 API 实现。
 
-### 需要修改的部分
+### 实现的功能
 
 1. **模型加载**（`load_model()` 函数）：
    ```python
-   # 根据 IndexTTS2.5 的实际导入方式
-   from indextts import IndexTTS  # 示例
-   tts_model = IndexTTS(checkpoint_path=CHECKPOINT_PATH)
-   available_voices = tts_model.list_voices()
+   from indextts.infer_v2 import IndexTTS2
+   tts_model = IndexTTS2(
+       cfg_path="checkpoints/config.yaml",
+       model_dir="checkpoints",
+       use_fp16=True,
+       use_cuda_kernel=True,
+       device="cuda"
+   )
    ```
 
 2. **语音生成**（`generate_tts()` 函数）：
    ```python
-   # 调用 IndexTTS2.5 生成语音
-   audio_path = tts_model.generate(
-       text=text,
-       voice_id=voice_id,
-       speed=speed,
-       pitch=pitch,
-       output_format=format_type,
-       output_dir=OUTPUT_PATH
+   tts_model.infer(
+       spk_audio_prompt="voice.wav",  # 音色参考音频
+       text="要合成的文本",
+       output_path="output.wav",
+       emo_audio_prompt="emotion.wav",  # 情感参考音频（可选）
+       emo_alpha=0.7,  # 情感强度
+       temperature=0.3,
+       top_p=0.7
    )
    ```
 
@@ -135,6 +180,8 @@ docker-compose logs -f
 ### 健康检查
 
 ```bash
+GET /health
+# 或
 GET /api/health
 ```
 
@@ -142,57 +189,66 @@ GET /api/health
 ```json
 {
   "status": "healthy",
-  "model_loaded": true,
-  "model_path": "/app/models",
-  "checkpoint_path": "/app/checkpoints",
-  "output_path": "/app/outputs"
+  "model_loaded": true
 }
 ```
 
-### 获取音色列表
+### 查看模型信息
 
 ```bash
-GET /api/voices
+GET /models
+# 或
+GET /api/models
 ```
 
 响应：
 ```json
 {
-  "success": true,
-  "voices": [
-    {
-      "id": "default",
-      "name": "默认音色",
-      "description": "默认音色"
-    }
-  ]
+  "model_dir": "/app/checkpoints",
+  "config_path": "/app/checkpoints/config.yaml",
+  "device": "cuda",
+  "use_fp16": true,
+  "use_cuda_kernel": true
 }
 ```
 
-### 生成语音
+### 文本转语音（兼容官方 API）
 
 ```bash
-POST /api/tts/generate
+POST /tts
+# 或
+POST /api/tts
 Content-Type: application/json
 
 {
+  "spk_audio_prompt": "base64_encoded_audio",  // 音色参考音频（base64 或 URL）
   "text": "要转换的文本",
-  "voice_id": "default",
-  "speed": 1.0,
-  "pitch": 0,
+  "emo_audio_prompt": "base64_encoded_audio",  // 情感参考音频（可选，base64 或 URL）
+  "output_format": "wav",  // wav 或 mp3
+  "emo_alpha": 0.7,  // 情感强度 0.0~1.0
+  "temperature": 0.3,  // 采样随机性 0.0~1.0
+  "top_p": 0.7,  // 核采样阈值 0.0~1.0
+  "top_k": 20,  // 仅考虑概率最高的k个token
+  "num_beams": 3,  // 束搜索宽度
+  "repetition_penalty": 1.2,  // 重复惩罚
+  "length_penalty": 1.0  // 长度惩罚
+}
+```
+
+响应：
+```json
+{
+  "status": "success",
+  "audio": "data:audio/wav;base64,UklGRiQAAABXQVZFZm10...",
+  "duration": 5.2,
   "format": "wav"
 }
 ```
 
-响应：
-```json
-{
-  "success": true,
-  "audio_url": "/api/audio/output.wav",
-  "format": "wav",
-  "duration": 5.2
-}
-```
+**注意**：
+- `spk_audio_prompt` 支持 base64 编码、HTTP URL 或本地文件路径
+- `emo_audio_prompt` 可选，用于情感控制
+- 返回的 `audio` 字段是 base64 编码的音频数据
 
 ## 🔄 更新后端配置
 
@@ -206,6 +262,25 @@ INDEXTTS_TIMEOUT=60000
 ```
 
 然后重启后端服务。
+
+## 📦 安装 IndexTTS2
+
+如果模型文件尚未下载，可以使用官方脚本：
+
+```bash
+# 在服务器上
+cd /var/www/indextts-docker
+git clone https://github.com/index-tts/index-tts.git
+cd index-tts
+python download_models.py  # 下载模型权重
+# 将下载的 checkpoints 目录复制到 /var/www/indextts-docker/checkpoints
+```
+
+或者从 PyPI 安装：
+
+```bash
+pip install indextts
+```
 
 ## 📋 管理命令
 

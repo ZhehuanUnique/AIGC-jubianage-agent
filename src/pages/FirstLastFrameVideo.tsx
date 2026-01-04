@@ -29,7 +29,7 @@ function FirstLastFrameVideo() {
   const [firstFramePreview, setFirstFramePreview] = useState<string | null>(null)
   const [lastFramePreview, setLastFramePreview] = useState<string | null>(null)
   
-  const [videoVersion, setVideoVersion] = useState<'3.5pro'>('3.5pro')
+  const [videoVersion, setVideoVersion] = useState<'3.0'>('3.0')
   const [resolution, setResolution] = useState<'720p' | '1080p'>('720p')
   const [duration, setDuration] = useState(5)
   const [prompt, setPrompt] = useState('')
@@ -227,7 +227,7 @@ function FirstLastFrameVideo() {
     }
   }, []) // 移除依赖项，避免频繁重新绑定
 
-  // 已移除3.0pro选项，只支持3.5pro
+  // 使用即梦AI-视频生成3.0pro（火山引擎）
 
   // 处理首帧上传
   const triggerFirstFrameUpload = () => {
@@ -313,7 +313,7 @@ function FirstLastFrameVideo() {
         formData.append('lastFrame', lastFrameFile)
       }
       formData.append('projectId', projectId)
-      formData.append('model', 'doubao-seedance-1-5-pro-251215')
+      formData.append('model', 'volcengine-video-3.0-pro')
       formData.append('resolution', resolution)
       formData.append('ratio', '16:9')
       formData.append('duration', duration.toString())
@@ -331,7 +331,7 @@ function FirstLastFrameVideo() {
           status: 'pending',
           firstFrameUrl: firstFramePreview || '',
           lastFrameUrl: lastFramePreview || undefined,
-          model: 'doubao-seedance-1-5-pro-251215',
+          model: 'volcengine-video-3.0-pro',
           resolution,
           ratio: '16:9',
           duration,
@@ -370,7 +370,7 @@ function FirstLastFrameVideo() {
 
     pollIntervalRef.current = setInterval(async () => {
       try {
-        const result = await getFirstLastFrameVideoStatus(taskId, projectId)
+        const result = await getFirstLastFrameVideoStatus(taskId, projectId, 'volcengine-video-3.0-pro')
         if (result.success) {
           const task = result.data
           
@@ -1015,7 +1015,7 @@ function FirstLastFrameVideo() {
                   <button
                     className="px-3 py-1.5 rounded-lg text-sm font-medium bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm cursor-default"
                   >
-                    3.5pro
+                    3.0
                   </button>
                 </div>
                 

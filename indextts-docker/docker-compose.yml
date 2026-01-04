@@ -11,18 +11,20 @@ services:
       - "8000:8000"
     volumes:
       # 挂载模型文件（从 E 盘复制到服务器后挂载）
-      - ./models:/app/models:ro
+      # checkpoints 目录应包含 config.yaml 和模型权重文件
       - ./checkpoints:/app/checkpoints:ro
       # 输出目录（可写）
       - ./outputs:/app/outputs
-      # 配置文件（可选）
-      - ./config:/app/config:ro
     environment:
       - PYTHONUNBUFFERED=1
-      - MODEL_PATH=/app/models
       - CHECKPOINT_PATH=/app/checkpoints
+      - CONFIG_PATH=/app/checkpoints/config.yaml
       - OUTPUT_PATH=/app/outputs
       - PORT=8000
+      - DEVICE=cuda  # 如果有 GPU，使用 'cuda'，否则使用 'cpu'
+      - USE_FP16=True
+      - USE_CUDA_KERNEL=True
+      - USE_DEEPSPEED=False
       - LOG_LEVEL=INFO
     # GPU 支持（如果有 NVIDIA GPU）
     # 取消下面的注释以启用 GPU

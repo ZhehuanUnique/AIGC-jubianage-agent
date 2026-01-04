@@ -68,3 +68,6 @@ echo ""
 echo "检查 Nginx 状态："
 sudo systemctl status nginx --no-pager | head -5
 
+
+
+

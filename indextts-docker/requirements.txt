@@ -1,30 +1,32 @@
 # IndexTTS2.5 API 服务依赖
+# 基于 IndexTTS2 官方仓库: https://github.com/index-tts/index-tts
 
 # Web 框架
 Flask==3.0.0
 flask-cors==4.0.0
 
-# 音频处理
-librosa==0.10.1
-soundfile==0.12.1
-numpy==1.24.3
-scipy==1.11.4
+# IndexTTS2 核心包
+indextts>=2.0.0
 
-# 深度学习框架（根据 IndexTTS2.5 要求选择）
-# CPU 版本
-torch==2.1.0
-torchaudio==2.1.0
+# 音频处理
+librosa>=0.10.0
+soundfile>=0.12.0
+numpy>=1.24.0
+scipy>=1.11.0
+
+# 深度学习框架
+# 注意：根据是否有 GPU 选择安装版本
+# CPU 版本（默认）
+torch>=2.1.0
+torchaudio>=2.1.0
 
 # GPU 版本（如果有 NVIDIA GPU，取消注释下面的行，并注释上面的 CPU 版本）
-# torch==2.1.0+cu118
-# torchaudio==2.1.0+cu118
+# 根据 CUDA 版本选择，例如 CUDA 11.8:
+# torch>=2.1.0+cu118 --index-url https://download.pytorch.org/whl/cu118
+# torchaudio>=2.1.0+cu118 --index-url https://download.pytorch.org/whl/cu118
 
 # 其他依赖
-requests==2.31.0
-python-dotenv==1.0.0
-
-# TODO: 根据 IndexTTS2.5 的实际依赖添加
-# 例如：
-# indextts==x.x.x
-# 或其他 IndexTTS2.5 需要的包
+requests>=2.31.0
+python-dotenv>=1.0.0
+PyYAML>=6.0
 

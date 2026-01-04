@@ -211,7 +211,8 @@ export async function generateVideoWithKlingO1(imageUrl, options = {}) {
         const base64Data = imageUrl.includes(',') ? imageUrl.split(',')[1] : imageUrl
         const imageBuffer = Buffer.from(base64Data, 'base64')
         const cosKey = `kling/first_frame_${Date.now()}.jpg`
-        firstFrameUrl = await uploadBuffer(imageBuffer, cosKey, 'image/jpeg')
+        const uploadResult = await uploadBuffer(imageBuffer, cosKey, 'image/jpeg')
+        firstFrameUrl = uploadResult.url
       }
       requestBody.images.push(firstFrameUrl)
 
@@ -222,7 +223,8 @@ export async function generateVideoWithKlingO1(imageUrl, options = {}) {
           const base64Data = lastFrameImage.includes(',') ? lastFrameImage.split(',')[1] : lastFrameImage
           const imageBuffer = Buffer.from(base64Data, 'base64')
           const cosKey = `kling/last_frame_${Date.now()}.jpg`
-          lastFrameUrl = await uploadBuffer(imageBuffer, cosKey, 'image/jpeg')
+          const uploadResult = await uploadBuffer(imageBuffer, cosKey, 'image/jpeg')
+          lastFrameUrl = uploadResult.url
         }
         requestBody.images.push(lastFrameUrl)
       }

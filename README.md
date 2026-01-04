@@ -92,6 +92,14 @@ NANO_BANANA_API_HOST=https://grsai.dakka.com.cn
 # Midjourney v7 t2i 文生图配置（可选）
 MIDJOURNEY_API_KEY=your_midjourney_api_key_here
 MIDJOURNEY_API_HOST=https://api.302.ai
+
+# ==================== 火山引擎即梦AI-视频生成3.0 Pro配置 ===================
+# 火山引擎 Access Key ID（从火山引擎控制台获取）
+VOLCENGINE_AK=your_volcengine_access_key_id_here
+# 火山引擎 Secret Access Key（从火山引擎控制台获取）
+VOLCENGINE_SK=your_volcengine_secret_access_key_here
+# 可选：火山引擎 API Host（默认使用正式环境）
+VOLCENGINE_API_HOST=https://visual.volcengineapi.com
 ```
 
 #### 前端配置（可选）
@@ -200,16 +208,49 @@ npm run dev
 
 ### 图生视频
 
-集成通义万相wan2.2-i2v-flash模型，支持：
-- 图片上传生成视频
-- 支持480P、720P、1080P分辨率
-- 异步任务处理，支持状态查询
+支持多种图生视频模型：
 
-**价格信息：**
-- 480P: 0.10元/秒（推荐测试）
-- 720P: 0.20元/秒
-- 1080P: 0.48元/秒
-- 免费额度: 开通后90天内提供50秒免费额度
+#### 即梦AI系列
+- **即梦AI-视频生成3.5 Pro** (`doubao-seedance-1-5-pro-251215`)
+  - 分辨率：480p, 720p, 1080p
+  - 时长：2~12秒
+  - 宽高比：16:9, 4:3, 1:1, 3:4, 9:16, 21:9, adaptive
+  - 支持音频生成
+- **即梦AI-视频生成3.0 Pro** (`volcengine-video-3.0-pro`) ⭐ 新增
+  - 分辨率：480p, 720p, 1080p
+  - 时长：2~12秒
+  - 宽高比：16:9, 4:3, 1:1, 3:4, 9:16, 21:9, adaptive
+  - 支持在线推理和离线推理
+  - 支持音频生成
+  - 使用火山引擎官方API，需要配置 `VOLCENGINE_AK` 和 `VOLCENGINE_SK`
+
+#### Kling系列 ⭐ 新增
+- **Kling-2.6-5秒** (`kling-2.6-5s`)
+  - 分辨率：自动适配（界面显示720p/1080p用于兼容）
+  - 时长：固定5秒
+  - 支持首尾帧、支持音频生成
+- **Kling-2.6-10秒** (`kling-2.6-10s`)
+  - 分辨率：自动适配（界面显示720p/1080p用于兼容）
+  - 时长：固定10秒
+  - 支持首尾帧、支持音频生成
+- **Kling-O1** (`kling-o1`)
+  - 分辨率：自动适配（界面显示720p/1080p用于兼容）
+  - 时长：5、10、15、20秒（可自定义）
+  - 支持多种模式：图片参考、首尾帧、视频编辑、视频参考
+  - 支持宽高比：auto、9:16、1:1、16:9
+  - 支持视频原声保留
+
+#### 其他模型
+- **通义万相** (`wan2.2-i2v-flash`)
+  - 分辨率：480P、720P、1080P
+  - 价格：480P 0.10元/秒，720P 0.20元/秒，1080P 0.48元/秒
+- **Vidu V2系列** (`viduq2-turbo`, `viduq2-pro`, `viduq1`, `vidu2.0`, `vidu1.5`, `vidu1.0`)
+  - 分辨率：360p, 540p, 720p, 1080p
+- **Google Veo3.1** (`veo3.1`, `veo3.1-pro`)
+  - 分辨率：720p, 1080p
+- **MiniMax Hailuo** (`minimax-hailuo-02`, `minimax-hailuo-2.3`, `minimax-hailuo-2.3-fast`)
+  - 分辨率：720p, 1080p
+  - 时长：720p支持6/10秒，1080p只支持6秒
 
 ## 📁 项目结构
 
@@ -453,13 +494,19 @@ QWEN_MODEL=qwen-max  # 或 qwen-plus
 
 ### 图生视频模型
 
-| 模型 | 分辨率 | 价格/秒 | 推荐场景 |
-|------|--------|---------|----------|
-| **wan2.2-i2v-flash** | 480P | **0.10元** | **推荐：最便宜，适合测试** |
-| wan2.2-i2v-flash | 720P | 0.20元 | 平衡质量和成本 |
-| wan2.2-i2v-flash | 1080P | 0.48元 | 追求高质量 |
-| wan2.5-i2v-preview | 480P | 0.3元 | 预览版 |
-| wan2.6-i2v | 720P | 0.6元 | 最新版 |
+| 模型 | 分辨率 | 时长 | 价格/秒 | 推荐场景 |
+|------|--------|------|---------|----------|
+| **即梦AI-3.0 Pro** | 480p/720p/1080p | 2~12秒 | - | **推荐：火山引擎官方API** |
+| **即梦AI-3.5 Pro** | 480p/720p/1080p | 2~12秒 | 约0.11~0.54 PTC/5秒 | **推荐：302.ai平台** |
+| **Kling-2.6-5秒** | 自动适配 | 固定5秒 | - | 固定时长，自动分辨率 |
+| **Kling-2.6-10秒** | 自动适配 | 固定10秒 | - | 固定时长，自动分辨率 |
+| **Kling-O1** | 自动适配 | 5/10/15/20秒 | - | 自定义时长，多种模式 |
+| **wan2.2-i2v-flash** | 480P | - | **0.10元** | **推荐：最便宜，适合测试** |
+| wan2.2-i2v-flash | 720P | - | 0.20元 | 平衡质量和成本 |
+| wan2.2-i2v-flash | 1080P | - | 0.48元 | 追求高质量 |
+| Vidu V2系列 | 360p/540p/720p/1080p | - | - | 多种分辨率选择 |
+| Google Veo3.1 | 720p/1080p | - | - | Google官方模型 |
+| MiniMax Hailuo | 720p/1080p | 6/10秒 | - | 高质量视频生成 |
 
 ## 🗄️ 数据库配置（可选）
 
@@ -1210,22 +1257,60 @@ docker-compose down
 
 详细文档请参考：`indextts-docker/README.md`
 
-## 🎬 豆包 Seedance 图生视频（可选）
+## 🎬 图生视频模型配置
 
-### API 接口说明
+### 即梦AI-视频生成3.0 Pro（火山引擎）⭐ 新增
 
-项目已集成豆包 Seedance 1.5 Pro 图生视频功能：
+**特点：**
+- 使用火山引擎官方API，需要 Access Key ID 和 Secret Access Key
+- 支持在线推理（实时）和离线推理（异步，推荐生产环境）
+- 支持音频生成
+- 分辨率：480p, 720p, 1080p
+- 时长：2~12秒
 
-- **创建任务**：`POST https://api.302.ai/doubao/doubao-seedance`
-- **查询状态**：`GET https://api.302.ai/doubao/task/{id}` 或 `GET https://ark.cn-beijing.volces.com/api/v3/contents/generations/tasks/{id}`
+**配置环境变量：**
 
-### 配置环境变量
+在 `server/.env` 文件中添加：
+
+```env
+# ==================== 火山引擎即梦AI-视频生成3.0 Pro配置 ===================
+# 火山引擎 Access Key ID（从火山引擎控制台获取）
+VOLCENGINE_AK=your_volcengine_access_key_id_here
+# 火山引擎 Secret Access Key（从火山引擎控制台获取）
+VOLCENGINE_SK=your_volcengine_secret_access_key_here
+# 可选：火山引擎 API Host（默认使用正式环境）
+VOLCENGINE_API_HOST=https://visual.volcengineapi.com
+```
+
+**获取API密钥：**
+1. 访问火山引擎控制台：https://console.volcengine.com/
+2. 登录账号
+3. 进入 **访问控制** → **API密钥管理**
+4. 创建或查看 Access Key ID 和 Secret Access Key
+
+**接口文档：**
+- 即梦AI-视频生成3.0 Pro: https://www.volcengine.com/docs/85621/1777001?lang=zh
+- SDK文档: https://www.volcengine.com/docs/6444/1340578?lang=zh#0f05efc9
+
+**在线推理 vs 离线推理：**
+- **在线推理** (`service_tier: 'default'`)：实时生成，响应快但可能排队
+- **离线推理** (`service_tier: 'offline'`)：异步生成，更稳定且通常更快，推荐生产环境使用
+
+### 即梦AI-视频生成3.5 Pro（豆包 Seedance）
+
+**特点：**
+- 通过302.ai平台接入
+- 支持多种分辨率和时长
+- 分辨率：480p, 720p, 1080p
+- 时长：2~12秒
+
+**配置环境变量：**
 
 在 `server/.env` 文件中添加：
 
 ```env
 # 豆包 Seedance 1.5 Pro 图生视频配置
-DOUBAO_SEEDANCE_API_KEY=sk-你的API密钥
+DOUBAO_SEEDANCE_1_5_PRO_API_KEY=sk-你的API密钥
 DOUBAO_SEEDANCE_API_HOST=https://api.302.ai
 ```
 
@@ -1234,7 +1319,7 @@ DOUBAO_SEEDANCE_API_HOST=https://api.302.ai
 - 注册/登录账号
 - 进入 API 管理创建 API Key
 
-### 成本说明
+**成本说明：**
 
 **Token 计算公式：**
 ```
@@ -1248,9 +1333,47 @@ Token = 宽 × 高 × 帧率 × 时长 / 1024
 - **720p**：约 0.23 PTC
 - **1080p**：约 0.54 PTC
 
-**建议：**
-- 测试阶段使用 480p（成本最低）
-- 正式使用根据需求选择分辨率
+### Kling 可灵图生视频 ⭐ 新增
+
+**特点：**
+- **Kling-2.6-5秒** (`kling-2.6-5s`)：固定5秒，自动适配分辨率
+- **Kling-2.6-10秒** (`kling-2.6-10s`)：固定10秒，自动适配分辨率
+- **Kling-O1** (`kling-o1`)：支持5/10/15/20秒，支持多种模式和宽高比
+
+**配置环境变量：**
+
+在 `server/.env` 文件中添加：
+
+```env
+# Kling 可灵图生视频配置
+# Kling-2.6 API Key（用于 Kling-2.6-5秒 和 Kling-2.6-10秒 模型）
+KLING_26_API_KEY=sk-你的API密钥
+# Kling-O1 API Key（用于 Kling-O1 模型）
+KLING_O1_API_KEY=sk-你的API密钥
+# 可选：302.ai API Host
+KLING_API_HOST=https://api.302.ai
+```
+
+**获取API Key：**
+- 访问：https://302.ai
+- 注册/登录账号
+- 进入 API 管理创建对应的 API Key
+
+### 其他图生视频模型
+
+**通义万相** (`wan2.2-i2v-flash`)：
+- 分辨率：480P、720P、1080P
+- 价格：480P 0.10元/秒，720P 0.20元/秒，1080P 0.48元/秒
+
+**Vidu V2系列** (`viduq2-turbo`, `viduq2-pro`, `viduq1`, `vidu2.0`, `vidu1.5`, `vidu1.0`)：
+- 分辨率：360p, 540p, 720p, 1080p
+
+**Google Veo3.1** (`veo3.1`, `veo3.1-pro`)：
+- 分辨率：720p, 1080p
+
+**MiniMax Hailuo** (`minimax-hailuo-02`, `minimax-hailuo-2.3`, `minimax-hailuo-2.3-fast`)：
+- 分辨率：720p, 1080p
+- 时长：720p支持6/10秒，1080p只支持6秒
 
 ## 🐳 Docker 跨设备使用说明
 

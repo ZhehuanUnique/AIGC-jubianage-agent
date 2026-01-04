@@ -467,7 +467,7 @@ app.post('/api/generate-first-last-frame-video', uploadImage.fields([
 ]), async (req, res) => {
   try {
     const { 
-      model = 'doubao-seedance-1-5-pro-251215', 
+      model = 'volcengine-video-3.0-pro', 
       text = '', 
       resolution = '720p', 
       ratio = '16:9', 
@@ -597,7 +597,7 @@ app.post('/api/first-last-frame-video/generate', authenticateToken, uploadImage.
     const userId = req.user?.id
     const { 
       projectId,
-      model = 'doubao-seedance-1-5-pro-251215', 
+      model = 'volcengine-video-3.0-pro', 
       text = '', 
       resolution = '720p', 
       ratio = '16:9', 
@@ -664,54 +664,88 @@ app.post('/api/first-last-frame-video/generate', authenticateToken, uploadImage.
       lastFrameUrl = uploadResult.url
     }
 
-    // 根据是否有尾帧选择不同的生成模式
+    // 根据模型选择不同的服务
     let result
-    if (hasLastFrame) {
-      // 模式1: 首帧 + 尾帧 + 提示词
-      console.log('📹 收到首尾帧生视频请求（保存到项目文件夹）:', {
+    if (model === 'volcengine-video-3.0-pro' || model === 'doubao-seedance-3.0-pro') {
+      // 使用火山引擎即梦AI-3.0 Pro
+      console.log('📹 收到即梦AI-3.0 Pro生视频请求（保存到项目文件夹）:', {
         projectId,
         projectName: project.name,
         firstFrameUrl: firstFrameUrl.substring(0, 100) + '...',
-        lastFrameUrl: lastFrameUrl.substring(0, 100) + '...',
+        hasLastFrame,
         model,
         resolution,
         ratio,
         duration,
         hasText: !!text,
-        mode: 'first_last_frame',
+        mode: hasLastFrame ? 'first_last_frame' : 'single_frame',
       })
 
-      const { generateFirstLastFrameVideoWithSeedance } = await import('./services/doubaoSeedanceService.js')
-      result = await generateFirstLastFrameVideoWithSeedance(firstFrameUrl, lastFrameUrl, {
-        model,
+      // 火山引擎即梦AI-3.0 Pro目前只支持单首帧+提示词模式
+      // 如果有尾帧，暂时忽略尾帧，只使用首帧
+      if (hasLastFrame) {
+        console.log('⚠️  火山引擎即梦AI-3.0 Pro暂不支持首尾帧模式，将使用首帧+提示词模式')
+      }
+
+      const { generateVideoWithVolcengine } = await import('./services/volcengineVideoService.js')
+      result = await generateVideoWithVolcengine(firstFrameUrl, {
+        model: 'volcengine-video-3.0-pro',
         text,
         resolution,
         ratio,
         duration: parseInt(duration),
+        serviceTier: 'offline', // 使用离线推理，更稳定
+        generateAudio: true,
       })
     } else {
-      // 模式2: 单首帧 + 提示词
-      console.log('📹 收到单首帧生视频请求（保存到项目文件夹）:', {
-        projectId,
-        projectName: project.name,
-        firstFrameUrl: firstFrameUrl.substring(0, 100) + '...',
-        model,
-        resolution,
-        ratio,
-        duration,
-        hasText: !!text,
-        mode: 'single_frame',
-      })
+      // 使用豆包 Seedance 服务（3.5 Pro等）
+      if (hasLastFrame) {
+        // 模式1: 首帧 + 尾帧 + 提示词
+        console.log('📹 收到首尾帧生视频请求（保存到项目文件夹）:', {
+          projectId,
+          projectName: project.name,
+          firstFrameUrl: firstFrameUrl.substring(0, 100) + '...',
+          lastFrameUrl: lastFrameUrl.substring(0, 100) + '...',
+          model,
+          resolution,
+          ratio,
+          duration,
+          hasText: !!text,
+          mode: 'first_last_frame',
+        })
 
-      const { generateVideoWithSeedance } = await import('./services/doubaoSeedanceService.js')
-      result = await generateVideoWithSeedance(firstFrameUrl, {
-        model,
-        text,
-        resolution,
-        ratio,
-        duration: parseInt(duration),
-        generateAudio: model === 'doubao-seedance-1-5-pro-251215', // 只有 1.5 Pro 支持音频
-      })
+        const { generateFirstLastFrameVideoWithSeedance } = await import('./services/doubaoSeedanceService.js')
+        result = await generateFirstLastFrameVideoWithSeedance(firstFrameUrl, lastFrameUrl, {
+          model,
+          text,
+          resolution,
+          ratio,
+          duration: parseInt(duration),
+        })
+      } else {
+        // 模式2: 单首帧 + 提示词
+        console.log('📹 收到单首帧生视频请求（保存到项目文件夹）:', {
+          projectId,
+          projectName: project.name,
+          firstFrameUrl: firstFrameUrl.substring(0, 100) + '...',
+          model,
+          resolution,
+          ratio,
+          duration,
+          hasText: !!text,
+          mode: 'single_frame',
+        })
+
+        const { generateVideoWithSeedance } = await import('./services/doubaoSeedanceService.js')
+        result = await generateVideoWithSeedance(firstFrameUrl, {
+          model,
+          text,
+          resolution,
+          ratio,
+          duration: parseInt(duration),
+          generateAudio: model === 'doubao-seedance-1-5-pro-251215', // 只有 1.5 Pro 支持音频
+        })
+      }
     }
 
     res.json({
@@ -735,6 +769,7 @@ app.post('/api/first-last-frame-video/generate', authenticateToken, uploadImage.
 app.get('/api/first-last-frame-video/status/:taskId', authenticateToken, async (req, res) => {
   try {
     const { taskId } = req.params
+    const { model } = req.query // 从查询参数获取模型
     const userId = req.user?.id
 
     if (!taskId) {
@@ -744,9 +779,17 @@ app.get('/api/first-last-frame-video/status/:taskId', authenticateToken, async (
       })
     }
 
-    // 查询任务状态
-    const { getSeedanceTaskStatus } = await import('./services/doubaoSeedanceService.js')
-    const result = await getSeedanceTaskStatus(taskId)
+    // 根据模型选择不同的状态查询服务
+    let result
+    if (model === 'volcengine-video-3.0-pro' || model === 'doubao-seedance-3.0-pro') {
+      // 使用火山引擎即梦AI-3.0 Pro状态查询
+      const { getVolcengineTaskStatus } = await import('./services/volcengineVideoService.js')
+      result = await getVolcengineTaskStatus(taskId, 'volcengine-video-3.0-pro')
+    } else {
+      // 使用豆包 Seedance 状态查询
+      const { getSeedanceTaskStatus } = await import('./services/doubaoSeedanceService.js')
+      result = await getSeedanceTaskStatus(taskId)
+    }
 
     // 如果视频生成完成，下载并保存到项目文件夹
     if (result.status === 'completed' && result.videoUrl) {
@@ -786,14 +829,14 @@ app.get('/api/first-last-frame-video/status/:taskId', authenticateToken, async (
             const metadata = {
               task_id: taskId,
               source: 'first_last_frame_video',
-              model: req.body.model || 'doubao-seedance-1-5-pro-251215',
+              model: req.query.model || req.body.model || 'volcengine-video-3.0-pro',
               resolution: req.body.resolution || '720p',
               ratio: req.body.ratio || '16:9',
               duration: parseInt(req.body.duration) || 5,
               text: req.body.text || '',
               prompt: req.body.text || '',
-              first_frame_url: firstFrameUrl || null,
-              last_frame_url: lastFrameUrl || null,
+              first_frame_url: null, // 状态查询时无法获取，已在生成时保存
+              last_frame_url: null, // 状态查询时无法获取，已在生成时保存
             }
             await db.query(
               `INSERT INTO files (project_id, file_type, file_name, cos_key, cos_url, metadata)

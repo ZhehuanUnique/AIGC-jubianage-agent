@@ -10,7 +10,7 @@ interface VideoEditModalProps {
 
 function VideoEditModal({ isOpen, onClose, videoId, videoPrompt }: VideoEditModalProps) {
   const [selectedImage, setSelectedImage] = useState<number | null>(1)
-  const [model, setModel] = useState('doubao-seedance-1-5-pro-251215')
+  const [model, setModel] = useState('volcengine-video-3.0-pro')
   const [duration, setDuration] = useState(5)
   const [resolution, setResolution] = useState('720p')
   const [quantity, setQuantity] = useState(1)
@@ -108,8 +108,8 @@ function VideoEditModal({ isOpen, onClose, videoId, videoPrompt }: VideoEditModa
                   onChange={(e) => setModel(e.target.value)}
                   className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500"
                 >
+                  <option value="volcengine-video-3.0-pro">即梦AI-视频生成3.0pro</option>
                   <option value="doubao-seedance-1-5-pro-251215">即梦AI-视频生成3.5pro</option>
-                  <option value="volcengine-video-3.0-pro">即梦AI-视频生成3.0 Pro</option>
                   <option value="viduq2-turbo">ViduQ2-Turbo</option>
                   <option value="veo3.1">Google Veo3.1</option>
                   <option value="veo3.1-pro">Google Veo3.1-Pro</option>
