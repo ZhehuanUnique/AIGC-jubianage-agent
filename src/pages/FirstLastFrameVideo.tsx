@@ -31,7 +31,15 @@ function FirstLastFrameVideo() {
   const [frameAspectRatio, setFrameAspectRatio] = useState<'16:9' | '9:16' | 'other' | null>(null) // 图片宽高比（用于判断标准比例）
   const [frameImageInfo, setFrameImageInfo] = useState<{ width: number; height: number } | null>(null) // 图片尺寸信息（用于动态计算容器尺寸）
   
-  const [videoVersion, setVideoVersion] = useState<'3.0pro'>('3.0pro')
+  // 支持的模型列表
+  const supportedModels = [
+    { value: 'volcengine-video-3.0-pro', label: '即梦3.0 Pro', supportsFirstLastFrame: false },
+    { value: 'doubao-seedance-1-5-pro-251215', label: '豆包Seedance 1.5 Pro', supportsFirstLastFrame: true },
+    { value: 'minimax-hailuo-02', label: 'Hailuo 02', supportsFirstLastFrame: true },
+    { value: 'minimax-hailuo-2.3', label: 'Hailuo 2.3', supportsFirstLastFrame: true },
+  ]
+  const [selectedModel, setSelectedModel] = useState<string>('volcengine-video-3.0-pro')
+  const [videoVersion, setVideoVersion] = useState<'3.0pro'>('3.0pro') // 保留用于显示
   const [resolution, setResolution] = useState<'720p' | '1080p'>('720p')
   const [duration, setDuration] = useState(5)
   const [prompt, setPrompt] = useState('')
@@ -382,7 +390,7 @@ function FirstLastFrameVideo() {
         formData.append('lastFrame', lastFrameFile)
       }
       formData.append('projectId', projectId)
-      formData.append('model', 'volcengine-video-3.0-pro')
+      formData.append('model', selectedModel)
       formData.append('resolution', resolution)
       formData.append('ratio', '16:9')
       formData.append('duration', duration.toString())
@@ -400,7 +408,7 @@ function FirstLastFrameVideo() {
           status: 'pending',
           firstFrameUrl: firstFramePreview || '',
           lastFrameUrl: lastFramePreview || undefined,
-          model: 'volcengine-video-3.0-pro',
+          model: selectedModel,
           resolution,
           ratio: '16:9',
           duration,
@@ -1153,14 +1161,26 @@ function FirstLastFrameVideo() {
             {/* 控制栏 */}
             <div className="flex items-center justify-between pt-4 border-t border-gray-200">
               <div className="flex items-center gap-4">
-                {/* 版本选择 */}
+                {/* 模型选择 */}
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-600 font-medium">版本:</span>
-                  <button
-                    className="px-3 py-1.5 rounded-lg text-sm font-medium bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm cursor-default"
+                  <span className="text-sm text-gray-600 font-medium">模型:</span>
+                  <select
+                    value={selectedModel}
+                    onChange={(e) => setSelectedModel(e.target.value)}
+                    className="px-3 py-1.5 rounded-lg text-sm font-medium bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm cursor-pointer border-none outline-none appearance-none pr-8"
+                    style={{
+                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='white' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
+                      backgroundRepeat: 'no-repeat',
+                      backgroundPosition: 'right 8px center',
+                      paddingRight: '32px'
+                    }}
                   >
-                    3.0pro
-                  </button>
+                    {supportedModels.map((model) => (
+                      <option key={model.value} value={model.value} className="bg-white text-gray-900">
+                        {model.label} {model.supportsFirstLastFrame ? '(支持首尾帧)' : '(仅首帧)'}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 
                 {/* 分辨率选择 */}
