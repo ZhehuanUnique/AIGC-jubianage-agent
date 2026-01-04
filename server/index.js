@@ -895,6 +895,15 @@ app.get('/api/first-last-frame-video/status/:taskId', authenticateToken, async (
       // 使用火山引擎即梦AI-3.0 Pro状态查询
       const { getVolcengineTaskStatus } = await import('./services/volcengineVideoService.js')
       result = await getVolcengineTaskStatus(taskId, 'volcengine-video-3.0-pro')
+    } else if (model === 'veo3.1' || model === 'veo3.1-pro') {
+      // 使用 Veo3.1 状态查询
+      const { getVideoTaskStatus } = await import('./services/imageToVideoService.js')
+      result = await getVideoTaskStatus(taskId, model)
+    } else if (model === 'viduq2-turbo' || model === 'viduq2-pro' || model === 'viduq1' || 
+               model === 'vidu2.0' || model === 'vidu1.5' || model === 'vidu1.0') {
+      // 使用 Vidu V2 状态查询
+      const { getVideoTaskStatus } = await import('./services/imageToVideoService.js')
+      result = await getVideoTaskStatus(taskId, model)
     } else if (model === 'minimax-hailuo-02' || model === 'minimax-hailuo-2.3' || model === 'minimax-hailuo-2.3-fast') {
       // 使用 Hailuo 状态查询
       const { getHailuoTaskStatus } = await import('./services/hailuoService.js')
