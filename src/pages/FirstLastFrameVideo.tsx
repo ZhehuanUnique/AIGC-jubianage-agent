@@ -31,15 +31,34 @@ function FirstLastFrameVideo() {
   const [frameAspectRatio, setFrameAspectRatio] = useState<'16:9' | '9:16' | 'other' | null>(null) // 图片宽高比（用于判断标准比例）
   const [frameImageInfo, setFrameImageInfo] = useState<{ width: number; height: number } | null>(null) // 图片尺寸信息（用于动态计算容器尺寸）
   
-  // 支持的模型列表
+  // 支持的模型列表（暂时只显示支持单首帧的模型）
   const supportedModels = [
-    { value: 'volcengine-video-3.0-pro', label: '即梦3.0 Pro', supportsFirstLastFrame: false },
-    { value: 'doubao-seedance-1-5-pro-251215', label: '豆包Seedance 1.5 Pro', supportsFirstLastFrame: true },
-    { value: 'minimax-hailuo-02', label: 'Hailuo 02', supportsFirstLastFrame: true },
-    { value: 'minimax-hailuo-2.3', label: 'Hailuo 2.3', supportsFirstLastFrame: true },
+    { value: 'veo3.1', label: 'Veo3.1', supportsFirstLastFrame: false },
+    { value: 'veo3.1-pro', label: 'Veo3.1 Pro', supportsFirstLastFrame: false },
+    { value: 'viduq2-turbo', label: 'Vidu Q2 Turbo', supportsFirstLastFrame: false },
+    { value: 'viduq2-pro', label: 'Vidu Q2 Pro', supportsFirstLastFrame: false },
+    // 暂时隐藏支持首尾帧的模型（演示用）
+    // { value: 'volcengine-video-3.0-pro', label: '即梦3.0 Pro', supportsFirstLastFrame: false },
+    // { value: 'doubao-seedance-1-5-pro-251215', label: '豆包Seedance 1.5 Pro', supportsFirstLastFrame: true },
+    // { value: 'minimax-hailuo-02', label: 'Hailuo 02', supportsFirstLastFrame: true },
+    // { value: 'minimax-hailuo-2.3', label: 'Hailuo 2.3', supportsFirstLastFrame: true },
   ]
-  const [selectedModel, setSelectedModel] = useState<string>('volcengine-video-3.0-pro')
+  const [selectedModel, setSelectedModel] = useState<string>('veo3.1')
   const [videoVersion, setVideoVersion] = useState<'3.0pro'>('3.0pro') // 保留用于显示
+  
+  // 检查当前选择的模型是否支持首尾帧
+  const currentModelSupportsFirstLastFrame = supportedModels.find(m => m.value === selectedModel)?.supportsFirstLastFrame || false
+  
+  // 当模型不支持首尾帧时，清空尾帧
+  useEffect(() => {
+    if (!currentModelSupportsFirstLastFrame && (lastFrameFile || lastFramePreview)) {
+      setLastFrameFile(null)
+      setLastFramePreview(null)
+      if (lastFrameInputRef.current) {
+        lastFrameInputRef.current.value = ''
+      }
+    }
+  }, [selectedModel, currentModelSupportsFirstLastFrame])
   const [resolution, setResolution] = useState<'720p' | '1080p'>('720p')
   const [duration, setDuration] = useState(5)
   const [prompt, setPrompt] = useState('')
@@ -385,8 +404,8 @@ function FirstLastFrameVideo() {
     try {
       const formData = new FormData()
       formData.append('firstFrame', firstFrameFile)
-      // 尾帧是可选的，如果有就添加
-      if (lastFrameFile) {
+      // 尾帧是可选的，只有在模型支持首尾帧时才添加
+      if (lastFrameFile && currentModelSupportsFirstLastFrame) {
         formData.append('lastFrame', lastFrameFile)
       }
       formData.append('projectId', projectId)
@@ -1084,10 +1103,14 @@ function FirstLastFrameVideo() {
 
                 {/* 尾帧卡片 */}
                 <div
-                  className="relative cursor-pointer group"
-                  onMouseEnter={() => setHoveredFrame('last')}
+                  className={`relative group ${
+                    !currentModelSupportsFirstLastFrame 
+                      ? 'cursor-not-allowed opacity-50' 
+                      : 'cursor-pointer'
+                  }`}
+                  onMouseEnter={() => currentModelSupportsFirstLastFrame && setHoveredFrame('last')}
                   onMouseLeave={() => setHoveredFrame(null)}
-                  onClick={triggerLastFrameUpload}
+                  onClick={currentModelSupportsFirstLastFrame ? triggerLastFrameUpload : undefined}
                 >
                   <input
                     type="file"
@@ -1095,10 +1118,15 @@ function FirstLastFrameVideo() {
                     onChange={handleLastFrame}
                     className="hidden"
                     ref={lastFrameInputRef}
+                    disabled={!currentModelSupportsFirstLastFrame}
                   />
                   <div
                     className={`relative bg-gray-50 border-2 border-dashed rounded-xl flex flex-col items-center justify-center transition-all duration-300 ${
-                      hoveredFrame === 'last' ? 'border-blue-500 shadow-lg transform scale-105' : 'border-gray-300',
+                      !currentModelSupportsFirstLastFrame 
+                        ? 'border-gray-200 bg-gray-50' 
+                        : hoveredFrame === 'last' 
+                          ? 'border-blue-500 shadow-lg transform scale-105' 
+                          : 'border-gray-300',
                       lastFramePreview ? 'border-blue-500 bg-white' : '',
                       // 根据宽高比动态调整尺寸（与首帧保持一致）
                       frameAspectRatio === '16:9' ? 'w-32 aspect-video' : 
@@ -1125,7 +1153,9 @@ function FirstLastFrameVideo() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
                           </svg>
                         </div>
-                        <span className="text-xs text-gray-600 font-medium">尾帧</span>
+                        <span className="text-xs text-gray-600 font-medium">
+                          尾帧 {!currentModelSupportsFirstLastFrame && '(当前模型不支持)'}
+                        </span>
                       </div>
                     )}
                     {lastFramePreview && (
@@ -1177,7 +1207,7 @@ function FirstLastFrameVideo() {
                   >
                     {supportedModels.map((model) => (
                       <option key={model.value} value={model.value} className="bg-white text-gray-900">
-                        {model.label} {model.supportsFirstLastFrame ? '(支持首尾帧)' : '(仅首帧)'}
+                        {model.label}
                       </option>
                     ))}
                   </select>
