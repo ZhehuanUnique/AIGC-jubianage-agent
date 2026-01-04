@@ -32,9 +32,11 @@ if (existsSync(envPath)) {
 // 支持多种环境变量名称（兼容火山引擎 SDK 标准和自定义名称）
 const VOLCENGINE_AK = process.env.VOLCENGINE_AK || process.env.VOLCENGINE_ACCESS_KEY || process.env.VOLC_ACCESSKEY
 const VOLCENGINE_SK = process.env.VOLCENGINE_SK || process.env.VOLCENGINE_SECRET_KEY || process.env.VOLC_SECRETKEY
-// 根据API文档：https://api.volcengine.com/api-docs/view/overview?serviceCode=ark&version=2024-01-01
-// ark服务的endpoint应该是 https://ark.volcengineapi.com
-const VOLCENGINE_API_HOST = process.env.VOLCENGINE_API_HOST || 'https://ark.volcengineapi.com'
+// 根据火山方舟API文档：https://www.volcengine.com/docs/82379/1544136?lang=zh
+// 数据面API（模型/应用调用）的Base URL：https://ark.cn-beijing.volces.com/api/v3/
+// 但是，如果使用Action参数的方式（通用API格式），可能需要使用不同的endpoint
+// 默认使用数据面API的Base URL
+const VOLCENGINE_API_HOST = process.env.VOLCENGINE_API_HOST || 'https://ark.cn-beijing.volces.com'
 
 // 火山引擎服务配置
 const VOLCENGINE_REGION = 'cn-north-1' // 默认区域
@@ -244,13 +246,16 @@ export async function generateVideoWithVolcengine(imageUrl, options = {}) {
     // 火山引擎API使用POST请求，需要Action和Version参数作为查询参数
     // 根据文档：https://www.volcengine.com/docs/82379/1520757?lang=zh
     // 生成视频的Action参数为：CreateContentsGenerationsTasks
-    const uri = '/'
+    // 根据火山方舟API文档：https://www.volcengine.com/docs/82379/1544136?lang=zh
+    // 数据面API的Base URL是 https://ark.cn-beijing.volces.com/api/v3/
+    // 如果使用Action参数方式，URI应该是相对于Base URL的路径
+    const uri = '/api/v3/'
     const queryParams = {
       Action: 'CreateContentsGenerationsTasks', // 创建视频生成任务
       Version: '2024-01-01', // API版本（根据火山引擎API文档）
     }
     
-    // 解析API Host
+    // 解析API Host（从Base URL中提取host，不包含路径）
     const urlObj = new URL(VOLCENGINE_API_HOST)
     const host = urlObj.host
     
@@ -395,13 +400,15 @@ export async function getVolcengineTaskStatus(taskId, model = 'volcengine-video-
     const requestBodyJson = JSON.stringify(requestBody)
     // 根据文档：https://www.volcengine.com/docs/82379/1521309?lang=zh
     // 查询任务状态的Action参数为：GetContentsGenerationsTask
-    const uri = '/'
+    // 根据火山方舟API文档：https://www.volcengine.com/docs/82379/1544136?lang=zh
+    // 数据面API的Base URL是 https://ark.cn-beijing.volces.com/api/v3/
+    const uri = '/api/v3/'
     const queryParams = {
       Action: 'GetContentsGenerationsTask', // 查询视频生成任务状态
       Version: '2024-01-01', // API版本（根据火山引擎API文档）
     }
     
-    // 解析API Host
+    // 解析API Host（从Base URL中提取host，不包含路径）
     const urlObj = new URL(VOLCENGINE_API_HOST)
     const host = urlObj.host
     
