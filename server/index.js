@@ -5565,6 +5565,256 @@ app.put('/api/items/:id', authenticateToken, async (req, res) => {
   }
 })
 
+// 获取视频批注列表
+app.get('/api/projects/:projectId/fragments/:fragmentId/annotations', authenticateToken, async (req, res) => {
+  try {
+    const { projectId, fragmentId } = req.params
+    const userId = req.user?.id
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: '未登录，请先登录',
+      })
+    }
+
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+
+    // 验证项目权限
+    const projectCheck = await db.query(
+      'SELECT id FROM projects WHERE id = $1 AND user_id = $2',
+      [projectId, userId]
+    )
+
+    if (projectCheck.rows.length === 0) {
+      return res.status(403).json({
+        success: false,
+        error: '无权访问该项目',
+      })
+    }
+
+    // 获取批注列表
+    const annotationsResult = await db.query(
+      `SELECT a.*, u.username, u.display_name
+       FROM video_annotations a
+       LEFT JOIN users u ON a.user_id = u.id
+       WHERE a.project_id = $1 AND a.fragment_id = $2
+       ORDER BY a.created_at DESC`,
+      [projectId, fragmentId]
+    )
+
+    // 格式化返回数据
+    const annotations = annotationsResult.rows.map((row) => ({
+      id: row.id.toString(),
+      user: row.display_name || row.username || '未知用户',
+      avatar: (row.display_name || row.username || 'U').charAt(0).toUpperCase(),
+      time: new Date(row.created_at).toLocaleString('zh-CN'),
+      content: row.content,
+      timestamp: row.timestamp_display || '',
+      replies: row.replies_count || 0,
+      type: row.status === '已批注' ? '已批注' : '待批注',
+      timestampSeconds: row.timestamp_seconds ? parseFloat(row.timestamp_seconds) : null,
+      parentId: row.parent_id ? row.parent_id.toString() : null,
+    }))
+
+    res.json({
+      success: true,
+      data: annotations,
+    })
+  } catch (error) {
+    console.error('获取批注列表失败:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '获取批注列表失败',
+    })
+  }
+})
+
+// 创建视频批注
+app.post('/api/projects/:projectId/fragments/:fragmentId/annotations', authenticateToken, async (req, res) => {
+  try {
+    const { projectId, fragmentId } = req.params
+    const { content, timestampSeconds, timestampDisplay, videoUrl, parentId } = req.body
+    const userId = req.user?.id
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: '未登录，请先登录',
+      })
+    }
+
+    if (!content || content.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: '批注内容不能为空',
+      })
+    }
+
+    if (content.length > 1000) {
+      return res.status(400).json({
+        success: false,
+        error: '批注内容不能超过1000字',
+      })
+    }
+
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+
+    // 验证项目权限
+    const projectCheck = await db.query(
+      'SELECT id FROM projects WHERE id = $1 AND user_id = $2',
+      [projectId, userId]
+    )
+
+    if (projectCheck.rows.length === 0) {
+      return res.status(403).json({
+        success: false,
+        error: '无权访问该项目',
+      })
+    }
+
+    // 获取用户信息
+    const userResult = await db.query('SELECT username, display_name FROM users WHERE id = $1', [userId])
+    const user = userResult.rows[0]
+
+    // 如果是回复，更新父批注的回复数
+    if (parentId) {
+      await db.query(
+        'UPDATE video_annotations SET replies_count = replies_count + 1 WHERE id = $1',
+        [parentId]
+      )
+    }
+
+    // 创建批注
+    const insertResult = await db.query(
+      `INSERT INTO video_annotations 
+       (user_id, project_id, fragment_id, video_url, content, timestamp_seconds, timestamp_display, status, parent_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING id, created_at`,
+      [
+        userId,
+        projectId,
+        fragmentId,
+        videoUrl || null,
+        content.trim(),
+        timestampSeconds || null,
+        timestampDisplay || null,
+        '已批注',
+        parentId || null,
+      ]
+    )
+
+    const annotation = insertResult.rows[0]
+
+    res.json({
+      success: true,
+      data: {
+        id: annotation.id.toString(),
+        user: user?.display_name || user?.username || '未知用户',
+        avatar: (user?.display_name || user?.username || 'U').charAt(0).toUpperCase(),
+        time: new Date(annotation.created_at).toLocaleString('zh-CN'),
+        content: content.trim(),
+        timestamp: timestampDisplay || '',
+        replies: 0,
+        type: '已批注',
+        timestampSeconds: timestampSeconds || null,
+        parentId: parentId || null,
+      },
+    })
+  } catch (error) {
+    console.error('创建批注失败:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '创建批注失败',
+    })
+  }
+})
+
+// 删除视频批注
+app.delete('/api/projects/:projectId/annotations/:annotationId', authenticateToken, async (req, res) => {
+  try {
+    const { projectId, annotationId } = req.params
+    const userId = req.user?.id
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: '未登录，请先登录',
+      })
+    }
+
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+
+    // 验证项目权限
+    const projectCheck = await db.query(
+      'SELECT id FROM projects WHERE id = $1 AND user_id = $2',
+      [projectId, userId]
+    )
+
+    if (projectCheck.rows.length === 0) {
+      return res.status(403).json({
+        success: false,
+        error: '无权访问该项目',
+      })
+    }
+
+    // 检查批注是否存在及权限
+    const annotationCheck = await db.query(
+      'SELECT user_id, parent_id FROM video_annotations WHERE id = $1 AND project_id = $2',
+      [annotationId, projectId]
+    )
+
+    if (annotationCheck.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: '批注不存在',
+      })
+    }
+
+    const annotation = annotationCheck.rows[0]
+
+    // 检查权限（管理员或批注所有者）
+    const userResult = await db.query('SELECT username FROM users WHERE id = $1', [userId])
+    const username = userResult.rows[0]?.username || ''
+    const isAdmin = username === 'Chiefavefan' || username === 'jubian888'
+
+    if (!isAdmin && annotation.user_id !== userId) {
+      return res.status(403).json({
+        success: false,
+        error: '无权删除此批注',
+      })
+    }
+
+    // 如果是父批注，先删除所有子批注
+    if (!annotation.parent_id) {
+      await db.query('DELETE FROM video_annotations WHERE parent_id = $1', [annotationId])
+    } else {
+      // 如果是子批注，更新父批注的回复数
+      await db.query(
+        'UPDATE video_annotations SET replies_count = GREATEST(replies_count - 1, 0) WHERE id = (SELECT parent_id FROM video_annotations WHERE id = $1)',
+        [annotationId]
+      )
+    }
+
+    // 删除批注
+    await db.query('DELETE FROM video_annotations WHERE id = $1', [annotationId])
+
+    res.json({
+      success: true,
+      message: '批注已删除',
+    })
+  } catch (error) {
+    console.error('删除批注失败:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '删除批注失败',
+    })
+  }
+})
+
 // 上传 base64 图片到 COS（用于场景和物品）
 app.post('/api/upload-asset-base64-image', authenticateToken, async (req, res) => {
   try {

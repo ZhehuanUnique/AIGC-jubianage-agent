@@ -287,7 +287,7 @@ function FragmentManagement() {
               className="w-64 h-48 bg-gray-50 border border-gray-200 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-transform relative group"
             >
               <div
-                onClick={() => navigate(`/project/${projectId}/fragments/${fragment.id}/detail`)}
+                onClick={() => navigate(`/project/${projectId}/fragments/${fragment.id}/review`)}
                 className="w-full h-full bg-gray-700 flex items-center justify-center"
               >
                 {fragment.videoUrls && fragment.videoUrls.length > 0 ? (

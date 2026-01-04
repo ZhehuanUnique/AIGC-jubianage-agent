@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, RefreshCw, Play, Pause, Volume2, VolumeX, Maximize, X, ChevronsRight, Upload, Trash2 } from 'lucide-react'
 import { getProject } from '../services/projectStorage'
 import { alertError, alertInfo, alertSuccess, alertWarning } from '../utils/alert'
-import { uploadVideo, importVideosToJianying } from '../services/api'
+import { uploadVideo, importVideosToJianying, getProjectFragments } from '../services/api'
 import { AuthService } from '../services/auth'
 import { getUserSettings } from '../services/settingsService'
 
@@ -133,31 +133,55 @@ function VideoReview() {
     alertSuccess('批注已删除', '删除成功')
   }
 
-  // 加载项目名称和片段列表
+  // 加载项目名称、片段列表和当前片段的视频
   useEffect(() => {
-    if (projectId) {
+    const loadFragmentData = async () => {
+      if (!projectId) return
+      
       const project = getProject(projectId)
       if (project) {
         setProjectName(project.name)
       }
       
-      // 加载片段列表（可以从API或本地存储获取）
-      // 这里先使用模拟数据，实际应该从API获取
-      const mockFragments = [
-        { id: '1', name: '第一部分' },
-        { id: '2', name: '第二部分' },
-        { id: '3', name: '第三部分' },
-      ]
-      setFragments(mockFragments)
-      
-      // 找到当前片段在列表中的索引
-      if (fragmentId) {
-        const index = mockFragments.findIndex(f => f.id === fragmentId)
-        if (index !== -1) {
-          setCurrentFragmentIndex(index)
+      try {
+        // 从API获取片段列表
+        const token = AuthService.getToken()
+        if (!token) return
+        
+        // 使用API函数获取片段列表
+        const fragmentsData = await getProjectFragments(parseInt(projectId, 10))
+        
+        if (fragmentsData && fragmentsData.length > 0) {
+          const fragmentsList = fragmentsData.map((f: any) => ({
+            id: f.id,
+            name: f.name || `分镜${f.id}`,
+          }))
+          setFragments(fragmentsList)
+          
+          // 找到当前片段
+          if (fragmentId) {
+            const index = fragmentsData.findIndex((f: any) => f.id === fragmentId)
+            if (index !== -1) {
+              setCurrentFragmentIndex(index)
+              
+              // 获取当前片段的视频
+              const currentFragment = fragmentsData[index]
+              if (currentFragment && currentFragment.videoUrls && currentFragment.videoUrls.length > 0) {
+                // 使用最新的视频URL
+                const latestVideoUrl = currentFragment.videoUrls[0]
+                setVideoUrl(latestVideoUrl)
+                setCosVideoUrl(latestVideoUrl)
+                console.log('✅ 已加载片段视频:', latestVideoUrl)
+              }
+            }
+          }
         }
+      } catch (error) {
+        console.error('加载片段数据失败:', error)
       }
     }
+    
+    loadFragmentData()
   }, [projectId, fragmentId])
 
   // 格式化时间（显示为 MM:SS，但内部计算支持小数）
