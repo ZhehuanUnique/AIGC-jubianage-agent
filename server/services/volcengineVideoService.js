@@ -239,9 +239,12 @@ export async function generateVideoWithVolcengine(imageUrl, options = {}) {
     }
 
     const requestBodyJson = JSON.stringify(requestBody)
-    // 火山引擎Visual API使用POST请求到根路径，通过req_key指定服务
+    // 火山引擎Visual API使用POST请求，需要Action参数作为查询参数
+    // Action参数指定要调用的API操作
     const uri = '/'
-    const queryParams = {} // Visual API通常不使用查询参数，req_key在body中
+    const queryParams = {
+      Action: 'VideoGeneration', // 视频生成操作
+    }
     
     // 解析API Host
     const urlObj = new URL(VOLCENGINE_API_HOST)
@@ -262,11 +265,16 @@ export async function generateVideoWithVolcengine(imageUrl, options = {}) {
       VOLCENGINE_SERVICE
     )
     
-    console.log('📤 发送请求到:', `${VOLCENGINE_API_HOST}${uri}`)
+    // 构建完整URL（包含查询参数）
+    const queryString = normalizeQueryString(queryParams)
+    const fullUrl = queryString ? `${VOLCENGINE_API_HOST}${uri}?${queryString}` : `${VOLCENGINE_API_HOST}${uri}`
+    
+    console.log('📤 发送请求到:', fullUrl)
+    console.log('📤 查询参数:', JSON.stringify(queryParams, null, 2))
     console.log('📤 请求体:', JSON.stringify(requestBody, null, 2))
 
     // 使用签名发送请求（必须包含所有签名相关的header）
-    const response = await fetch(`${VOLCENGINE_API_HOST}${uri}`, {
+    const response = await fetch(fullUrl, {
       method: 'POST',
       headers: {
         'Content-Type': contentType,
@@ -382,7 +390,9 @@ export async function getVolcengineTaskStatus(taskId, model = 'volcengine-video-
     
     const requestBodyJson = JSON.stringify(requestBody)
     const uri = '/'
-    const queryParams = {} // Visual API通常不使用查询参数
+    const queryParams = {
+      Action: 'VideoGenerationQuery', // 视频生成查询操作
+    }
     
     // 解析API Host
     const urlObj = new URL(VOLCENGINE_API_HOST)
@@ -403,10 +413,15 @@ export async function getVolcengineTaskStatus(taskId, model = 'volcengine-video-
       VOLCENGINE_SERVICE
     )
     
-    console.log('📤 查询请求到:', `${VOLCENGINE_API_HOST}${uri}`)
+    // 构建完整URL（包含查询参数）
+    const queryString = normalizeQueryString(queryParams)
+    const fullUrl = queryString ? `${VOLCENGINE_API_HOST}${uri}?${queryString}` : `${VOLCENGINE_API_HOST}${uri}`
+    
+    console.log('📤 查询请求到:', fullUrl)
+    console.log('📤 查询参数:', JSON.stringify(queryParams, null, 2))
     console.log('📤 查询请求体:', JSON.stringify(requestBody, null, 2))
     
-    const response = await fetch(`${VOLCENGINE_API_HOST}${uri}`, {
+    const response = await fetch(fullUrl, {
       method: 'POST',
       headers: {
         'Content-Type': contentType,
