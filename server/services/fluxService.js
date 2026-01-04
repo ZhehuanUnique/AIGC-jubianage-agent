@@ -44,14 +44,31 @@ if (process.env.FLUX_2_MAX_API_KEY) {
  * @returns {string} API Key
  */
 function getApiKey(model) {
-  const keyMap = {
-    'flux-2-max': process.env.FLUX_2_MAX_API_KEY,
-    'flux-2-flex': process.env.FLUX_2_FLEX_API_KEY,
-    'flux-2-pro': process.env.FLUX_2_PRO_API_KEY,
+  // 动态获取环境变量，而不是在模块加载时创建 keyMap
+  // 这样可以确保在 .env 文件加载后也能正确读取
+  let apiKey
+  switch (model) {
+    case 'flux-2-max':
+      apiKey = process.env.FLUX_2_MAX_API_KEY
+      break
+    case 'flux-2-flex':
+      apiKey = process.env.FLUX_2_FLEX_API_KEY
+      break
+    case 'flux-2-pro':
+      apiKey = process.env.FLUX_2_PRO_API_KEY
+      break
+    default:
+      apiKey = null
   }
   
-  const apiKey = keyMap[model]
   if (!apiKey) {
+    // 调试信息：显示当前环境变量的状态
+    console.error('❌ FLUX API Key 未找到:', {
+      model,
+      FLUX_2_MAX_API_KEY: process.env.FLUX_2_MAX_API_KEY ? '已设置' : '未设置',
+      FLUX_2_FLEX_API_KEY: process.env.FLUX_2_FLEX_API_KEY ? '已设置' : '未设置',
+      FLUX_2_PRO_API_KEY: process.env.FLUX_2_PRO_API_KEY ? '已设置' : '未设置',
+    })
     throw new Error(`${model.toUpperCase()}_API_KEY 环境变量未设置，请检查 .env 文件`)
   }
   
