@@ -27,9 +27,9 @@ if ! grep -q "VOLCENGINE_AK" .env 2>/dev/null; then
     echo "# ==================== 火山引擎即梦AI-视频生成3.0 Pro配置 ===================" >> .env
     echo "# 火山引擎 Access Key ID（从火山引擎控制台获取）" >> .env
     echo "# 用于即梦AI-视频生成3.0 Pro" >> .env
-    echo "VOLCENGINE_AK=AKLTYjM1ZTY4NWRiMWEyNDg4NDg1ZTBhODdlYWNmYzY5ZTI" >> .env
+    echo "VOLCENGINE_AK=YOUR_VOLCENGINE_ACCESS_KEY_ID" >> .env
     echo "# 火山引擎 Secret Access Key（从火山引擎控制台获取）" >> .env
-    echo "VOLCENGINE_SK=WVRoall6QmtNMkUwTnpsaE5EbGpZbUV5T1RZeU16Y3pZVGN4TnpKa01UTQ==" >> .env
+    echo "VOLCENGINE_SK=YOUR_VOLCENGINE_SECRET_ACCESS_KEY" >> .env
     echo "# 可选：火山引擎 API Host（默认使用正式环境）" >> .env
     echo "# 正式环境: https://visual.volcengineapi.com" >> .env
     echo "VOLCENGINE_API_HOST=https://visual.volcengineapi.com" >> .env
