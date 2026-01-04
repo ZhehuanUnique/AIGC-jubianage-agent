@@ -511,6 +511,11 @@ export async function generateVideoFromImage(imageUrl, options = {}) {
  * @returns {Promise<Object>} 返回任务状态和视频信息
  */
 export async function getVideoTaskStatus(taskId, model = 'doubao-seedance-1-5-pro-251215') {
+  // 如果是火山引擎即梦AI-3.0 Pro模型，使用专门的状态查询
+  if (model === 'volcengine-video-3.0-pro' || model === 'doubao-seedance-3.0-pro') {
+    return await getVolcengineTaskStatus(taskId, 'volcengine-video-3.0-pro')
+  }
+
   // 如果是 Kling 模型，使用专门的服务
   if (model === 'kling-2.6-5s' || model === 'kling-2.6-10s' || model === 'kling-o1') {
     return await getKlingTaskStatus(taskId, model)
