@@ -255,6 +255,13 @@ MILVUS_PORT=19530
 
 ## RAG 库使用
 
+### 概述
+
+当前项目实现了两种 RAG（检索增强生成）方案：
+
+1. **简单版本** (`ragService.js`)：基于 JSON 文件存储，使用关键词匹配进行相似度计算
+2. **高级版本** (`geminiRagService.js`)：支持向量数据库（Chroma/Milvus），使用真正的向量相似度计算
+
 ### 导入剧本文档到 RAG 库
 
 #### 方式 1：使用简单脚本导入（推荐）
@@ -270,6 +277,16 @@ const scriptFilePath = 'C:\\Users\\Administrator\\Desktop\\agent测试\\安萌.d
 // RAG 库中的剧本ID（修改为唯一的ID，建议使用英文和数字）
 const scriptId = 'anmeng' // 例如：'anmeng', 'script_001', 'my_script' 等
 ```
+
+**路径格式说明**：
+- Windows 路径需要使用双反斜杠 `\\` 或正斜杠 `/`
+- 示例：`'C:\\Users\\Administrator\\Desktop\\agent测试\\安萌.docx'`
+- 或者：`'C:/Users/Administrator/Desktop/agent测试/安萌.docx'`
+
+**scriptId 命名建议**：
+- 使用英文、数字、下划线
+- 避免使用中文和特殊字符
+- 建议使用有意义的名称，如：`anmeng`, `script_001`, `my_project_v1`
 
 2. **运行导入脚本**
 
@@ -287,6 +304,169 @@ node services/videoMotionPrompt/simple-import-script.js
 - ✅ 存储成功信息
 - ✅ 验证结果（检索测试）
 
+**成功标志**：
+```
+✅ 成功存储 X 个片段到 RAG 库
+   RAG 库 ID: anmeng
+   存储路径: ./data/rag_vectors/anmeng.json
+✅ 验证成功，检索到 X 个相关片段
+🎉 导入完成！
+```
+
+#### 方式 2：使用 API 接口
+
+```powershell
+curl -X POST http://localhost:3002/api/rag/store-script `
+  -H "Content-Type: application/json" `
+  -d '{
+    "scriptId": "script_001",
+    "segments": [
+      {
+        "shotNumber": 1,
+        "content": "第一段剧本内容...",
+        "prompt": "可选的分镜提示词"
+      }
+    ]
+  }'
+```
+
+#### 方式 3：直接编辑 JSON 文件
+
+1. 运行简单脚本生成初始 JSON 文件
+2. 编辑文件：`server/data/rag_vectors/{scriptId}.json`
+3. 格式示例：
+
+```json
+{
+  "scriptId": "anmeng",
+  "segments": [
+    {
+      "shotNumber": 1,
+      "content": "第一段剧本内容",
+      "prompt": "分镜提示词（可选）",
+      "description": "描述（可选）",
+      "keywords": ["关键词1", "关键词2"],
+      "storedAt": "2025-12-27T10:00:00.000Z"
+    }
+  ],
+  "updatedAt": "2025-12-27T10:00:00.000Z"
+}
+```
+
+### 确认是否导入成功
+
+#### 方法 1：检查文件是否存在
+
+```powershell
+Test-Path "server\data\rag_vectors\anmeng.json"
+```
+
+#### 方法 2：查看文件内容
+
+```powershell
+Get-Content "server\data\rag_vectors\anmeng.json" -Head 50
+```
+
+#### 方法 3：查看所有已导入的剧本
+
+```powershell
+Get-ChildItem "server\data\rag_vectors\*.json" | Select-Object Name
+```
+
+### RAG 库实现说明
+
+#### 简单版本（默认）
+
+**存储方式**：
+- 使用 JSON 文件存储剧本片段
+- 文件路径：`server/data/rag_vectors/{scriptId}.json`
+- 每个剧本一个 JSON 文件
+
+**检索方式**：
+- 基于关键词匹配的相似度计算
+- 提取关键词 → 计算交集/并集 → 得到相似度分数
+- 相似度阈值：默认 0.6（可配置）
+
+**优点**：
+- ✅ 无需额外依赖
+- ✅ 实现简单，易于理解
+- ✅ 适合小规模数据
+
+**缺点**：
+- ❌ 检索精度有限
+- ❌ 无法理解语义相似性
+
+#### 高级版本（Gemini RAG）
+
+**存储方式**：
+- 支持两种向量数据库：
+  - **ChromaDB**：轻量级，适合本地部署
+  - **Milvus**：高性能，适合大规模数据
+- 使用向量嵌入（Embedding）存储剧本片段
+
+**检索方式**：
+- 使用 Gemini Embedding API 生成向量
+- 支持混合检索：
+  - **CLIP 向量**：用于敏感剧本数据（本地生成，私有存储）
+  - **Gemini Embedding**：用于公开/参考素材（云端生成）
+- 向量相似度计算（余弦相似度）
+
+**优点**：
+- ✅ 语义理解能力强
+- ✅ 检索精度高
+- ✅ 支持大规模数据
+- ✅ 支持混合检索策略
+
+**缺点**：
+- ❌ 需要额外的向量数据库依赖
+- ❌ 需要 Gemini API Key
+- ❌ 配置相对复杂
+
+### 高级版本配置（Chroma/Milvus）
+
+#### 安装依赖
+
+**ChromaDB（推荐新手）**：
+```powershell
+cd server
+npm install chromadb
+```
+
+**Milvus（适合大规模使用）**：
+```powershell
+cd server
+npm install @zilliz/milvus2-sdk-node
+```
+
+#### 配置环境变量
+
+在 `server/.env` 文件中添加：
+
+```env
+# ==================== Gemini RAG 配置 ====================
+# Gemini API Key（必需）
+GEMINI_3_PRO_API_KEY=your_gemini_api_key_here
+
+# 向量数据库类型：chroma 或 milvus
+VECTOR_DB_TYPE=chroma
+
+# Gemini RAG 向量数据库路径（Chroma 使用本地路径，Milvus 使用连接地址）
+GEMINI_RAG_VECTOR_DB_PATH=./data/gemini_rag_vectors
+
+# Milvus 配置（仅在 VECTOR_DB_TYPE=milvus 时使用）
+MILVUS_HOST=localhost
+MILVUS_PORT=19530
+
+# Gemini RAG 检索返回的 top K 结果数量
+GEMINI_RAG_TOP_K=5
+
+# Gemini RAG 相似度阈值（0-1）
+GEMINI_RAG_SIMILARITY_THRESHOLD=0.6
+
+# 是否合并 CLIP 和 Gemini 的检索结果（混合检索）
+GEMINI_RAG_MERGE_RESULTS=true
+```
+
 ### RAG 库功能
 
 - **剧本导入**：支持 .docx 文件导入
@@ -294,6 +474,38 @@ node services/videoMotionPrompt/simple-import-script.js
 - **向量存储**：使用 Milvus 或 Chroma 存储向量
 - **智能检索**：支持语义检索相关片段
 - **视频运动提示词生成**：基于 RAG 检索生成视频运动提示词
+
+### 使用存储的剧本
+
+生成视频运动提示词时，使用 `scriptId`：
+
+```powershell
+curl -X POST http://localhost:3002/api/generate-video-motion-prompt `
+  -H "Content-Type: application/json" `
+  -d '{
+    "imageUrl": "https://example.com/image.jpg",
+    "scriptContext": "当前分镜的内容...",
+    "shotNumber": 1,
+    "scriptId": "anmeng"
+  }'
+```
+
+系统会自动：
+- ✅ 从 RAG 库检索相关片段（相似度 >= 0.6）
+- ✅ 获取当前分镜前后的上下文（窗口大小：2）
+- ✅ 结合图片分析和 RAG 上下文生成提示词
+
+### 删除不需要的剧本
+
+**方法 1：直接删除 JSON 文件（推荐）**
+
+```powershell
+Remove-Item "server\data\rag_vectors\anmeng.json" -Force
+```
+
+**方法 2：如果使用向量数据库（Chroma/Milvus）**
+
+需要编写脚本删除集合，或删除整个数据目录。
 
 ---
 

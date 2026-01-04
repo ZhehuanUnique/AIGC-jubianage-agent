@@ -9,10 +9,8 @@ interface RechargePackage {
 }
 
 const packages: RechargePackage[] = [
-  { credits: 5000, value: 999, price: 999 },
-  { credits: 15000, value: 2997, price: 2997 },
-  { credits: 25000, value: 4995, price: 4995 },
-  { credits: 50000, value: 9990, price: 9990 },
+  { credits: 10000, value: 999, price: 999 },
+  { credits: 30000, value: 2988, price: 2988 },
 ]
 
 function CreditRecharge() {

@@ -3,8 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom'
 import SidebarNavigation from '../components/SidebarNavigation'
 import { Plus, Search, ArrowLeft, RefreshCw, Trash2 } from 'lucide-react'
 import CreateItemModal from '../components/CreateItemModal'
+import DeleteConfirmModal from '../components/DeleteConfirmModal'
 import { getProject } from '../services/projectStorage'
 import { getProjectItems, deleteItem } from '../services/api'
+import { alertError } from '../utils/alert'
 
 interface Item {
   id: string
@@ -23,6 +25,14 @@ function ItemManagement() {
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [itemToDelete, setItemToDelete] = useState<Item | null>(null)
+
+  // 如果projectId不存在，重定向到项目管理页面
+  useEffect(() => {
+    if (!projectId) {
+      console.error('项目ID不存在，重定向到项目管理页面')
+      navigate('/project-management')
+    }
+  }, [projectId, navigate])
 
   // 从 projectId 获取项目名称
   useEffect(() => {
@@ -69,7 +79,10 @@ function ItemManagement() {
 
   // 从数据库加载物品数据
   const loadItems = async () => {
-    if (!projectId) return
+    if (!projectId) {
+      console.warn('项目ID不存在，无法加载物品')
+      return
+    }
     
     setIsLoading(true)
     try {
@@ -95,28 +108,39 @@ function ItemManagement() {
           }
         } catch (dbError) {
           console.warn('从数据库加载物品失败，尝试从localStorage加载:', dbError)
+          // 继续执行下面的localStorage加载逻辑
         }
       }
       
       // 如果不是数字或数据库加载失败，尝试从localStorage加载（兼容旧数据）
-      const project = getProject(projectId)
-      if (project && project.items) {
-        setItems(project.items.map(item => ({
-          ...item,
-          image: item.image || null,
-        })))
-      } else {
+      try {
+        const project = getProject(projectId)
+        if (project && project.items) {
+          setItems(project.items.map(item => ({
+            ...item,
+            image: item.image || null,
+          })))
+        } else {
+          setItems([])
+        }
+      } catch (localStorageError) {
+        console.error('从localStorage加载物品失败:', localStorageError)
         setItems([])
       }
     } catch (error) {
       console.error('加载物品数据失败:', error)
-      const project = getProject(projectId)
-      if (project && project.items) {
-        setItems(project.items.map(item => ({
-          ...item,
-          image: item.image || null,
-        })))
-      } else {
+      try {
+        const project = getProject(projectId)
+        if (project && project.items) {
+          setItems(project.items.map(item => ({
+            ...item,
+            image: item.image || null,
+          })))
+        } else {
+          setItems([])
+        }
+      } catch (fallbackError) {
+        console.error('备用加载方案也失败:', fallbackError)
         setItems([])
       }
     } finally {
@@ -158,6 +182,23 @@ function ItemManagement() {
       window.removeEventListener('item-uploaded', handleItemUploaded)
     }
   }, [projectId])
+
+  // 如果projectId不存在，显示加载或错误信息
+  if (!projectId) {
+    return (
+      <div className="min-h-screen bg-white text-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600 mb-4">项目ID不存在</p>
+          <button
+            onClick={() => navigate('/project-management')}
+            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+          >
+            返回项目管理
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-white text-gray-900 flex">

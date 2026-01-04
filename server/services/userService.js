@@ -273,16 +273,18 @@ export class UserService {
    * 获取所有用户消耗排名
    * @param {Date} startDate - 开始日期
    * @param {Date} endDate - 结束日期
+   * @param {boolean} showRealCost - 是否显示真实成本（元），默认false（显示积分）
    * @returns {Promise<Array>}
    */
-  static async getUserConsumptionRanking(startDate = null, endDate = null) {
+  static async getUserConsumptionRanking(startDate = null, endDate = null, showRealCost = false) {
     try {
       let query = `
         SELECT 
           u.id,
           u.username,
           u.display_name,
-          COALESCE(SUM(ol.points_consumed), 0) as total_consumption
+          COALESCE(SUM(ol.points_consumed), 0) as total_consumption,
+          ol.metadata
         FROM users u
         LEFT JOIN operation_logs ol ON u.id = ol.user_id AND ol.status = 'success'
       `
@@ -306,17 +308,79 @@ export class UserService {
       }
 
       query += `
-        GROUP BY u.id, u.username, u.display_name
+        GROUP BY u.id, u.username, u.display_name, ol.metadata
         ORDER BY total_consumption DESC
       `
 
       const result = await pool.query(query, params)
+      
+      // 如果需要显示真实成本，需要从metadata中提取实际成本
+      if (showRealCost) {
+        // 重新查询，从metadata中提取实际成本
+        let costQuery = `
+          SELECT 
+            u.id,
+            u.username,
+            u.display_name,
+            SUM(
+              CASE 
+                WHEN ol.metadata IS NOT NULL AND ol.metadata::text != 'null' 
+                THEN COALESCE((ol.metadata->>'costInYuan')::numeric, 0)
+                ELSE 0
+              END
+            ) as total_cost
+          FROM users u
+          LEFT JOIN operation_logs ol ON u.id = ol.user_id AND ol.status = 'success'
+        `
+        
+        const costConditions = []
+        const costParams = []
+        let costParamIndex = 1
+
+        if (startDate) {
+          costConditions.push(`ol.created_at >= $${costParamIndex++}`)
+          costParams.push(startDate)
+        }
+
+        if (endDate) {
+          costConditions.push(`ol.created_at <= $${costParamIndex++}`)
+          costParams.push(new Date(endDate.getTime() + 24 * 60 * 60 * 1000 - 1))
+        }
+
+        if (costConditions.length > 0) {
+          costQuery += ' WHERE ' + costConditions.join(' AND ')
+        }
+
+        costQuery += `
+          GROUP BY u.id, u.username, u.display_name
+          HAVING SUM(
+            CASE 
+              WHEN ol.metadata IS NOT NULL AND ol.metadata::text != 'null' 
+              THEN COALESCE((ol.metadata->>'costInYuan')::numeric, 0)
+              ELSE 0
+            END
+          ) > 0
+          ORDER BY total_cost DESC
+        `
+
+        const costResult = await pool.query(costQuery, costParams)
+        return costResult.rows.map((row, index) => ({
+          rank: index + 1,
+          userId: row.id,
+          username: row.username,
+          displayName: row.display_name || row.username,
+          totalConsumption: parseFloat(row.total_cost) || 0,
+          isRealCost: true,
+        }))
+      }
+      
       return result.rows.map((row, index) => ({
         rank: index + 1,
         userId: row.id,
         username: row.username,
         displayName: row.display_name || row.username,
         totalConsumption: parseFloat(row.total_consumption) || 0,
+        isRealCost: false,
       }))
     } catch (error) {
       console.error('获取用户消耗排名失败:', error)

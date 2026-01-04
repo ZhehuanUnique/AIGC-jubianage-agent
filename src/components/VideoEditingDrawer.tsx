@@ -126,7 +126,7 @@ function VideoEditingDrawer({
 
   // 辅助函数：判断是否是 Kling 模型
   const isKlingModel = (model: string): boolean => {
-    return model === 'kling-2.6-5s' || model === 'kling-2.6-10s' || model === 'kling-o1'
+    return model === 'kling-2.6' || model === 'kling-o1'
   }
 
   // 辅助函数：判断是否是火山引擎即梦AI模型
@@ -169,11 +169,9 @@ function VideoEditingDrawer({
     } else if (isSeedanceModel(model)) {
       return [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     } else if (isKlingModel(model)) {
-      // Kling 模型：2.6-5s 固定5秒，2.6-10s 固定10秒，O1 支持自定义时长
-      if (model === 'kling-2.6-5s') {
-        return [5]
-      } else if (model === 'kling-2.6-10s') {
-        return [10]
+      // Kling 模型：2.6 支持5秒和10秒，O1 支持自定义时长
+      if (model === 'kling-2.6') {
+        return [5, 10]
       } else if (model === 'kling-o1') {
         // Kling-O1 支持自定义时长，返回常用选项
         return [5, 10, 15, 20]
@@ -444,15 +442,13 @@ function VideoEditingDrawer({
                   className="w-full px-3 py-2 bg-white border border-gray-300 rounded text-sm focus:outline-none focus:border-purple-500"
                 >
                   <option value="volcengine-video-3.0-pro">即梦AI-视频生成3.0pro</option>
-                  <option value="doubao-seedance-1-5-pro-251215">即梦AI-视频生成3.5pro</option>
                   <option value="viduq2-turbo">ViduQ2-Turbo</option>
                   <option value="veo3.1">Google Veo3.1</option>
                   <option value="veo3.1-pro">Google Veo3.1-Pro</option>
                   <option value="minimax-hailuo-02">MiniMax Hailuo-02</option>
                   <option value="minimax-hailuo-2.3">MiniMax Hailuo-2.3</option>
                   <option value="minimax-hailuo-2.3-fast">MiniMax Hailuo-2.3-fast</option>
-                  <option value="kling-2.6-5s">Kling-2.6-5秒</option>
-                  <option value="kling-2.6-10s">Kling-2.6-10秒</option>
+                  <option value="kling-2.6">Kling-2.6</option>
                   <option value="kling-o1">Kling-O1</option>
                 </select>
               </div>

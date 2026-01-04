@@ -140,11 +140,12 @@ export class UserApi {
   /**
    * 获取用户消耗排名
    */
-  static async getConsumptionRanking(startDate?: string, endDate?: string): Promise<ConsumptionRanking[]> {
+  static async getConsumptionRanking(startDate?: string, endDate?: string, showRealCost?: boolean): Promise<ConsumptionRanking[]> {
     let url = `${API_BASE_URL}/api/analytics/consumption-ranking`
     const params = new URLSearchParams()
     if (startDate) params.append('startDate', startDate)
     if (endDate) params.append('endDate', endDate)
+    if (showRealCost) params.append('showRealCost', 'true')
     if (params.toString()) url += '?' + params.toString()
     
     const response = await fetch(url, {

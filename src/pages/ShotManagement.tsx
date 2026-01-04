@@ -1446,7 +1446,7 @@ function ShotManagement() {
                 shotNumber: shot.shotNumber || shot.id,
                 image: image,
                 videoPrompt: shot.prompt,
-                model: 'doubao-seedance-1-5-pro-251215',
+                model: 'volcengine-video-3.0-pro',
                 resolution: '720p',
                 duration: 5,
                 quantity: 1, // 每个图片单独处理
@@ -1856,7 +1856,7 @@ function ShotManagement() {
                     shotNumber: shot.shotNumber,
                     image: shot.thumbnailImages && shot.thumbnailImages.length > 0 ? shot.thumbnailImages[0] : shot.thumbnailImage || '/placeholder-image.jpg',
                     videoPrompt: shot.prompt || shot.description || '',
-                    model: 'doubao-seedance-1-5-pro-251215',
+                    model: 'volcengine-video-3.0-pro',
                     resolution: '720p',
                     duration: 5,
                     quantity: 1,

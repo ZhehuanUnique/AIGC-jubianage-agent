@@ -306,7 +306,7 @@ function VideoEditing() {
 
   // 辅助函数：判断是否是 Kling 模型
   const isKlingModel = (model: string): boolean => {
-    return model === 'kling-2.6-5s' || model === 'kling-2.6-10s' || model === 'kling-o1'
+    return model === 'kling-2.6' || model === 'kling-o1'
   }
 
   // 辅助函数：判断是否是火山引擎即梦AI模型
@@ -358,11 +358,9 @@ function VideoEditing() {
       // 豆包 Seedance：支持 2~12 秒
       return [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     } else if (isKlingModel(model)) {
-      // Kling 模型：2.6-5s 固定5秒，2.6-10s 固定10秒，O1 支持自定义时长
-      if (model === 'kling-2.6-5s') {
-        return [5]
-      } else if (model === 'kling-2.6-10s') {
-        return [10]
+      // Kling 模型：2.6 支持5秒和10秒，O1 支持自定义时长
+      if (model === 'kling-2.6') {
+        return [5, 10]
       } else if (model === 'kling-o1') {
         // Kling-O1 支持自定义时长，返回常用选项
         return [5, 10, 15, 20]

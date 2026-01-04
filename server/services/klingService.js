@@ -1,11 +1,12 @@
 /**
  * Kling 可灵视频生成服务
  * 支持模型：
- * - Kling-2.6-5秒 (kling-2.6-5s)
+ * - Kling-2.6 (kling-2.6) - 支持5秒和10秒，根据duration参数自动选择
  * - Kling-O1 (kling-o1)
  * 
  * API文档：
  * - Kling-2.6-5秒: https://302ai.apifox.cn/386524568e0
+ * - Kling-2.6-10秒: https://302ai.apifox.cn/386524568e0
  * - Kling-O1: https://doc.302.ai/385221088e0
  * - 任务查询: https://302ai.apifox.cn/211531465e0
  */
@@ -20,7 +21,7 @@ const API_BASE_URL = process.env.KLING_API_HOST || 'https://api.302.ai'
  * @returns {string} API Key
  */
 function getApiKeyForModel(model) {
-  if (model === 'kling-2.6-5s' || model === 'kling-2.6-10s') {
+  if (model === 'kling-2.6' || model === 'kling-2.6-5s' || model === 'kling-2.6-10s') {
     return process.env.KLING_26_API_KEY
   } else if (model === 'kling-o1') {
     return process.env.KLING_O1_API_KEY
@@ -30,12 +31,13 @@ function getApiKeyForModel(model) {
 }
 
 /**
- * 生成视频（图生视频）- Kling-2.6-5秒
+ * 生成视频（图生视频）- Kling-2.6（支持5秒和10秒）
  * @param {string} imageUrl - 图片URL或base64编码
  * @param {Object} options - 配置选项
  * @param {string} options.prompt - 提示词（可选）
  * @param {string} options.lastFrameImage - 尾帧图片URL或base64（可选）
  * @param {boolean} options.enableAudio - 是否生成音频，默认 false（开启音频后无法使用首尾帧）
+ * @param {number} options.duration - 视频时长（秒），5或10，默认5
  * @returns {Promise<Object>} 返回任务ID
  */
 export async function generateVideoWithKling26(imageUrl, options = {}) {
@@ -43,7 +45,14 @@ export async function generateVideoWithKling26(imageUrl, options = {}) {
     prompt = '',
     lastFrameImage = null,
     enableAudio = false,
+    duration = 5,
   } = options
+
+  // 根据时长选择API端点
+  const apiEndpoint = duration === 10 
+    ? '/klingai/m2v_26_image2video_10s' 
+    : '/klingai/m2v_26_image2video_5s'
+  const modelName = duration === 10 ? 'kling-2.6-10s' : 'kling-2.6-5s'
 
   const apiKey = process.env.KLING_26_API_KEY
   if (!apiKey) {
@@ -51,11 +60,12 @@ export async function generateVideoWithKling26(imageUrl, options = {}) {
   }
 
   try {
-    console.log('🎬 调用 Kling-2.6-5秒 API:', {
+    console.log(`🎬 调用 Kling-2.6-${duration}秒 API:`, {
       hasFirstFrame: !!imageUrl,
       hasLastFrame: !!lastFrameImage,
       hasPrompt: !!prompt,
       enableAudio,
+      duration,
     })
 
     // 准备 multipart/form-data
@@ -115,9 +125,9 @@ export async function generateVideoWithKling26(imageUrl, options = {}) {
     // 添加音频选项
     formData.append('enable_audio', enableAudio.toString())
 
-    console.log('📤 发送请求到:', `${API_BASE_URL}/klingai/m2v_26_image2video_5s`)
+    console.log('📤 发送请求到:', `${API_BASE_URL}${apiEndpoint}`)
 
-    const response = await fetch(`${API_BASE_URL}/klingai/m2v_26_image2video_5s`, {
+    const response = await fetch(`${API_BASE_URL}${apiEndpoint}`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
@@ -147,7 +157,7 @@ export async function generateVideoWithKling26(imageUrl, options = {}) {
       taskId: result.data.task.id,
       status: 'processing',
       provider: 'kling',
-      model: 'kling-2.6-5s',
+      model: modelName,
     }
   } catch (error) {
     console.error('❌ Kling-2.6 视频生成失败:', error)
@@ -287,7 +297,7 @@ export async function generateVideoWithKlingO1(imageUrl, options = {}) {
  * @param {string} model - 模型名称（用于选择 API Key）
  * @returns {Promise<Object>} 返回任务状态和视频信息
  */
-export async function getKlingTaskStatus(taskId, model = 'kling-2.6-5s') {
+export async function getKlingTaskStatus(taskId, model = 'kling-2.6') {
   // 尝试使用对应模型的 API Key
   let apiKey = getApiKeyForModel(model)
   if (!apiKey) {

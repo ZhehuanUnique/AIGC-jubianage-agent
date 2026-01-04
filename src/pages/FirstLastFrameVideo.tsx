@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import SidebarNavigation from '../components/SidebarNavigation'
 import { ArrowLeft, Upload, Loader2, X } from 'lucide-react'
 import { alertSuccess, alertError } from '../utils/alert'
 import { generateFirstLastFrameVideo, getFirstLastFrameVideoStatus, getFirstLastFrameVideos } from '../services/api'
+import { calculateVideoGenerationCredit } from '../utils/creditCalculator'
 
 interface VideoTask {
   id: string
@@ -29,10 +30,15 @@ function FirstLastFrameVideo() {
   const [firstFramePreview, setFirstFramePreview] = useState<string | null>(null)
   const [lastFramePreview, setLastFramePreview] = useState<string | null>(null)
   
-  const [videoVersion, setVideoVersion] = useState<'3.0'>('3.0')
+  const [videoVersion, setVideoVersion] = useState<'3.0pro'>('3.0pro')
   const [resolution, setResolution] = useState<'720p' | '1080p'>('720p')
   const [duration, setDuration] = useState(5)
   const [prompt, setPrompt] = useState('')
+  
+  // 计算当前配置的积分消耗
+  const estimatedCredit = useMemo(() => {
+    return calculateVideoGenerationCredit('volcengine-video-3.0-pro', resolution, duration)
+  }, [resolution, duration])
   
   const [isGenerating, setIsGenerating] = useState(false)
   const [tasks, setTasks] = useState<VideoTask[]>([])
@@ -1015,7 +1021,7 @@ function FirstLastFrameVideo() {
                   <button
                     className="px-3 py-1.5 rounded-lg text-sm font-medium bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm cursor-default"
                   >
-                    3.0
+                    3.0pro
                   </button>
                 </div>
                 
@@ -1069,7 +1075,14 @@ function FirstLastFrameVideo() {
                 </div>
               </div>
               
-              <div className="flex items-center">
+              <div className="flex items-center gap-3">
+                {/* 积分消耗显示 */}
+                <div className="text-sm text-gray-600 flex items-center gap-1">
+                  <span className="font-medium">预计消耗:</span>
+                  <span className="text-blue-600 font-bold">{estimatedCredit}</span>
+                  <span>积分</span>
+                </div>
+                
                 <button
                   type="button"
                   onClick={generateVideo}

@@ -74,11 +74,13 @@ export async function generateVideoFromImage(imageUrl, options = {}) {
   }
 
   // 如果是 Kling 模型，使用专门的服务
-  if (model === 'kling-2.6-5s' || model === 'kling-2.6-10s') {
+  if (model === 'kling-2.6') {
+    // 根据时长选择对应的API（5s或10s）
     return await generateVideoWithKling26(imageUrl, {
       prompt: text,
       lastFrameImage: options.lastFrameImage || null,
       enableAudio: options.enableAudio || false,
+      duration: duration, // 传递时长参数，用于选择API端点
     })
   }
 
@@ -517,7 +519,7 @@ export async function getVideoTaskStatus(taskId, model = 'doubao-seedance-1-5-pr
   }
 
   // 如果是 Kling 模型，使用专门的服务
-  if (model === 'kling-2.6-5s' || model === 'kling-2.6-10s' || model === 'kling-o1') {
+  if (model === 'kling-2.6' || model === 'kling-o1') {
     return await getKlingTaskStatus(taskId, model)
   }
 

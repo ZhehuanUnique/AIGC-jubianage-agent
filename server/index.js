@@ -853,6 +853,55 @@ app.get('/api/first-last-frame-video/status/:taskId', authenticateToken, async (
 
             // 返回项目文件夹中的视频URL
             result.videoUrl = uploadResult.url
+            
+            // 计算并记录积分消耗（超级管理员不记录）
+            try {
+              // 检查是否为超级管理员
+              const userResult = await db.query('SELECT username FROM users WHERE id = $1', [userId])
+              const username = userResult.rows[0]?.username || 'unknown'
+              const isSuperAdmin = username === 'Chiefavefan'
+              
+              // 超级管理员不记录积分和费用
+              if (!isSuperAdmin) {
+                const { calculateVideoGenerationCredit, calculateVolcengineCost } = await import('./services/creditService.js')
+                const { logOperation } = await import('./services/authService.js')
+              
+              const model = req.query.model || req.body.model || 'volcengine-video-3.0-pro'
+              const resolution = req.body.resolution || metadata.resolution || '720p'
+              const duration = parseInt(req.body.duration) || metadata.duration || 5
+              
+              // 计算实际成本（元）
+              let costInYuan = 0
+              if (model === 'volcengine-video-3.0-pro' || model === 'doubao-seedance-3.0-pro') {
+                costInYuan = calculateVolcengineCost(resolution, duration)
+              }
+              
+              // 计算积分消耗
+              const creditConsumed = calculateVideoGenerationCredit(model, resolution, duration, costInYuan > 0 ? costInYuan : null)
+              
+              if (creditConsumed > 0) {
+                // 记录积分消耗到操作日志，同时保存真实成本到metadata
+                await logOperation(
+                  userId,
+                  username,
+                  'video_generation',
+                  '首尾帧视频生成',
+                  'video',
+                  taskId,
+                  creditConsumed,
+                  'success',
+                  null,
+                  { model, resolution, duration, creditConsumed, costInYuan: costInYuan > 0 ? costInYuan : null }
+                )
+                
+                console.log(`✅ 已记录积分消耗: ${creditConsumed} 积分 (模型: ${model}, 分辨率: ${resolution}, 时长: ${duration}秒, 实际成本: ${costInYuan > 0 ? costInYuan.toFixed(4) + '元' : '未知'})`)
+              }
+              } else {
+                console.log(`ℹ️ 超级管理员 ${username} 使用模型，跳过积分和费用统计`)
+              }
+            } catch (creditError) {
+              console.error('记录积分消耗失败（不影响主流程）:', creditError)
+            }
           }
         }
       } catch (saveError) {
@@ -1229,6 +1278,73 @@ app.get('/api/video-task/:taskId', authenticateToken, async (req, res) => {
           }
           
           console.log(`✅ 视频已保存到数据库: ${result.videoUrl}, shotId: ${shotId}`)
+          
+          // 计算并记录积分消耗（超级管理员不记录）
+          try {
+            // 检查是否为超级管理员
+            const userResult = await db.query('SELECT username FROM users WHERE id = $1', [userId])
+            const username = userResult.rows[0]?.username || 'unknown'
+            const isSuperAdmin = username === 'Chiefavefan'
+            
+            // 超级管理员不记录积分和费用
+            if (!isSuperAdmin) {
+              const { calculateVideoGenerationCredit, calculateVolcengineCost } = await import('./services/creditService.js')
+              const { logOperation } = await import('./services/authService.js')
+            
+            // 从metadata或请求参数中获取模型、分辨率、时长信息
+            // 尝试从metadata中解析（如果之前保存过）
+            let videoModel = model || 'volcengine-video-3.0-pro'
+            let videoResolution = req.query.resolution || '720p'
+            let videoDuration = parseInt(req.query.duration) || 5
+            
+            // 尝试从保存的metadata中获取（如果存在）
+            try {
+              const metadataResult = await db.query(
+                'SELECT metadata FROM files WHERE cos_url = $1 LIMIT 1',
+                [result.videoUrl]
+              )
+              if (metadataResult.rows.length > 0 && metadataResult.rows[0].metadata) {
+                const savedMetadata = JSON.parse(metadataResult.rows[0].metadata)
+                if (savedMetadata.resolution) videoResolution = savedMetadata.resolution
+                if (savedMetadata.duration) videoDuration = parseInt(savedMetadata.duration) || videoDuration
+                if (savedMetadata.model) videoModel = savedMetadata.model
+              }
+            } catch (e) {
+              // 如果无法从metadata获取，使用默认值
+            }
+            
+            // 计算实际成本（元）
+            let costInYuan = 0
+            if (videoModel === 'volcengine-video-3.0-pro' || videoModel === 'doubao-seedance-3.0-pro') {
+              costInYuan = calculateVolcengineCost(videoResolution, videoDuration)
+            }
+            
+            // 计算积分消耗
+            const creditConsumed = calculateVideoGenerationCredit(videoModel, videoResolution, videoDuration, costInYuan > 0 ? costInYuan : null)
+            
+            if (creditConsumed > 0) {
+              // 记录积分消耗到操作日志，同时保存真实成本到metadata
+              await logOperation(
+                userId,
+                username,
+                'video_generation',
+                '视频生成',
+                'video',
+                taskId,
+                creditConsumed,
+                'success',
+                null,
+                { model: videoModel, resolution: videoResolution, duration: videoDuration, creditConsumed, costInYuan: costInYuan > 0 ? costInYuan : null, shotId }
+              )
+              
+              console.log(`✅ 已记录积分消耗: ${creditConsumed} 积分 (模型: ${videoModel}, 分辨率: ${videoResolution}, 时长: ${videoDuration}秒, 实际成本: ${costInYuan > 0 ? costInYuan.toFixed(4) + '元' : '未知'})`)
+            }
+            } else {
+              console.log(`ℹ️ 超级管理员 ${username} 使用模型，跳过积分和费用统计`)
+            }
+          } catch (creditError) {
+            console.error('记录积分消耗失败（不影响主流程）:', creditError)
+          }
         }
       } catch (dbError) {
         console.error('保存视频到数据库失败:', dbError)
@@ -1824,8 +1940,9 @@ app.get('/api/analytics/consumption-ranking', authenticateToken, async (req, res
   try {
     const startDate = req.query.startDate ? new Date(req.query.startDate) : null
     const endDate = req.query.endDate ? new Date(req.query.endDate) : null
+    const showRealCost = req.query.showRealCost === 'true' // 是否显示真实成本
 
-    const ranking = await UserService.getUserConsumptionRanking(startDate, endDate)
+    const ranking = await UserService.getUserConsumptionRanking(startDate, endDate, showRealCost)
     res.json({ success: true, ranking })
   } catch (error) {
     console.error('获取用户消耗排名失败:', error)

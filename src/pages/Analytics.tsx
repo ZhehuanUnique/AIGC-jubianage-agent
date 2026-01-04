@@ -38,6 +38,7 @@ function Analytics() {
   const [loadingRanking, setLoadingRanking] = useState(false)
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null)
   const [selectedUsername, setSelectedUsername] = useState<string>('')
+  const [showRealCost, setShowRealCost] = useState(false) // 是否显示真实成本
   const [showLogsModal, setShowLogsModal] = useState(false)
   
   // 删除确认弹窗状态
@@ -65,7 +66,7 @@ function Analytics() {
     if (activeTab === 'consumption') {
       loadRanking()
     }
-  }, [activeTab, startDate, endDate])
+  }, [activeTab, startDate, endDate, showRealCost])
 
   const loadUsers = async () => {
     setLoadingUsers(true)
@@ -84,7 +85,7 @@ function Analytics() {
   const loadRanking = async () => {
     setLoadingRanking(true)
     try {
-      const rankingData = await UserApi.getConsumptionRanking(startDate, endDate)
+      const rankingData = await UserApi.getConsumptionRanking(startDate, endDate, showRealCost)
       setRanking(rankingData)
     } catch (error) {
       console.error('加载消耗排名失败:', error)
@@ -367,26 +368,43 @@ function Analytics() {
           {/* 消耗统计 */}
           {activeTab === 'consumption' && (
             <div className="space-y-6">
-              {/* 日期选择 */}
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <label className="text-sm text-gray-600">开始日期:</label>
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="px-3 py-2 bg-white border border-gray-300 rounded-lg"
-                  />
+              {/* 日期选择和管理员切换按钮 */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm text-gray-600">开始日期:</label>
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="px-3 py-2 bg-white border border-gray-300 rounded-lg"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm text-gray-600">结束日期:</label>
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="px-3 py-2 bg-white border border-gray-300 rounded-lg"
+                    />
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <label className="text-sm text-gray-600">结束日期:</label>
-                  <input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="px-3 py-2 bg-white border border-gray-300 rounded-lg"
-                  />
-                </div>
+                {/* 管理员查看真实开销按钮 */}
+                {isAdmin && (
+                  <button
+                    onClick={() => {
+                      setShowRealCost(!showRealCost)
+                    }}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                      showRealCost
+                        ? 'bg-purple-600 text-white hover:bg-purple-700'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                  >
+                    {showRealCost ? '显示积分' : '查看真实开销'}
+                  </button>
+                )}
               </div>
 
               {/* 每日消耗趋势 */}
@@ -409,7 +427,9 @@ function Analytics() {
                         <tr>
                           <th className="px-4 py-3 text-left text-sm font-medium">排名</th>
                           <th className="px-4 py-3 text-left text-sm font-medium">用户</th>
-                          <th className="px-4 py-3 text-left text-sm font-medium">总消耗(积分)</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium">
+                            {showRealCost ? '总消耗(元)' : '总消耗(积分)'}
+                          </th>
                           <th className="px-4 py-3 text-left text-sm font-medium">操作</th>
                         </tr>
                       </thead>
@@ -432,7 +452,12 @@ function Analytics() {
                                   <span className="text-sm">{item.displayName || item.username}</span>
                                 </div>
                               </td>
-                              <td className="px-4 py-3 text-sm">{item.totalConsumption.toLocaleString('zh-CN', { maximumFractionDigits: 2 })}</td>
+                              <td className="px-4 py-3 text-sm">
+                                {showRealCost 
+                                  ? `¥${item.totalConsumption.toLocaleString('zh-CN', { maximumFractionDigits: 2 })}`
+                                  : `${item.totalConsumption.toLocaleString('zh-CN', { maximumFractionDigits: 2 })} 积分`
+                                }
+                              </td>
                               <td className="px-4 py-3">
                                 <button
                                   onClick={() => handleViewLogs(item.userId, item.displayName || item.username)}
