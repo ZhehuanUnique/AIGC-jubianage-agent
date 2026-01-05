@@ -192,7 +192,7 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
     
     // 监听自定义事件（用于同窗口内的登录状态变化）
     // 添加防抖，避免频繁触发
-    let authChangeTimeout: NodeJS.Timeout | null = null
+    let authChangeTimeout: ReturnType<typeof setTimeout> | null = null
     const handleAuthChange = () => {
       if (authChangeTimeout) {
         clearTimeout(authChangeTimeout)
