@@ -66,65 +66,44 @@ function AssetDetails() {
       console.warn('⚠️ 从 sessionStorage 恢复 characters 失败:', error)
     }
     
-    // 默认数据
-    return [
-      { id: '1', name: '傅北川', type: 'character', selectionMethod: '通过本地上传' },
-      { id: '2', name: '苏绵绵', type: 'character', selectionMethod: '通过本地上传' },
-    ]
+    // 默认数据为空
+    return []
   })
 
-  // 默认场景数据（始终显示）
-  const defaultScenes: Asset[] = [
-    { id: 'default-scene-1', name: '外景-公司等候区', type: 'scene', selectionMethod: '通过本地上传' },
-  ]
-
   const [scenes, setScenes] = useState<Asset[]>(() => {
-    // 默认场景（始终包含）
-    const result: Asset[] = [...defaultScenes]
-    
-    // 如果有分析结果，添加分析出的场景（排除与默认场景同名的）
+    // 优先使用 location.state
     if (state?.analysisResult?.scenes && state.analysisResult.scenes.length > 0) {
-      const analyzedScenes = state.analysisResult.scenes
-        .map((scene, index) => ({
-          id: `scene-${index}`,
-          name: scene.name,
-          type: 'scene' as const,
-          selectionMethod: '通过本地上传',
-        }))
-        .filter(scene => !defaultScenes.some(defaultScene => defaultScene.name === scene.name))
-      
-      result.push(...analyzedScenes)
+      const assets = state.analysisResult.scenes.map((scene, index) => ({
+        id: `scene-${index}`,
+        name: scene.name,
+        type: 'scene' as const,
+        selectionMethod: '通过本地上传',
+      }))
+      // 保存到 sessionStorage
+      try {
+        sessionStorage.setItem('assetDetails_scenes', JSON.stringify(assets))
+      } catch (error) {
+        console.warn('⚠️ 保存 scenes 到 sessionStorage 失败:', error)
+      }
+      return assets
     }
     
-    // 保存到 sessionStorage
-    try {
-      sessionStorage.setItem('assetDetails_scenes', JSON.stringify(result))
-    } catch (error) {
-      console.warn('⚠️ 保存 scenes 到 sessionStorage 失败:', error)
-    }
-    
-    // 尝试从 sessionStorage 恢复（如果存在且不是第一次加载）
+    // 尝试从 sessionStorage 恢复
     try {
       const saved = sessionStorage.getItem('assetDetails_scenes')
-      if (saved && !state?.analysisResult) {
+      if (saved) {
         const parsed = JSON.parse(saved)
         if (Array.isArray(parsed) && parsed.length > 0) {
           console.log('✅ 从 sessionStorage 恢复 scenes 数据')
-          // 确保默认场景存在
-          const savedScenes = [...parsed]
-          defaultScenes.forEach(defaultScene => {
-            if (!savedScenes.some(s => s.name === defaultScene.name)) {
-              savedScenes.unshift(defaultScene)
-            }
-          })
-          return savedScenes
+          return parsed
         }
       }
     } catch (error) {
       console.warn('⚠️ 从 sessionStorage 恢复 scenes 失败:', error)
     }
     
-    return result
+    // 默认数据为空
+    return []
   })
 
   const [showCharacterSelector, setShowCharacterSelector] = useState(false)
@@ -142,59 +121,40 @@ function AssetDetails() {
   const sceneBatchUploadRef = useRef<HTMLInputElement>(null)
   const itemBatchUploadRef = useRef<HTMLInputElement>(null)
 
-  // 默认物品数据（始终显示）
-  const defaultItems: Asset[] = [
-    { id: 'default-item-1', name: '羽毛', type: 'item', selectionMethod: '通过本地上传' },
-    { id: 'default-item-2', name: '九转金丹', type: 'item', selectionMethod: '通过本地上传' },
-  ]
-
   const [items, setItems] = useState<Asset[]>(() => {
-    // 默认物品（始终包含）
-    const result: Asset[] = [...defaultItems]
-    
-    // 如果有分析结果，添加分析出的物品（排除与默认物品同名的）
+    // 优先使用 location.state
     if (state?.analysisResult?.items && state.analysisResult.items.length > 0) {
-      const analyzedItems = state.analysisResult.items
-        .map((item, index) => ({
-          id: `item-${index}`,
-          name: item.name,
-          type: 'item' as const,
-          selectionMethod: '通过本地上传',
-        }))
-        .filter(item => !defaultItems.some(defaultItem => defaultItem.name === item.name))
-      
-      result.push(...analyzedItems)
+      const assets = state.analysisResult.items.map((item, index) => ({
+        id: `item-${index}`,
+        name: item.name,
+        type: 'item' as const,
+        selectionMethod: '通过本地上传',
+      }))
+      // 保存到 sessionStorage
+      try {
+        sessionStorage.setItem('assetDetails_items', JSON.stringify(assets))
+      } catch (error) {
+        console.warn('⚠️ 保存 items 到 sessionStorage 失败:', error)
+      }
+      return assets
     }
     
-    // 保存到 sessionStorage
-    try {
-      sessionStorage.setItem('assetDetails_items', JSON.stringify(result))
-    } catch (error) {
-      console.warn('⚠️ 保存 items 到 sessionStorage 失败:', error)
-    }
-    
-    // 尝试从 sessionStorage 恢复（如果存在且不是第一次加载）
+    // 尝试从 sessionStorage 恢复
     try {
       const saved = sessionStorage.getItem('assetDetails_items')
-      if (saved && !state?.analysisResult) {
+      if (saved) {
         const parsed = JSON.parse(saved)
         if (Array.isArray(parsed) && parsed.length > 0) {
           console.log('✅ 从 sessionStorage 恢复 items 数据')
-          // 确保默认物品存在
-          const savedItems = [...parsed]
-          defaultItems.forEach(defaultItem => {
-            if (!savedItems.some(s => s.name === defaultItem.name)) {
-              savedItems.unshift(defaultItem)
-            }
-          })
-          return savedItems
+          return parsed
         }
       }
     } catch (error) {
       console.warn('⚠️ 从 sessionStorage 恢复 items 失败:', error)
     }
     
-    return result
+    // 默认数据为空
+    return []
   })
   
   // 当数据变化时，保存到 sessionStorage
