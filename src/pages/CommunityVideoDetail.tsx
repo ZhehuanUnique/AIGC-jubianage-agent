@@ -18,6 +18,7 @@ function CommunityVideoDetail() {
   const [isMuted, setIsMuted] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [videoAspectRatio, setVideoAspectRatio] = useState<number | null>(null)
+  const [relatedVideoThumbnails, setRelatedVideoThumbnails] = useState<Map<number, string>>(new Map())
   const videoRef = useRef<HTMLVideoElement>(null)
   const progressBarRef = useRef<HTMLDivElement>(null)
 
@@ -35,7 +36,15 @@ function CommunityVideoDetail() {
       
       // 加载相关视频
       const related = await getCommunityVideos({ page: 1, limit: 10, sortBy: 'latest' })
-      setRelatedVideos(related.videos.filter(v => v.id !== videoData.id).slice(0, 5))
+      const filteredRelated = related.videos.filter(v => v.id !== videoData.id).slice(0, 5)
+      setRelatedVideos(filteredRelated)
+      
+      // 为没有缩略图的相关视频提取首帧
+      filteredRelated.forEach((relatedVideo) => {
+        if (!relatedVideo.thumbnailUrl && relatedVideo.videoUrl) {
+          extractVideoThumbnail(relatedVideo.id, relatedVideo.videoUrl)
+        }
+      })
     } catch (error) {
       console.error('加载视频失败:', error)
       alertError(error instanceof Error ? error.message : '加载视频失败，请稍后重试', '错误')
@@ -368,6 +377,12 @@ function CommunityVideoDetail() {
                     {relatedVideo.thumbnailUrl ? (
                       <img
                         src={relatedVideo.thumbnailUrl}
+                        alt={relatedVideo.title}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : relatedVideoThumbnails.get(relatedVideo.id) ? (
+                      <img
+                        src={relatedVideoThumbnails.get(relatedVideo.id)!}
                         alt={relatedVideo.title}
                         className="w-full h-full object-cover"
                       />
