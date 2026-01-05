@@ -175,16 +175,19 @@ function Home() {
         {/* 主要内容 */}
         <div className="flex-1 flex flex-col items-center justify-center gap-8 px-4 py-8 relative z-10">
           {/* 中央标语和按钮区域 */}
-          <div className="flex flex-col items-center gap-4 mb-8">
-            <h1 className="text-5xl md:text-6xl font-bold text-white text-center mb-2 drop-shadow-lg">
-              用剧变时代AI
-            </h1>
-            <button
-              onClick={handleClick}
-              className="px-10 py-5 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xl md:text-2xl font-semibold rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-300 shadow-2xl hover:shadow-purple-500/50 relative z-20 transform hover:scale-105"
-            >
-              做真人剧
-            </button>
+          <div className="flex flex-col items-center gap-4">
+            {/* 标题和"做真人剧"按钮在同一行 */}
+            <div className="flex items-center gap-4">
+              <h1 className="text-5xl md:text-6xl font-bold text-white text-center drop-shadow-lg">
+                用剧变时代AI
+              </h1>
+              <button
+                onClick={handleClick}
+                className="px-10 py-5 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xl md:text-2xl font-semibold rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-300 shadow-2xl hover:shadow-purple-500/50 relative z-20 transform hover:scale-105"
+              >
+                做真人剧
+              </button>
+            </div>
             <button
               onClick={handleClick}
               className="px-6 py-3 bg-white/20 backdrop-blur-sm text-white text-base font-medium rounded-full hover:bg-white/30 transition-all duration-300 relative z-20"
@@ -192,13 +195,13 @@ function Home() {
               创建项目
             </button>
           </div>
+        </div>
 
-          {/* 横向滚动海报带容器 - 固定在底部 */}
-          <div className="w-full relative z-10 mt-auto pb-8">
-            {/* 横向滚动海报带 - 7:10 */}
-            <div className="w-full">
-              <PosterCarousel posterFolder="7：10" />
-            </div>
+        {/* 横向滚动海报带容器 - 固定在页面最底部 */}
+        <div className="w-full relative z-10 pb-0">
+          {/* 横向滚动海报带 - 7:10 */}
+          <div className="w-full">
+            <PosterCarousel posterFolder="7：10" />
           </div>
         </div>
       </div>
