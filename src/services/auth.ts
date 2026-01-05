@@ -54,6 +54,18 @@ export class AuthService {
 
         clearTimeout(timeoutId)
 
+        // 检查响应类型，如果是HTML说明服务器返回了错误页面（502等）
+        const contentType = response.headers.get('content-type')
+        if (contentType && !contentType.includes('application/json')) {
+          // 服务器返回了非JSON响应（可能是HTML错误页面）
+          const text = await response.text()
+          console.error('服务器返回非JSON响应:', text.substring(0, 200))
+          if (response.status === 502 || response.status === 503) {
+            return { success: false, error: '服务器暂时不可用，请稍后重试' }
+          }
+          return { success: false, error: '服务器错误，请稍后重试' }
+        }
+
         const data = await response.json()
 
         if (!response.ok) {
@@ -149,11 +161,24 @@ export class AuthService {
         },
       })
 
-      // 如果响应不是 200，说明 token 无效
+      // 如果响应不是 200，说明 token 无效或服务器错误
       if (!response.ok) {
-        // 清除token和用户信息，但不触发事件（避免循环）
+        // 502/503错误不清除token，可能是服务器暂时不可用
+        if (response.status === 502 || response.status === 503) {
+          console.warn('服务器暂时不可用，保留token')
+          return false
+        }
+        // 其他错误清除token和用户信息
         localStorage.removeItem(this.TOKEN_KEY)
         localStorage.removeItem(this.USER_KEY)
+        return false
+      }
+
+      // 检查响应类型
+      const contentType = response.headers.get('content-type')
+      if (contentType && !contentType.includes('application/json')) {
+        // 服务器返回了非JSON响应（可能是HTML错误页面）
+        console.error('验证token时服务器返回非JSON响应')
         return false
       }
 
