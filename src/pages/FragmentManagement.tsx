@@ -540,10 +540,10 @@ function FragmentManagement() {
         <div className="flex-1 p-3 sm:p-6">
         {/* 片段列表 */}
         <div className="flex gap-3 sm:gap-4 flex-wrap">
-          {/* 新建片段卡片 */}
+          {/* 新建片段卡片 - 竖向布局（9:16） */}
           <div
             onClick={() => setShowCreateModal(true)}
-            className="w-full sm:w-64 h-40 sm:h-48 bg-gray-50 border-2 border-dashed border-pink-500 rounded-lg flex flex-col items-center justify-center cursor-pointer active:border-pink-400 sm:hover:border-pink-400 transition-all touch-manipulation"
+            className="w-full sm:w-48 aspect-[9/16] bg-gray-50 border-2 border-dashed border-pink-500 rounded-lg flex flex-col items-center justify-center cursor-pointer active:border-pink-400 sm:hover:border-pink-400 transition-all touch-manipulation"
           >
             <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 flex items-center justify-center mb-3 sm:mb-4">
               <Plus size={24} className="sm:w-8 sm:h-8 text-white" />
@@ -551,11 +551,11 @@ function FragmentManagement() {
             <span className="text-pink-600 font-medium text-sm sm:text-base">新建片段</span>
           </div>
 
-          {/* 首尾帧生视频卡片 */}
+          {/* 首尾帧生视频卡片 - 竖向布局（9:16） */}
           {projectId && (
             <div
               onClick={() => navigate(`/project/${projectId}/first-last-frame-video`)}
-              className="w-full sm:w-64 h-40 sm:h-48 bg-gray-50 border-2 border-dashed border-blue-500 rounded-lg flex flex-col items-center justify-center cursor-pointer active:border-blue-400 sm:hover:border-blue-400 transition-all touch-manipulation"
+              className="w-full sm:w-48 aspect-[9/16] bg-gray-50 border-2 border-dashed border-blue-500 rounded-lg flex flex-col items-center justify-center cursor-pointer active:border-blue-400 sm:hover:border-blue-400 transition-all touch-manipulation"
             >
               <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gradient-to-r from-blue-500 to-cyan-600 flex items-center justify-center mb-3 sm:mb-4">
                 <svg className="w-6 h-6 sm:w-8 sm:h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">

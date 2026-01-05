@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Heart, Play, ChevronUp, ChevronDown } from 'lucide-react'
+import { Heart, Play, ArrowLeft, ChevronUp, ChevronDown } from 'lucide-react'
 import { getCommunityVideos, toggleVideoLike, recordVideoView, CommunityVideo } from '../services/api'
 import { alertError } from '../utils/alert'
 import NavigationBar from '../components/NavigationBar'
@@ -9,14 +9,23 @@ function WorksShowcase() {
   const navigate = useNavigate()
   const [videos, setVideos] = useState<CommunityVideo[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [hoveredVideoId, setHoveredVideoId] = useState<number | null>(null)
-  const [selectedVideoIndex, setSelectedVideoIndex] = useState<number | null>(null)
+  const [currentVideoIndex, setCurrentVideoIndex] = useState(0)
   const videoRefs = useRef<Map<number, HTMLVideoElement>>(new Map())
   const containerRef = useRef<HTMLDivElement>(null)
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [sortBy, setSortBy] = useState<'latest' | 'popular' | 'likes'>('latest')
   const limit = 20
+
+  // 检测是否为移动设备
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+
+  // 触摸滑动相关
+  const touchStartY = useRef<number>(0)
+  const touchStartX = useRef<number>(0)
+  const touchEndY = useRef<number>(0)
+  const touchEndX = useRef<number>(0)
+  const isSwiping = useRef<boolean>(false)
 
   // 加载视频列表
   const loadVideos = async () => {
@@ -27,10 +36,8 @@ function WorksShowcase() {
       setTotal(result.total)
     } catch (error) {
       console.error('加载视频失败:', error)
-      // 如果是数据库表不存在的错误，不显示错误提示，只显示"暂无视频"
       const errorMessage = error instanceof Error ? error.message : '加载视频失败，请稍后重试'
       if (errorMessage.includes('does not exist') || errorMessage.includes('relation')) {
-        // 表不存在时，只设置空列表，不显示错误提示
         setVideos([])
         setTotal(0)
       } else {
@@ -45,59 +52,72 @@ function WorksShowcase() {
     loadVideos()
   }, [page, sortBy])
 
-  // 键盘导航
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (selectedVideoIndex === null) return
+  // 切换到指定视频
+  const switchToVideo = (index: number) => {
+    if (index < 0 || index >= videos.length) return
+    
+    // 暂停当前视频
+    const currentVideo = videoRefs.current.get(videos[currentVideoIndex]?.id)
+    if (currentVideo) {
+      currentVideo.pause()
+    }
 
-      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-        e.preventDefault()
-        const direction = e.key === 'ArrowUp' ? -1 : 1
-        const newIndex = selectedVideoIndex + direction
-        
-        if (newIndex >= 0 && newIndex < videos.length) {
-          setSelectedVideoIndex(newIndex)
-          // 滚动到选中的视频
-          const videoElement = document.getElementById(`video-${videos[newIndex].id}`)
-          if (videoElement) {
-            videoElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
-          }
-        }
-      } else if (e.key === 'Escape') {
-        setSelectedVideoIndex(null)
-      } else if (e.key === 'Enter' && selectedVideoIndex !== null) {
-        navigate(`/works/${videos[selectedVideoIndex].id}`)
+    setCurrentVideoIndex(index)
+    
+    // 播放新视频
+    setTimeout(() => {
+      const newVideo = videoRefs.current.get(videos[index]?.id)
+      if (newVideo) {
+        newVideo.play().catch(() => {})
+        recordVideoView(videos[index].id)
+      }
+    }, 100)
+  }
+
+  // 触摸开始
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY
+    touchStartX.current = e.touches[0].clientX
+    isSwiping.current = false
+  }
+
+  // 触摸移动
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchEndY.current = e.touches[0].clientY
+    touchEndX.current = e.touches[0].clientX
+    
+    const deltaY = Math.abs(touchEndY.current - touchStartY.current)
+    const deltaX = Math.abs(touchEndX.current - touchStartX.current)
+    
+    // 判断是垂直滑动还是水平滑动
+    if (deltaY > deltaX && deltaY > 10) {
+      isSwiping.current = true
+    }
+  }
+
+  // 触摸结束
+  const handleTouchEnd = () => {
+    if (!isSwiping.current) return
+    
+    const deltaY = touchEndY.current - touchStartY.current
+    const threshold = 50 // 滑动阈值
+
+    if (Math.abs(deltaY) > threshold) {
+      if (deltaY > 0) {
+        // 向下滑动，切换到上一个视频
+        switchToVideo(currentVideoIndex - 1)
+      } else {
+        // 向上滑动，切换到下一个视频
+        switchToVideo(currentVideoIndex + 1)
       }
     }
 
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [selectedVideoIndex, videos, navigate])
-
-  // 滚轮导航
-  useEffect(() => {
-    const handleWheel = (e: WheelEvent) => {
-      if (selectedVideoIndex === null) return
-      if (!containerRef.current?.contains(e.target as Node)) return
-
-      e.preventDefault()
-      const direction = e.deltaY > 0 ? 1 : -1
-      const newIndex = selectedVideoIndex + direction
-      
-      if (newIndex >= 0 && newIndex < videos.length) {
-        setSelectedVideoIndex(newIndex)
-        const videoElement = document.getElementById(`video-${videos[newIndex].id}`)
-        if (videoElement) {
-          videoElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        }
-      }
+    // 左滑返回（水平滑动）
+    const deltaX = touchEndX.current - touchStartX.current
+    if (deltaX > 100 && Math.abs(deltaY) < 50) {
+      navigate('/')
     }
-
-    if (selectedVideoIndex !== null) {
-      window.addEventListener('wheel', handleWheel, { passive: false })
-      return () => window.removeEventListener('wheel', handleWheel)
-    }
-  }, [selectedVideoIndex, videos])
+  }
 
   // 处理点赞
   const handleLike = async (videoId: number, e: React.MouseEvent) => {
@@ -137,6 +157,161 @@ function WorksShowcase() {
     return `${Math.floor(days / 365)}年前`
   }
 
+  // 键盘导航（桌面端）
+  useEffect(() => {
+    if (isMobile) return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        switchToVideo(currentVideoIndex - 1)
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        switchToVideo(currentVideoIndex + 1)
+      } else if (e.key === 'Enter' && videos[currentVideoIndex]) {
+        navigate(`/works/${videos[currentVideoIndex].id}`)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [currentVideoIndex, videos, navigate, isMobile])
+
+  // 滚轮导航（桌面端）
+  useEffect(() => {
+    if (isMobile) return
+
+    const handleWheel = (e: WheelEvent) => {
+      if (!containerRef.current?.contains(e.target as Node)) return
+
+      e.preventDefault()
+      const direction = e.deltaY > 0 ? 1 : -1
+      switchToVideo(currentVideoIndex + direction)
+    }
+
+    window.addEventListener('wheel', handleWheel, { passive: false })
+    return () => window.removeEventListener('wheel', handleWheel)
+  }, [currentVideoIndex, videos, isMobile])
+
+  // 自动播放当前视频
+  useEffect(() => {
+    if (videos.length === 0 || currentVideoIndex < 0 || currentVideoIndex >= videos.length) return
+
+    const video = videoRefs.current.get(videos[currentVideoIndex]?.id)
+    if (video) {
+      video.play().catch(() => {})
+      recordVideoView(videos[currentVideoIndex].id)
+    }
+  }, [currentVideoIndex, videos])
+
+  // 移动端全屏垂直滚动模式
+  if (isMobile) {
+    return (
+      <div 
+        className="fixed inset-0 bg-black overflow-hidden"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        {/* 返回按钮 */}
+        <button
+          onClick={() => navigate('/')}
+          className="absolute top-4 left-4 z-50 w-10 h-10 bg-black bg-opacity-50 rounded-full flex items-center justify-center text-white touch-manipulation"
+        >
+          <ArrowLeft size={20} />
+        </button>
+
+        {isLoading ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
+          </div>
+        ) : videos.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-white">
+            <p className="text-lg">暂无视频</p>
+            <p className="text-sm mt-2 opacity-70">还没有用户发布视频到社区</p>
+          </div>
+        ) : (
+          <div 
+            ref={containerRef}
+            className="h-full overflow-y-scroll snap-y snap-mandatory"
+            style={{ scrollSnapType: 'y mandatory' }}
+          >
+            {videos.map((video, index) => (
+              <div
+                key={video.id}
+                className="h-screen w-screen snap-start relative flex items-center justify-center"
+              >
+                {/* 视频 */}
+                {video.videoUrl ? (
+                  <video
+                    ref={(el) => {
+                      if (el) {
+                        videoRefs.current.set(video.id, el)
+                      } else {
+                        videoRefs.current.delete(video.id)
+                      }
+                    }}
+                    src={video.videoUrl}
+                    className="w-full h-full object-contain"
+                    muted
+                    loop
+                    playsInline
+                    autoPlay={index === currentVideoIndex}
+                  />
+                ) : video.thumbnailUrl ? (
+                  <img
+                    src={video.thumbnailUrl}
+                    alt={video.title}
+                    className="w-full h-full object-contain"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-gray-900">
+                    <Play className="w-16 h-16 text-white opacity-50" />
+                  </div>
+                )}
+
+                {/* 视频信息覆盖层（右下角） */}
+                <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black via-black/80 to-transparent">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      {video.avatar ? (
+                        <img
+                          src={video.avatar}
+                          alt={video.username}
+                          className="w-8 h-8 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-white text-xs">
+                          {video.username.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <span className="text-white text-sm font-medium">{video.username}</span>
+                    </div>
+                  </div>
+                  
+                  <p className="text-white text-sm mb-2 line-clamp-2">{video.title}</p>
+                  
+                  <div className="flex items-center gap-4 text-white text-xs">
+                    <button
+                      onClick={(e) => handleLike(video.id, e)}
+                      className="flex items-center gap-1"
+                    >
+                      <Heart className="w-5 h-5" />
+                      <span>{formatNumber(video.likesCount)}</span>
+                    </button>
+                    <span>{formatNumber(video.viewsCount)} 次观看</span>
+                    <span>{formatTime(video.publishedAt)}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // 桌面端网格模式
   return (
     <div className="min-h-screen bg-white">
       <NavigationBar activeTab="works" />
@@ -199,12 +374,10 @@ function WorksShowcase() {
                 key={video.id}
                 id={`video-${video.id}`}
                 className={`group relative bg-white rounded-lg sm:rounded-xl shadow-sm sm:hover:shadow-xl transition-all cursor-pointer touch-manipulation ${
-                  selectedVideoIndex === index ? 'ring-2 ring-purple-600 sm:scale-105' : ''
+                  currentVideoIndex === index ? 'ring-2 ring-purple-600 sm:scale-105' : ''
                 }`}
                 onMouseEnter={() => {
-                  // 桌面端悬停播放
                   if (window.innerWidth >= 640) {
-                    setHoveredVideoId(video.id)
                     const videoEl = videoRefs.current.get(video.id)
                     if (videoEl) {
                       videoEl.play().catch(() => {})
@@ -212,34 +385,13 @@ function WorksShowcase() {
                   }
                 }}
                 onMouseLeave={() => {
-                  // 桌面端离开暂停
                   if (window.innerWidth >= 640) {
-                    setHoveredVideoId(null)
                     const videoEl = videoRefs.current.get(video.id)
                     if (videoEl) {
                       videoEl.pause()
                       videoEl.currentTime = 0
                     }
                   }
-                }}
-                onTouchStart={() => {
-                  // 移动端触摸时播放预览
-                  setHoveredVideoId(video.id)
-                  const videoEl = videoRefs.current.get(video.id)
-                  if (videoEl) {
-                    videoEl.play().catch(() => {})
-                  }
-                }}
-                onTouchEnd={() => {
-                  // 移动端触摸结束时暂停
-                  setTimeout(() => {
-                    setHoveredVideoId(null)
-                    const videoEl = videoRefs.current.get(video.id)
-                    if (videoEl) {
-                      videoEl.pause()
-                      videoEl.currentTime = 0
-                    }
-                  }, 500)
                 }}
                 onClick={() => {
                   recordVideoView(video.id)
@@ -275,23 +427,14 @@ function WorksShowcase() {
                       <Play className="w-12 h-12 text-gray-400" />
                     </div>
                   )}
-                  
-                  {/* 播放按钮覆盖层 */}
-                  {hoveredVideoId !== video.id && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-opacity">
-                      <Play className="w-12 h-12 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </div>
-                  )}
                 </div>
 
-                {/* 视频信息 - 一比一复刻图1的UI样式 */}
+                {/* 视频信息 */}
                 <div className="p-2 sm:p-3">
-                  {/* 标题 */}
                   <h3 className="text-xs sm:text-sm font-semibold text-gray-900 line-clamp-2 mb-1.5 sm:mb-2">
                     {video.title}
                   </h3>
                   
-                  {/* 用户信息 */}
                   <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
                     {video.avatar ? (
                       <img
@@ -307,7 +450,6 @@ function WorksShowcase() {
                     <span className="text-[10px] sm:text-xs text-gray-600 truncate">{video.username}</span>
                   </div>
 
-                  {/* 统计信息 */}
                   <div className="flex items-center justify-between text-[10px] sm:text-xs text-gray-500">
                     <div className="flex items-center gap-2 sm:gap-3">
                       <button
@@ -356,4 +498,3 @@ function WorksShowcase() {
 }
 
 export default WorksShowcase
-

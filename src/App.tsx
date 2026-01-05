@@ -78,12 +78,15 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function App() {
   const { AlertComponent } = useAlert()
 
+  // 检测是否为移动设备
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+
   return (
     <BrowserRouter>
       {AlertComponent}
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route path="/" element={<Home />} />
+        <Route path="/" element={isMobile ? <Navigate to="/works" replace /> : <Home />} />
         <Route
           path="/tasks"
           element={
