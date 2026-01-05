@@ -5,6 +5,7 @@ import ImageSelectionModal from '../components/ImageSelectionModal'
 import VideoPromptModelSelectionModal from '../components/VideoPromptModelSelectionModal'
 import VideoEditingDrawer from '../components/VideoEditingDrawer'
 import { generateVideoFromImage, getVideoTaskStatus, generateVideoMotionPrompt, exportImagesToDesktop } from '../services/api'
+import { getUserSettings } from '../services/settingsService'
 
 interface FusionItem {
   id: number
@@ -37,6 +38,13 @@ function ImageFusion() {
   const [previewImage, setPreviewImage] = useState<string | null>(null) // 预览的图片URL
   const [isVideoEditingDrawerOpen, setIsVideoEditingDrawerOpen] = useState(false)
   const [selectedFusionForEditing, setSelectedFusionForEditing] = useState<FusionItem | null>(null)
+  const [enterKeySubmit, setEnterKeySubmit] = useState(false)
+  
+  // 加载设置
+  useEffect(() => {
+    const settings = getUserSettings()
+    setEnterKeySubmit(settings.workflow?.enterKeySubmit || false)
+  }, [])
   
   // 从 sessionStorage 读取图片比例
   const [aspectRatio, setAspectRatio] = useState<string>('16:9')
