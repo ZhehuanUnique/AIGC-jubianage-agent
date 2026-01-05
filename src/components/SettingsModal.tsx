@@ -46,6 +46,12 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           autoCreateProject: false,
           autoImportPoster: false,
         },
+        videoReview: {
+          defaultMode: 'preview',
+        },
+        workflow: {
+          enterKeySubmit: false,
+        },
       })
     }
   }
@@ -195,6 +201,41 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   </div>
                 </label>
               </div>
+            </div>
+          </div>
+
+          {/* 工作流设置 */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+              <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
+              工作流设置
+            </h3>
+            
+            <div className="space-y-4 pl-4">
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={settings.workflow?.enterKeySubmit || false}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      workflow: {
+                        ...settings.workflow,
+                        enterKeySubmit: e.target.checked,
+                      },
+                    })
+                  }
+                  className="w-5 h-5 text-purple-600 rounded focus:ring-purple-500 focus:ring-2"
+                />
+                <div className="flex-1">
+                  <div className="font-medium text-gray-700 group-hover:text-gray-900">
+                    Enter键代替鼠标点击"下一步"
+                  </div>
+                  <div className="text-sm text-gray-500 mt-1">
+                    开启后，在五步骤流程中按Enter键可提交到下一步，按Ctrl+Enter换行（在文本输入框中）
+                  </div>
+                </div>
+              </label>
             </div>
           </div>
 

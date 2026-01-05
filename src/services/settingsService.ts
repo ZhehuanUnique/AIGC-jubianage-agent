@@ -19,6 +19,10 @@ export interface UserSettings {
   videoReview: {
     defaultMode: 'preview' | 'review' // 默认模式：'preview' 预览, 'review' 审片
   }
+  // 工作流设置
+  workflow: {
+    enterKeySubmit: boolean // Enter键代替鼠标点击"下一步"，同时换行快捷键变更为Ctrl+Enter
+  }
 }
 
 const SETTINGS_KEY = 'user_settings'
@@ -36,6 +40,9 @@ const DEFAULT_SETTINGS: UserSettings = {
   },
   videoReview: {
     defaultMode: 'preview', // 默认预览模式
+  },
+  workflow: {
+    enterKeySubmit: false, // 默认关闭Enter键提交
   },
 }
 
@@ -62,6 +69,10 @@ export function getUserSettings(): UserSettings {
         videoReview: {
           ...DEFAULT_SETTINGS.videoReview,
           ...parsed.videoReview,
+        },
+        workflow: {
+          ...DEFAULT_SETTINGS.workflow,
+          ...parsed.workflow,
         },
       }
     }
@@ -102,6 +113,10 @@ export function updateUserSettings(updates: Partial<UserSettings>): void {
     videoReview: {
       ...current.videoReview,
       ...updates.videoReview,
+    },
+    workflow: {
+      ...current.workflow,
+      ...updates.workflow,
     },
   }
   saveUserSettings(updated)

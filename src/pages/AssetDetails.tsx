@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from 'react'
+﻿import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { X, Plus, Trash2, Upload, Eye } from 'lucide-react'
 import type { ScriptAnalysisResult, ScriptSegment } from '../services/api'
@@ -7,6 +7,7 @@ import CreateCharacterModal from '../components/CreateCharacterModal'
 import CreateSceneModal from '../components/CreateSceneModal'
 import CreateItemModal from '../components/CreateItemModal'
 import { alertError, alertInfo } from '../utils/alert'
+import { getUserSettings } from '../services/settingsService'
 
 interface Asset {
   id: string | number // 支持字符串（临时ID）和数字（数据库ID）
@@ -32,6 +33,13 @@ function AssetDetails() {
   const navigate = useNavigate()
   const location = useLocation()
   const state = location.state as LocationState | null
+  const [enterKeySubmit, setEnterKeySubmit] = useState(false)
+  
+  // 加载设置
+  useEffect(() => {
+    const settings = getUserSettings()
+    setEnterKeySubmit(settings.workflow?.enterKeySubmit || false)
+  }, [])
 
   // 从 sessionStorage 或 location.state 恢复数据
   const [characters, setCharacters] = useState<Asset[]>(() => {
@@ -1007,7 +1015,7 @@ function AssetDetails() {
     }
   }
 
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     saveAllData()
     
     // 更新任务进度（第二步完成，进度40%）
@@ -1034,7 +1042,7 @@ function AssetDetails() {
         maxShots: state?.maxShots,
       },
     })
-  }
+  }, [state, navigate])
 
   return (
     <div className="h-screen bg-white text-gray-900 overflow-hidden flex flex-col">

@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { X, Upload, Loader2 } from 'lucide-react'
 import { analyzeScriptText, analyzeScriptFile, segmentScript, checkRAGScript, createOrUpdateProject, createTask } from '../services/api'
 import { createProject } from '../services/projectStorage'
+import { getUserSettings } from '../services/settingsService'
 
 function ScriptInput() {
   const navigate = useNavigate()
@@ -481,6 +482,15 @@ function ScriptInput() {
               type="text"
               value={scriptTitle}
               onChange={(e) => setScriptTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (enterKeySubmit && e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+                  e.preventDefault()
+                  // 检查必要信息是否已输入
+                  if (scriptTitle && scriptContent && !isAnalyzing) {
+                    handleSubmit()
+                  }
+                }
+              }}
               placeholder="请填写剧本标题"
               className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500"
             />
@@ -548,6 +558,18 @@ function ScriptInput() {
             <textarea
               value={scriptContent}
               onChange={(e) => setScriptContent(e.target.value)}
+              onKeyDown={(e) => {
+                if (enterKeySubmit) {
+                  // 如果开启了Enter键提交，Ctrl+Enter换行，Enter提交
+                  if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+                    e.preventDefault()
+                    // 检查必要信息是否已输入
+                    if (scriptTitle && scriptContent && !isAnalyzing) {
+                      handleSubmit()
+                    }
+                  }
+                }
+              }}
               placeholder="请整理好一整集的完整剧本,直接填入"
               rows={12}
               className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 resize-none"
