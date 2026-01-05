@@ -281,21 +281,21 @@ function CharacterManagement() {
 
         <div className="flex-1 p-6">
           <div className="flex gap-6">
-            {/* 左侧操作按钮 - 竖向布局（9:16） */}
-            <div className="flex flex-col gap-4 w-48">
+            {/* 左侧操作按钮 - 竖向布局（9:16），缩小尺寸 */}
+            <div className="flex flex-col gap-4 w-36">
               <button
                 onClick={() => setShowCreateModal(true)}
-                className="w-48 aspect-[9/16] bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all flex flex-col items-center justify-center gap-2"
+                className="w-36 aspect-[9/16] bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all flex flex-col items-center justify-center gap-2"
               >
-                <Plus size={24} />
-                <span className="text-base font-medium">新建角色</span>
+                <Plus size={20} />
+                <span className="text-sm font-medium">新建角色</span>
               </button>
               <button 
                 onClick={() => setShowCreateModal(true)}
-                className="w-48 aspect-[9/16] bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-lg hover:from-pink-600 hover:to-purple-700 transition-all flex flex-col items-center justify-center gap-2"
+                className="w-36 aspect-[9/16] bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-lg hover:from-pink-600 hover:to-purple-700 transition-all flex flex-col items-center justify-center gap-2"
               >
-                <Plus size={24} />
-                <span className="text-base font-medium">公共角色</span>
+                <Plus size={20} />
+                <span className="text-sm font-medium">公共角色</span>
               </button>
             </div>
 
