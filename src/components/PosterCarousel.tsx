@@ -121,7 +121,7 @@ function PosterCarousel({ posterFolder }: PosterCarouselProps) {
     const handleScroll = () => {
       if (isDragging) return // 拖动时不处理循环
 
-      const itemWidth = 280 + 16 // 卡片宽度 + gap
+      const itemWidth = 200 + 16 // 卡片宽度 + gap（缩小后的尺寸）
       const totalItems = posters.length * 3 // 3组重复
       const totalWidth = itemWidth * totalItems
 
@@ -148,7 +148,7 @@ function PosterCarousel({ posterFolder }: PosterCarouselProps) {
   // 初始化滚动位置到第二组（中间组）
   useEffect(() => {
     if (containerRef.current && posters.length > 0) {
-      const itemWidth = 280 + 16
+      const itemWidth = 200 + 16 // 卡片宽度 + gap（缩小后的尺寸）
       containerRef.current.scrollLeft = itemWidth * posters.length
     }
   }, [posters.length])
@@ -216,8 +216,8 @@ function PosterCarousel({ posterFolder }: PosterCarouselProps) {
           key={`${poster}-${index}`}
           className="flex-shrink-0 bg-gray-900 rounded-lg overflow-hidden"
           style={{
-            width: '280px',
-            height: '400px',
+            width: '200px',
+            height: '286px', // 200 * 10/7 ≈ 286
             aspectRatio: '7/10',
           }}
         >
