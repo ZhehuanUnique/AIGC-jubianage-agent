@@ -2448,6 +2448,40 @@ export async function publishVideoToCommunity(params: {
 }
 
 /**
+ * 删除/下架社区视频（仅管理员）
+ */
+export async function deleteCommunityVideo(videoId: number): Promise<void> {
+  try {
+    const token = AuthService.getToken()
+    if (!token) {
+      throw new Error('未登录，请先登录')
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/community-videos/${videoId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || '删除视频失败')
+    }
+
+    const result = await response.json()
+    if (!result.success) {
+      throw new Error(result.error || '删除视频失败')
+    }
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('网络错误，请检查服务器连接')
+  }
+}
+
+/**
  * 点赞/取消点赞视频
  */
 export async function toggleVideoLike(videoId: number): Promise<{ liked: boolean; likesCount: number }> {

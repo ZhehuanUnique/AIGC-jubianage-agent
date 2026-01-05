@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Heart, Play, ArrowLeft, ChevronUp, ChevronDown } from 'lucide-react'
-import { getCommunityVideos, toggleVideoLike, recordVideoView, CommunityVideo } from '../services/api'
-import { alertError } from '../utils/alert'
+import { Heart, Play, ArrowLeft, ChevronUp, ChevronDown, Trash2 } from 'lucide-react'
+import { getCommunityVideos, toggleVideoLike, recordVideoView, deleteCommunityVideo, CommunityVideo } from '../services/api'
+import { alertError, alertSuccess, alertWarning } from '../utils/alert'
+import { AuthService } from '../services/auth'
 import NavigationBar from '../components/NavigationBar'
 
 function WorksShowcase() {
@@ -18,6 +19,16 @@ function WorksShowcase() {
   const limit = 20
   const [hoveredVideoId, setHoveredVideoId] = useState<number | null>(null)
   const [videoAspectRatios, setVideoAspectRatios] = useState<Map<number, number>>(new Map())
+  const [currentUser, setCurrentUser] = useState<{ username: string } | null>(null)
+  const [deletingVideoId, setDeletingVideoId] = useState<number | null>(null)
+
+  // 检查用户权限
+  useEffect(() => {
+    const user = AuthService.getCurrentUser()
+    setCurrentUser(user)
+  }, [])
+
+  const isAdmin = currentUser?.username === 'Chiefavefan' || currentUser?.username === 'jubian888'
 
   // 检测是否为移动设备
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
@@ -475,6 +486,22 @@ function WorksShowcase() {
                     {/* 悬停时显示的磨砂质感覆盖层（图3样式） */}
                     {hoveredVideoId === video.id && (
                       <div className="absolute inset-0 bg-black bg-opacity-30 backdrop-blur-sm flex flex-col justify-end p-4 transition-all animate-fadeIn">
+                        {/* 管理员删除按钮（右上角） */}
+                        {isAdmin && (
+                          <button
+                            onClick={(e) => handleDeleteVideo(video.id, e)}
+                            disabled={deletingVideoId === video.id}
+                            className="absolute top-4 right-4 w-10 h-10 bg-red-500 bg-opacity-80 hover:bg-opacity-100 rounded-lg flex items-center justify-center text-white transition-all shadow-lg z-20 disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="删除/下架视频"
+                          >
+                            {deletingVideoId === video.id ? (
+                              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            ) : (
+                              <Trash2 size={18} />
+                            )}
+                          </button>
+                        )}
+                        
                         {/* 底部操作栏 - 磨砂质感（更强烈的磨砂效果） */}
                         <div 
                           className="bg-white bg-opacity-25 backdrop-blur-xl rounded-lg p-3 border border-white border-opacity-40 shadow-lg"

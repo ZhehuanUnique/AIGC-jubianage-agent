@@ -8261,6 +8261,57 @@ app.post('/api/community-videos/:videoId/like', authenticateToken, async (req, r
 })
 
 // 记录视频观看
+// 删除/下架社区视频（仅管理员）
+app.delete('/api/community-videos/:videoId', authenticateToken, async (req, res) => {
+  try {
+    const { videoId } = req.params
+    const userId = req.user.id
+    const username = req.user.username
+
+    // 检查是否为管理员
+    const isAdmin = username === 'Chiefavefan' || username === 'jubian888'
+    if (!isAdmin) {
+      return res.status(403).json({
+        success: false,
+        error: '权限不足，只有管理员可以删除视频'
+      })
+    }
+
+    // 检查视频是否存在
+    const videoResult = await db.query(
+      'SELECT id, user_id FROM public.community_videos WHERE id = $1',
+      [videoId]
+    )
+
+    if (videoResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: '视频不存在'
+      })
+    }
+
+    // 删除视频（软删除：将 published 设置为 false，或者硬删除）
+    // 这里使用硬删除，直接删除记录
+    await db.query(
+      'DELETE FROM public.community_videos WHERE id = $1',
+      [videoId]
+    )
+
+    console.log(`✅ 管理员 ${username} 删除了视频 ${videoId}`)
+
+    res.json({
+      success: true,
+      message: '视频已成功删除/下架'
+    })
+  } catch (error) {
+    console.error('删除社区视频失败:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '删除视频失败'
+    })
+  }
+})
+
 app.post('/api/community-videos/:videoId/view', authenticateToken, async (req, res) => {
   try {
     const { videoId } = req.params
