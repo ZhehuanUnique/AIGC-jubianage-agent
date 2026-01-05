@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { X } from 'lucide-react'
 import NavigationBar from '../components/NavigationBar'
 
 interface RechargePackage {
@@ -16,6 +17,7 @@ const packages: RechargePackage[] = [
 function CreditRecharge() {
   const navigate = useNavigate()
   const [selectedPackage, setSelectedPackage] = useState<RechargePackage | null>(null)
+  const [showQRCode, setShowQRCode] = useState(false)
 
   const handlePackageSelect = (pkg: RechargePackage) => {
     setSelectedPackage(pkg)
@@ -35,7 +37,7 @@ function CreditRecharge() {
         {/* 标题和副标题 */}
         <div className="text-center mb-12">
           <h1 className="text-5xl font-bold text-purple-500 mb-4">积分充值</h1>
-          <p className="text-gray-600 text-lg">剧变时代Agent是一款专制作商业化级别剧作工具</p>
+          <p className="text-gray-600 text-lg">剧变时代Agent——专业制作爆款短剧能工具及垂直社区交流平台</p>
         </div>
 
         {/* 主要内容区域 */}
@@ -103,7 +105,12 @@ function CreditRecharge() {
             <li>• 积分为虚拟商品,一经充值,不支持退款;</li>
             <li>• 购买后的积分有效期为365天,到期余量自动清零;</li>
             <li>• 1元人民币对应5个积分。各项目积分消耗在提交任务处有醒目标注,在积分余额处有消耗流水列表。因服务器原因生成失败的返还积分;</li>
-            <li>• 使用指导,对公支付,开具发票,购买更多积分,咨询节省计划,请联系商务,微信 BALENCIAGA_0405;</li>
+            <li>
+              • 使用指导,对公支付,开具发票,购买更多积分,咨询节省计划,请联系商务,
+              <div className="mt-1">
+                <span className="text-purple-600 font-semibold">企业定价&商务合作</span> 微信 <a href="#" onClick={(e) => { e.preventDefault(); setShowQRCode(true); }} className="text-purple-600 hover:text-purple-700 underline">JuBianShiDai_Ai</a>;
+              </div>
+            </li>
           </ul>
           <div className="mt-4 flex items-center justify-between">
             <span className="text-gray-600 text-sm">点击充值即表示同意</span>
@@ -120,6 +127,42 @@ function CreditRecharge() {
           </div>
         </div>
       </div>
+
+      {/* 微信二维码模态框 */}
+      {showQRCode && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 animate-fadeIn"
+          onClick={() => setShowQRCode(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 p-6 animate-scaleIn"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-gray-800">企业定价&商务合作</h3>
+              <button
+                onClick={() => setShowQRCode(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            <div className="text-center">
+              <p className="text-gray-600 mb-4">微信: JuBianShiDai_Ai</p>
+              <img
+                src="/JuBianShiDai_Ai.jpg"
+                alt="微信二维码"
+                className="w-full max-w-xs mx-auto rounded-lg border border-gray-200"
+                onError={(e) => {
+                  console.error('二维码图片加载失败')
+                  const target = e.target as HTMLImageElement
+                  target.style.display = 'none'
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
