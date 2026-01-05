@@ -182,24 +182,46 @@ function CommunityVideoDetail() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+      <div className="min-h-screen bg-gray-100 flex">
+        <div className="w-16 bg-gray-800 flex flex-col items-center py-4">
+          <button
+            onClick={() => navigate('/works')}
+            className="w-12 h-12 bg-purple-600 text-white rounded-lg active:bg-purple-700 hover:bg-purple-700 flex items-center justify-center transition-colors"
+          >
+            <ArrowLeft size={20} />
+          </button>
+        </div>
+        <div className="flex-1 bg-gray-900 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
+        </div>
+        <div className="w-80 bg-gray-100"></div>
       </div>
     )
   }
 
   if (!video) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-lg text-gray-600 mb-4">视频不存在</p>
+      <div className="min-h-screen bg-gray-100 flex">
+        <div className="w-16 bg-gray-800 flex flex-col items-center py-4">
           <button
             onClick={() => navigate('/works')}
-            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+            className="w-12 h-12 bg-purple-600 text-white rounded-lg active:bg-purple-700 hover:bg-purple-700 flex items-center justify-center transition-colors"
           >
-            返回作品展示
+            <ArrowLeft size={20} />
           </button>
         </div>
+        <div className="flex-1 bg-gray-900 flex items-center justify-center">
+          <div className="text-center text-white">
+            <p className="text-lg mb-4">视频不存在</p>
+            <button
+              onClick={() => navigate('/works')}
+              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+            >
+              返回作品展示
+            </button>
+          </div>
+        </div>
+        <div className="w-80 bg-gray-100"></div>
       </div>
     )
   }
