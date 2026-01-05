@@ -8176,10 +8176,33 @@ app.post('/api/community-videos', authenticateToken, async (req, res) => {
       data: video,
     })
   } catch (error) {
-    console.error('发布视频失败:', error)
+    console.error('❌ 发布视频失败:', error)
+    console.error('错误详情:', {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      constraint: error.constraint,
+      stack: error.stack?.substring(0, 500),
+    })
+    
+    // 如果是数据库约束错误，提供更友好的错误信息
+    let errorMessage = error.message || '发布视频失败'
+    if (error.code === '23503') {
+      errorMessage = `外键约束错误: ${error.detail || '用户不存在或项目/片段ID无效'}`
+    } else if (error.code === '23502') {
+      errorMessage = `必填字段缺失: ${error.detail || '请检查必填字段'}`
+    } else if (error.code === '23505') {
+      errorMessage = `唯一约束冲突: ${error.detail || '数据已存在'}`
+    }
+    
     res.status(500).json({
       success: false,
-      error: error.message || '发布视频失败',
+      error: errorMessage,
+      details: process.env.NODE_ENV === 'development' ? {
+        code: error.code,
+        detail: error.detail,
+        constraint: error.constraint,
+      } : undefined,
     })
   }
 })
