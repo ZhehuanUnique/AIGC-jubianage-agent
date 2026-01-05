@@ -24,11 +24,20 @@ async function uploadPostersToCOS() {
       const folderPath = join(POSTER_DIR, folder)
       
       try {
-        const files = await readdir(folderPath)
+        const allFiles = await readdir(folderPath)
+        const imageFiles = allFiles.filter(f => 
+          /\.(jpg|jpeg|png|webp)$/i.test(f)
+        )
+        
         console.log(`\n📁 处理文件夹: ${folder}`)
-        console.log(`   找到 ${files.length} 个文件\n`)
+        console.log(`   找到 ${imageFiles.length} 个图片文件\n`)
 
-        for (const file of files) {
+        if (imageFiles.length === 0) {
+          console.log(`   ⚠️  文件夹为空，跳过\n`)
+          continue
+        }
+
+        for (const file of imageFiles) {
           const filePath = join(folderPath, file)
           const cosKey = `posters/${folder}/${file}`
           

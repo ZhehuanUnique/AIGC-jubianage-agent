@@ -15,6 +15,7 @@
     "init-users": "node db/initDefaultUsers.js",
     "check-users": "node db/check-users.js",
     "setup-db": "node db/setup-database.js",
+    "check-posters": "node scripts/check-posters.js",
     "upload-posters": "node scripts/upload-posters-to-cos.js"
   },
   "dependencies": {
