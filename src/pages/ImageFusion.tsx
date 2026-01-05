@@ -220,6 +220,39 @@ function ImageFusion() {
   const [showVideoPromptModelModal, setShowVideoPromptModelModal] = useState(false) // 视频提示词模型选择弹窗
   const [selectedVideoPromptModel, setSelectedVideoPromptModel] = useState<'ollama-qwen3-vl-8b' | 'gemini-3-flash-preview' | 'gemini-3-pro-preview' | null>(null) // 选择的视频提示词生成模型
   
+  // Enter键提交功能（需要在isGenerating和fusions定义之后）
+  useEffect(() => {
+    if (!enterKeySubmit) return
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 如果焦点在输入框、文本域或模态框中，不触发
+      const activeElement = document.activeElement
+      if (
+        activeElement?.tagName === 'INPUT' ||
+        activeElement?.tagName === 'TEXTAREA' ||
+        activeElement?.closest('[role="dialog"]') ||
+        activeElement?.closest('.modal')
+      ) {
+        return
+      }
+      
+      if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+        e.preventDefault()
+        // 检查是否正在生成，以及是否有可生成视频的图片
+        const videosToGenerate = fusions.filter(f => f.image && f.image !== '/placeholder-image.jpg')
+        if (isGenerating || videosToGenerate.length === 0) {
+          return // 如果正在生成或没有可生成的视频，不提交
+        }
+        handleGenerateAllVideos()
+      }
+    }
+    
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [enterKeySubmit, isGenerating, fusions])
+  
   // 收集所有图片素材（包括同一分镜的多张图片）
   const [allImageAssets, setAllImageAssets] = useState<string[]>(() => {
     // 优先使用从视频编辑页面返回的数据（location.state）
