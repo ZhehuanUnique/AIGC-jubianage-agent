@@ -79,6 +79,34 @@ function FirstLastFrameVideo() {
   const estimatedCredit = useMemo(() => {
     return calculateVideoGenerationCredit('volcengine-video-3.0-pro', resolution, duration)
   }, [resolution, duration])
+
+  // 计算输入框高度（根据图片高度自动调整）
+  const textareaHeight = useMemo(() => {
+    if (!frameImageInfo && !frameAspectRatio) {
+      return '100px' // 默认高度
+    }
+
+    let imageWidth: number
+    let imageHeight: number
+
+    if (frameAspectRatio === '16:9') {
+      imageWidth = 128 // w-32 = 128px
+      imageHeight = imageWidth / (16 / 9) // 72px
+    } else if (frameAspectRatio === '9:16') {
+      imageWidth = 64 // w-16 = 64px
+      imageHeight = imageWidth / (9 / 16) // 113.78px
+    } else if (frameImageInfo) {
+      // other 比例，根据实际图片尺寸计算
+      const calculatedWidth = Math.min(128, Math.max(64, frameImageInfo.width * 0.1))
+      imageWidth = calculatedWidth
+      imageHeight = calculatedWidth * (frameImageInfo.height / frameImageInfo.width)
+    } else {
+      return '100px' // 默认高度
+    }
+
+    // 返回高度，确保最小高度为 100px
+    return `${Math.max(100, Math.round(imageHeight))}px`
+  }, [frameAspectRatio, frameImageInfo])
   
   const [isGenerating, setIsGenerating] = useState(false)
   const [tasks, setTasks] = useState<VideoTask[]>([])
@@ -1596,9 +1624,13 @@ function FirstLastFrameVideo() {
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                   placeholder="输入文字,描述你想创作的画面内容、运动方式等。例如:一个3D形象的小男孩,在公园滑滑板。"
-                  className={`w-full bg-transparent border-none outline-none resize-none text-gray-700 placeholder-gray-400 transition-all min-h-[100px] text-base leading-relaxed ${
+                  className={`w-full bg-transparent border-none outline-none resize-none text-gray-700 placeholder-gray-400 transition-all text-base leading-relaxed ${
                     isInputFocused ? 'ring-2 ring-blue-500 rounded-lg' : ''
                   }`}
+                  style={{
+                    minHeight: textareaHeight,
+                    height: textareaHeight
+                  }}
                   onFocus={handleInputFocus}
                   onBlur={handleInputBlur}
                   onKeyDown={(e) => {
