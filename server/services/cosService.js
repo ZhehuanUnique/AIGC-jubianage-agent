@@ -2,7 +2,7 @@ import COS from 'cos-nodejs-sdk-v5'
 import dotenv from 'dotenv'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
-import { existsSync } from 'fs'
+import { existsSync, readFileSync, statSync } from 'fs'
 
 // 获取当前文件所在目录
 const __filename = fileURLToPath(import.meta.url)
@@ -36,16 +36,48 @@ const COS_CONFIG = {
  */
 export async function uploadFile(filePath, cosKey, options = {}) {
   try {
+    // 检查文件是否存在
+    if (!existsSync(filePath)) {
+      throw new Error(`文件不存在: ${filePath}`)
+    }
+
+    // 检查是否为文件（不是目录）
+    const stats = statSync(filePath)
+    if (!stats.isFile()) {
+      throw new Error(`路径不是文件: ${filePath}`)
+    }
+
+    // 读取文件内容
+    const fileBuffer = readFileSync(filePath)
+
+    // 根据文件扩展名确定 ContentType
+    const ext = filePath.split('.').pop()?.toLowerCase() || ''
+    const contentTypeMap = {
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'gif': 'image/gif',
+      'webp': 'image/webp',
+      'mp4': 'video/mp4',
+      'mov': 'video/quicktime',
+      'avi': 'video/x-msvideo',
+      'pdf': 'application/pdf',
+      'doc': 'application/msword',
+      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    }
+    const contentType = contentTypeMap[ext] || 'application/octet-stream'
+
     const params = {
       Bucket: COS_CONFIG.Bucket,
       Region: COS_CONFIG.Region,
       Key: cosKey,
-      FilePath: filePath,
+      Body: fileBuffer, // 使用 Body 参数传递文件内容
+      ContentType: contentType,
       ACL: 'public-read', // 设置为公共读，允许公开访问
       ...options,
     }
 
-    console.log(`📤 上传文件到COS: ${cosKey} (ACL: public-read)`)
+    console.log(`📤 上传文件到COS: ${cosKey} (ACL: public-read, Size: ${(fileBuffer.length / 1024).toFixed(2)} KB)`)
 
     const result = await cos.putObject(params)
     
