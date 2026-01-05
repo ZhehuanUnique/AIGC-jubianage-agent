@@ -16,7 +16,8 @@
     "check-users": "node db/check-users.js",
     "setup-db": "node db/setup-database.js",
     "check-posters": "node scripts/check-posters.js",
-    "upload-posters": "node scripts/upload-posters-to-cos.js"
+    "upload-posters": "node scripts/upload-posters-to-cos.js",
+    "upload-index-video": "node scripts/upload-index-video-to-cos.js"
   },
   "dependencies": {
     "@langchain/google-genai": "^2.1.3",

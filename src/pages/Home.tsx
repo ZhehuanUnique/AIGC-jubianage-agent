@@ -51,10 +51,35 @@ function Home() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [videoLoaded, setVideoLoaded] = useState(false)
   const [videoError, setVideoError] = useState(false)
+  const [videoUrl, setVideoUrl] = useState<string>('/index.mp4') // 默认本地路径
+
+  // 从配置文件加载视频URL（优先使用COS）
+  useEffect(() => {
+    const loadVideoUrl = async () => {
+      try {
+        // 先尝试从配置文件加载（COS URL）
+        const configResponse = await fetch('/video-config.json')
+        if (configResponse.ok) {
+          const config = await configResponse.json()
+          if (config.indexVideo?.cosUrl) {
+            setVideoUrl(config.indexVideo.cosUrl)
+            console.log('✅ 从COS加载视频:', config.indexVideo.cosUrl)
+            return
+          }
+        }
+      } catch (error) {
+        console.warn('无法加载视频配置文件，使用本地路径:', error)
+      }
+      // 如果配置文件不存在或加载失败，使用本地路径
+      setVideoUrl('/index.mp4')
+    }
+
+    loadVideoUrl()
+  }, [])
 
   useEffect(() => {
     // 确保背景视频循环播放
-    if (videoRef.current) {
+    if (videoRef.current && videoUrl) {
       videoRef.current.loop = true
       const playPromise = videoRef.current.play()
       
@@ -70,7 +95,7 @@ function Home() {
           })
       }
     }
-  }, [])
+  }, [videoUrl])
 
   const handleVideoLoaded = () => {
     setVideoLoaded(true)
@@ -99,8 +124,9 @@ function Home() {
         onLoadedData={handleVideoLoaded}
         onError={handleVideoError}
         preload="auto"
+        key={videoUrl} // 当 videoUrl 改变时重新加载视频
       >
-        <source src="/index.mp4" type="video/mp4" />
+        <source src={videoUrl} type="video/mp4" />
         您的浏览器不支持视频播放。
       </video>
 
