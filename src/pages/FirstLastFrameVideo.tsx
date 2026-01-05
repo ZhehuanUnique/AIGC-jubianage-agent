@@ -4,6 +4,7 @@ import { ArrowLeft, Upload, Loader2, Share2, Download, MoreVertical, Heart, Thum
 import { alertSuccess, alertError } from '../utils/alert'
 import { generateFirstLastFrameVideo, getFirstLastFrameVideoStatus, getFirstLastFrameVideos, toggleFirstLastFrameVideoLike, toggleFirstLastFrameVideoFavorite, createVideoProcessingTask } from '../services/api'
 import { calculateVideoGenerationCredit } from '../utils/creditCalculator'
+import { getUserSettings } from '../services/settingsService'
 
 interface VideoTask {
   id: string
@@ -1563,11 +1564,23 @@ function FirstLastFrameVideo() {
                   onFocus={handleInputFocus}
                   onBlur={handleInputBlur}
                   onKeyDown={(e) => {
-                    // 按回车键（不按Shift）触发生成视频
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault()
-                      if (prompt.trim() && firstFrameFile && !isGenerating) {
-                        generateVideo()
+                    if (enterKeySubmit) {
+                      // 如果开启了Enter键提交，Ctrl+Enter换行，Enter提交
+                      if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+                        e.preventDefault()
+                        // 检查必要信息是否已输入（和按钮的disabled条件一致）
+                        if (prompt.trim() && firstFrameFile && !isGenerating) {
+                          generateVideo()
+                        }
+                      }
+                      // Ctrl+Enter 或 Cmd+Enter 允许换行（不阻止默认行为）
+                    } else {
+                      // 如果未开启，保持原有行为：Enter提交，Shift+Enter换行
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault()
+                        if (prompt.trim() && firstFrameFile && !isGenerating) {
+                          generateVideo()
+                        }
                       }
                     }
                   }}
