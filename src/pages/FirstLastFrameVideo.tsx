@@ -637,8 +637,17 @@ function FirstLastFrameVideo() {
   const pollTaskStatus = async (taskId: string) => {
     if (!projectId) return
     
+    // 检查是否已经在轮询这个任务
+    if (polledTasksRef.current.has(taskId)) {
+      console.warn(`任务 ${taskId} 已经在轮询中，跳过重复轮询`)
+      return
+    }
+    polledTasksRef.current.add(taskId)
+    
+    // 如果已经有轮询在运行，先停止它（但保留已轮询的任务记录）
     if (pollIntervalRef.current) {
       clearInterval(pollIntervalRef.current)
+      pollIntervalRef.current = null
     }
 
     pollIntervalRef.current = setInterval(async () => {
