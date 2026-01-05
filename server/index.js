@@ -7883,7 +7883,7 @@ app.get('/api/community-videos', authenticateToken, async (req, res) => {
 
     // 获取当前用户的点赞状态（批量查询）
     const userId = req.user?.id
-    const likedVideoIds = new Set<number>()
+    const likedVideoIds = new Set()
     if (userId && videosResult.rows.length > 0) {
       try {
         const videoIds = videosResult.rows.map(row => row.id)
