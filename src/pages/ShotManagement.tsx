@@ -64,39 +64,6 @@ function ShotManagement() {
     setEnterKeySubmit(settings.workflow?.enterKeySubmit || false)
   }, [])
   
-  // Enter键提交功能
-  useEffect(() => {
-    if (!enterKeySubmit) return
-    
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // 如果焦点在输入框、文本域或模态框中，不触发
-      const activeElement = document.activeElement
-      if (
-        activeElement?.tagName === 'INPUT' ||
-        activeElement?.tagName === 'TEXTAREA' ||
-        activeElement?.closest('[role="dialog"]') ||
-        activeElement?.closest('.modal')
-      ) {
-        return
-      }
-      
-      if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
-        e.preventDefault()
-        // 检查是否正在生成，以及是否有未填写提示词的分镜
-        const shotsWithoutPrompt = shots.filter(shot => !shot.prompt || shot.prompt.trim() === '')
-        if (isGenerating || shotsWithoutPrompt.length > 0) {
-          return // 如果正在生成或有未填写的提示词，不提交
-        }
-        handleSubmit()
-      }
-    }
-    
-    window.addEventListener('keydown', handleKeyDown)
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [enterKeySubmit, isGenerating, shots, handleSubmit])
-  
   // 选择器模态框状态
   const [showCharacterModal, setShowCharacterModal] = useState(false)
   const [showSceneModal, setShowSceneModal] = useState(false)
@@ -554,6 +521,39 @@ function ShotManagement() {
   // 生成状态管理
   const [isGenerating, setIsGenerating] = useState(false)
   const [generatingShots, setGeneratingShots] = useState<Set<number>>(new Set())
+  
+  // Enter键提交功能（需要在shots和isGenerating定义之后）
+  useEffect(() => {
+    if (!enterKeySubmit) return
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 如果焦点在输入框、文本域或模态框中，不触发
+      const activeElement = document.activeElement
+      if (
+        activeElement?.tagName === 'INPUT' ||
+        activeElement?.tagName === 'TEXTAREA' ||
+        activeElement?.closest('[role="dialog"]') ||
+        activeElement?.closest('.modal')
+      ) {
+        return
+      }
+      
+      if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+        e.preventDefault()
+        // 检查是否正在生成，以及是否有未填写提示词的分镜
+        const shotsWithoutPrompt = shots.filter(shot => !shot.prompt || shot.prompt.trim() === '')
+        if (isGenerating || shotsWithoutPrompt.length > 0) {
+          return // 如果正在生成或有未填写的提示词，不提交
+        }
+        handleSubmit()
+      }
+    }
+    
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [enterKeySubmit, isGenerating, shots])
   
   // 错误提示模态框状态
   const [errorModal, setErrorModal] = useState<{
