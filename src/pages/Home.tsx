@@ -194,15 +194,10 @@ function Home() {
           </div>
 
           {/* 横向滚动海报带容器 - 固定在底部 */}
-          <div className="w-full space-y-6 relative z-10 mt-auto pb-8">
+          <div className="w-full relative z-10 mt-auto pb-8">
             {/* 横向滚动海报带 - 7:10 */}
             <div className="w-full">
               <PosterCarousel posterFolder="7：10" />
-            </div>
-
-            {/* 横向滚动海报带 - 3:4（放在7:10壳子里） */}
-            <div className="w-full">
-              <PosterCarousel posterFolder="3：4" />
             </div>
           </div>
         </div>
