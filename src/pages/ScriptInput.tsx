@@ -342,6 +342,7 @@ function ScriptInput() {
           workStyle,
           workBackground,
           scriptId: ragScriptId, // 传递 scriptId，如果有的话
+          projectId, // 传递项目ID
         },
       })
     } catch (err) {

@@ -2,7 +2,7 @@
 import { useNavigate, useLocation } from 'react-router-dom'
 import { X, Plus, Trash2, Upload, Eye } from 'lucide-react'
 import type { ScriptAnalysisResult, ScriptSegment } from '../services/api'
-import { updateTask, uploadCharacterImage, uploadSceneImage, uploadItemImage, getProjectCharacters, getProjectScenes, getProjectItems, deleteCharacter, deleteScene, deleteItem, createCharacter, createScene, createItem, updateCharacter, updateScene, updateItem } from '../services/api'
+import { updateTask, uploadCharacterImage, uploadSceneImage, uploadItemImage, getProjectCharacters, getProjectScenes, getProjectItems, deleteCharacter, deleteScene, deleteItem, createCharacter, createScene, createItem, updateCharacter, updateScene, updateItem, createOrUpdateProject, getProjects } from '../services/api'
 import CreateCharacterModal from '../components/CreateCharacterModal'
 import CreateSceneModal from '../components/CreateSceneModal'
 import CreateItemModal from '../components/CreateItemModal'
@@ -239,10 +239,55 @@ function AssetDetails() {
     checkBackendHealth()
   }, [])
 
-  // 从数据库加载资产数据
+  // 从数据库加载资产数据，如果没有projectId则尝试查找或创建项目
   useEffect(() => {
     const loadAssetsFromDatabase = async () => {
-      const projectId = state?.projectId
+      let projectId = state?.projectId
+      
+      // 如果没有项目ID，尝试根据scriptTitle查找或创建项目
+      if ((!projectId || typeof projectId !== 'number') && state?.scriptTitle && backendStatus === 'online') {
+        try {
+          console.log('⚠️ 没有项目ID，尝试根据项目名称查找项目...')
+          const projects = await getProjects()
+          const existingProject = projects.find(p => p.name === state.scriptTitle)
+          
+          if (existingProject) {
+            projectId = existingProject.id
+            console.log(`✅ 找到同名项目，ID: ${projectId}`)
+            // 更新state中的projectId（通过更新location state）
+            window.history.replaceState({
+              ...state,
+              projectId,
+            }, '', window.location.href)
+          } else if (state?.analysisResult) {
+            // 如果没有找到，创建新项目
+            console.log('⚠️ 未找到同名项目，创建新项目...')
+            try {
+              const newProject = await createOrUpdateProject({
+                name: state.scriptTitle,
+                scriptTitle: state.scriptTitle,
+                scriptContent: state.scriptContent,
+                workStyle: state.workStyle,
+                workBackground: state.workBackground,
+                analysisResult: state.analysisResult,
+                segments: state.segments,
+              })
+              projectId = newProject.id
+              console.log(`✅ 已创建新项目，ID: ${projectId}`)
+              // 更新state中的projectId
+              window.history.replaceState({
+                ...state,
+                projectId,
+              }, '', window.location.href)
+            } catch (error) {
+              console.error('创建项目失败:', error)
+            }
+          }
+        } catch (error) {
+          console.error('查找项目失败:', error)
+        }
+      }
+
       if (!projectId || typeof projectId !== 'number') {
         console.log('⚠️ 没有项目ID，跳过从数据库加载资产')
         return
@@ -287,7 +332,8 @@ function AssetDetails() {
           name: scene.name,
           type: 'scene' as const,
           selectionMethod: '通过本地上传',
-          image: scene.image,
+          image: scene.image || scene.image_url,
+          image_url: scene.image || scene.image_url,
         }))
 
         const itemAssets: Asset[] = dbItems.map(item => ({
@@ -295,10 +341,12 @@ function AssetDetails() {
           name: item.name,
           type: 'item' as const,
           selectionMethod: '通过本地上传',
-          image: item.image,
+          image: item.image || item.image_url,
+          image_url: item.image || item.image_url,
         }))
 
-        // 如果有数据库数据，使用数据库数据；否则保留现有数据（可能是从analysisResult初始化的）
+        // 合并数据库数据和现有数据（避免覆盖用户正在编辑的内容）
+        // 如果数据库有数据，优先使用数据库数据；否则保留现有数据（可能是从analysisResult初始化的）
         if (characterAssets.length > 0) {
           console.log(`✅ 从数据库加载了 ${characterAssets.length} 个角色`)
           setCharacters(characterAssets)
@@ -317,7 +365,7 @@ function AssetDetails() {
     }
 
     loadAssetsFromDatabase()
-  }, [state?.projectId, backendStatus])
+  }, [state?.projectId, state?.scriptTitle, state?.analysisResult, backendStatus])
 
   // 如果从上一页没有传递数据，使用默认数据继续流程
   useEffect(() => {
@@ -327,9 +375,58 @@ function AssetDetails() {
   }, [state])
 
   const addAsset = async (type: 'character' | 'scene' | 'item') => {
-    const projectId = state?.projectId
+    let projectId = state?.projectId
+    
+    // 如果没有项目ID，尝试根据scriptTitle查找或创建项目
+    if ((!projectId || typeof projectId !== 'number') && state?.scriptTitle && backendStatus === 'online') {
+      try {
+        console.log('⚠️ 没有项目ID，尝试根据项目名称查找项目...')
+        const projects = await getProjects()
+        const existingProject = projects.find(p => p.name === state.scriptTitle)
+        
+        if (existingProject) {
+          projectId = existingProject.id
+          console.log(`✅ 找到同名项目，ID: ${projectId}`)
+          // 更新state中的projectId
+          window.history.replaceState({
+            ...state,
+            projectId,
+          }, '', window.location.href)
+        } else if (state?.analysisResult) {
+          // 如果没有找到，创建新项目
+          console.log('⚠️ 未找到同名项目，创建新项目...')
+          try {
+            const newProject = await createOrUpdateProject({
+              name: state.scriptTitle,
+              scriptTitle: state.scriptTitle,
+              scriptContent: state.scriptContent,
+              workStyle: state.workStyle,
+              workBackground: state.workBackground,
+              analysisResult: state.analysisResult,
+              segments: state.segments,
+            })
+            projectId = newProject.id
+            console.log(`✅ 已创建新项目，ID: ${projectId}`)
+            // 更新state中的projectId
+            window.history.replaceState({
+              ...state,
+              projectId,
+            }, '', window.location.href)
+          } catch (error) {
+            console.error('创建项目失败:', error)
+            alertError('无法创建项目，请重试', '错误')
+            return
+          }
+        }
+      } catch (error) {
+        console.error('查找项目失败:', error)
+        alertError('无法查找项目，请重试', '错误')
+        return
+      }
+    }
+    
     if (!projectId || typeof projectId !== 'number') {
-      alertError('项目ID不存在，无法添加资产', '错误')
+      alertError('项目ID不存在，无法添加资产。请确保已完成第一步（输入剧本）', '错误')
       return
     }
 
