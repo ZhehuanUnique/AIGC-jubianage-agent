@@ -17,6 +17,7 @@ function CommunityVideoDetail() {
   const [volume, setVolume] = useState(100)
   const [isMuted, setIsMuted] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [videoAspectRatio, setVideoAspectRatio] = useState<number | null>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const progressBarRef = useRef<HTMLDivElement>(null)
 
@@ -203,26 +204,7 @@ function CommunityVideoDetail() {
     )
   }
 
-  // 检测视频宽高比
-  const [videoAspectRatio, setVideoAspectRatio] = useState<number | null>(null)
-  
-  useEffect(() => {
-    if (videoRef.current && video?.videoUrl) {
-      const handleLoadedMetadata = () => {
-        if (videoRef.current) {
-          const ratio = videoRef.current.videoWidth / videoRef.current.videoHeight
-          setVideoAspectRatio(ratio)
-        }
-      }
-      videoRef.current.addEventListener('loadedmetadata', handleLoadedMetadata)
-      return () => {
-        if (videoRef.current) {
-          videoRef.current.removeEventListener('loadedmetadata', handleLoadedMetadata)
-        }
-      }
-    }
-  }, [video?.videoUrl])
-
+  // 判断是否为竖屏视频
   const isPortrait = videoAspectRatio !== null && videoAspectRatio < 1
 
   return (
@@ -251,12 +233,11 @@ function CommunityVideoDetail() {
             src={video.videoUrl}
             className="w-full h-full object-contain rounded-lg"
             onTimeUpdate={handleTimeUpdate}
-            onLoadedMetadata={() => {
-              if (videoRef.current) {
-                setDuration(videoRef.current.duration)
-                const ratio = videoRef.current.videoWidth / videoRef.current.videoHeight
-                setVideoAspectRatio(ratio)
-              }
+            onLoadedMetadata={(e) => {
+              const videoEl = e.currentTarget
+              setDuration(videoEl.duration)
+              const ratio = videoEl.videoWidth / videoEl.videoHeight
+              setVideoAspectRatio(ratio)
             }}
             onPlay={() => setIsPlaying(true)}
             onPause={() => setIsPlaying(false)}
