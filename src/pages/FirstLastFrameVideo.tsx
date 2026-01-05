@@ -380,7 +380,9 @@ function FirstLastFrameVideo() {
       }
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current)
+        pollIntervalRef.current = null
       }
+      polledTasksRef.current.clear()
     }
   }, []) // 移除依赖项，避免频繁重新绑定
 
@@ -680,11 +682,13 @@ function FirstLastFrameVideo() {
           console.error('查询任务状态失败:', result.error)
           clearInterval(pollIntervalRef.current!)
           pollIntervalRef.current = null
+          polledTasksRef.current.delete(taskId)
         }
       } catch (error) {
         console.error('轮询任务状态异常:', error)
         clearInterval(pollIntervalRef.current!)
         pollIntervalRef.current = null
+        polledTasksRef.current.delete(taskId)
       }
     }, 5000) // 每5秒轮询一次
   }
