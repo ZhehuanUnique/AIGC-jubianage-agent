@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Heart, Play, ArrowLeft, ChevronUp, ChevronDown, Trash2 } from 'lucide-react'
+import { Heart, Play, ArrowLeft, ChevronUp, ChevronDown, Trash2, Plus } from 'lucide-react'
 import { getCommunityVideos, toggleVideoLike, recordVideoView, deleteCommunityVideo, CommunityVideo } from '../services/api'
 import { alertError, alertSuccess, alertWarning } from '../utils/alert'
 import { AuthService } from '../services/auth'
 import NavigationBar from '../components/NavigationBar'
+import { PublishVideoModal } from '../components/PublishVideoModal'
 
 function WorksShowcase() {
   const navigate = useNavigate()
@@ -21,6 +22,7 @@ function WorksShowcase() {
   const [videoAspectRatios, setVideoAspectRatios] = useState<Map<number, number>>(new Map())
   const [currentUser, setCurrentUser] = useState<{ username: string } | null>(null)
   const [deletingVideoId, setDeletingVideoId] = useState<number | null>(null)
+  const [showPublishModal, setShowPublishModal] = useState(false)
 
   // 检查用户权限
   useEffect(() => {
@@ -389,6 +391,13 @@ function WorksShowcase() {
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900">作品展示</h1>
           <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
             <button
+              onClick={() => setShowPublishModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
+            >
+              <Plus size={18} />
+              <span>发布作品</span>
+            </button>
+            <button
               onClick={() => setSortBy('latest')}
               className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors touch-manipulation ${
                 sortBy === 'latest'
@@ -667,6 +676,16 @@ function WorksShowcase() {
           </div>
         )}
       </div>
+
+      {/* 发布作品模态框 */}
+      <PublishVideoModal
+        isOpen={showPublishModal}
+        onClose={() => setShowPublishModal(false)}
+        onSuccess={() => {
+          loadVideos()
+          window.dispatchEvent(new CustomEvent('community-video-uploaded'))
+        }}
+      />
     </div>
   )
 }
