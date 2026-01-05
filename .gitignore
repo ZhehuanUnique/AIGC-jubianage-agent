@@ -55,3 +55,9 @@ milvus/volumes/
 *.safetensors
 *.ckpt
 *.pt
+
+# Poster images (stored in COS, not in Git)
+poster/
+public/poster/
+public/index.mp4
+poster-config.json

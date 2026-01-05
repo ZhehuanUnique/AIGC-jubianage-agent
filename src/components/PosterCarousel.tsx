@@ -4,6 +4,16 @@ interface PosterCarouselProps {
   posterFolder: '7：10' | '3：4'
 }
 
+interface PosterConfig {
+  posters: Array<{
+    folder: string
+    fileName: string
+    cosKey: string
+    cosUrl: string
+  }>
+  lastUpdated: string
+}
+
 function PosterCarousel({ posterFolder }: PosterCarouselProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -12,9 +22,39 @@ function PosterCarousel({ posterFolder }: PosterCarouselProps) {
   const [scrollSpeed, setScrollSpeed] = useState(-1) // 负数表示从右往左，正数表示从左往右
   const animationRef = useRef<number>()
   const lastScrollTimeRef = useRef<number>(0)
+  const [posters, setPosters] = useState<string[]>([])
 
-  // 获取海报图片列表
-  const getPosterImages = () => {
+  // 从配置文件或本地路径加载海报图片列表
+  useEffect(() => {
+    const loadPosters = async () => {
+      try {
+        // 先尝试从配置文件加载（COS URL）
+        const configResponse = await fetch('/poster-config.json')
+        if (configResponse.ok) {
+          const config: PosterConfig = await configResponse.json()
+          const folderPosters = config.posters
+            .filter(p => p.folder === posterFolder)
+            .map(p => p.cosUrl)
+          
+          if (folderPosters.length > 0) {
+            setPosters(folderPosters)
+            return
+          }
+        }
+      } catch (error) {
+        console.warn('无法加载海报配置文件，使用本地路径:', error)
+      }
+
+      // 如果配置文件不存在或加载失败，使用本地路径（开发环境）
+      const localPosters = getLocalPosterImages()
+      setPosters(localPosters)
+    }
+
+    loadPosters()
+  }, [posterFolder])
+
+  // 获取本地海报图片列表（作为后备方案）
+  const getLocalPosterImages = () => {
     // 7:10 比例的海报
     const posters710 = [
       '/poster/7：10/《斩诡成神：从契约S级女皇开始》海报7x10.png',
@@ -43,7 +83,6 @@ function PosterCarousel({ posterFolder }: PosterCarouselProps) {
     return posterFolder === '7：10' ? posters710 : posters34
   }
 
-  const posters = getPosterImages()
   const is34 = posterFolder === '3：4'
 
   // 自动滚动动画
@@ -103,7 +142,7 @@ function PosterCarousel({ posterFolder }: PosterCarouselProps) {
 
   // 初始化滚动位置到第二组（中间组）
   useEffect(() => {
-    if (containerRef.current) {
+    if (containerRef.current && posters.length > 0) {
       const itemWidth = 280 + 16
       containerRef.current.scrollLeft = itemWidth * posters.length
     }
@@ -141,6 +180,14 @@ function PosterCarousel({ posterFolder }: PosterCarouselProps) {
   // 鼠标离开
   const handleMouseLeave = () => {
     setIsDragging(false)
+  }
+
+  if (posters.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-[400px] text-gray-400">
+        加载海报中...
+      </div>
+    )
   }
 
   return (

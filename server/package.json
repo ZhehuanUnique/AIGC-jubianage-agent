@@ -14,7 +14,8 @@
     "init-db": "node db/init.js",
     "init-users": "node db/initDefaultUsers.js",
     "check-users": "node db/check-users.js",
-    "setup-db": "node db/setup-database.js"
+    "setup-db": "node db/setup-database.js",
+    "upload-posters": "node scripts/upload-posters-to-cos.js"
   },
   "dependencies": {
     "@langchain/google-genai": "^2.1.3",
