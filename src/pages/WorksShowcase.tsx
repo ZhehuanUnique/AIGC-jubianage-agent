@@ -119,9 +119,22 @@ function WorksShowcase() {
     }
   }
 
+  // 检查是否登录
+  const checkAuth = () => {
+    const token = localStorage.getItem('auth_token')
+    return !!token
+  }
+
   // 处理点赞
   const handleLike = async (videoId: number, e: React.MouseEvent) => {
     e.stopPropagation()
+    
+    if (!checkAuth()) {
+      alertError('请先登录', '需要登录')
+      navigate('/login')
+      return
+    }
+
     try {
       const result = await toggleVideoLike(videoId)
       setVideos(prev => prev.map(v => 
@@ -131,6 +144,7 @@ function WorksShowcase() {
       ))
     } catch (error) {
       console.error('点赞失败:', error)
+      alertError(error instanceof Error ? error.message : '点赞失败，请稍后重试', '错误')
     }
   }
 

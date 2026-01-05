@@ -142,13 +142,27 @@ function CommunityVideoDetail() {
     setIsFullscreen(false)
   }
 
+  // 检查是否登录
+  const checkAuth = () => {
+    const token = localStorage.getItem('auth_token')
+    return !!token
+  }
+
   const handleLike = async () => {
     if (!video) return
+    
+    if (!checkAuth()) {
+      alertError('请先登录', '需要登录')
+      navigate('/login')
+      return
+    }
+
     try {
       const result = await toggleVideoLike(video.id)
       setVideo(prev => prev ? { ...prev, likesCount: result.likesCount } : null)
     } catch (error) {
       console.error('点赞失败:', error)
+      alertError(error instanceof Error ? error.message : '点赞失败，请稍后重试', '错误')
     }
   }
 

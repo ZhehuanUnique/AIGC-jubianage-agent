@@ -56,6 +56,7 @@ function VideoReview() {
   const [currentFragmentIndex, setCurrentFragmentIndex] = useState(0)
   const [currentUser, setCurrentUser] = useState<{ username: string; displayName: string } | null>(null)
   const [mode, setMode] = useState<'preview' | 'review'>('preview') // 预览/审片模式
+  const [videoAspectRatios, setVideoAspectRatios] = useState<Map<string, number>>(new Map()) // 存储每个视频的宽高比
 
   // 加载当前用户信息和默认模式
   useEffect(() => {
@@ -1155,20 +1156,36 @@ function VideoReview() {
                     }`}
                   >
                     <div className="flex items-center gap-2 sm:gap-3">
-                      <div className="relative w-20 h-14 sm:w-24 sm:h-16 bg-gray-200 rounded overflow-hidden flex-shrink-0">
-                        {fragment.videoUrls && fragment.videoUrls.length > 0 ? (
-                          <video
-                            src={fragment.videoUrls[0]}
-                            className="w-full h-full object-cover"
-                            muted
-                            preload="metadata"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <Play className="w-5 h-5 sm:w-6 sm:h-6 text-gray-400" />
+                      {fragment.videoUrls && fragment.videoUrls.length > 0 ? (() => {
+                        const videoUrl = fragment.videoUrls[0]
+                        const aspectRatio = videoAspectRatios.get(videoUrl) || 16/9 // 默认16:9
+                        const isPortrait = aspectRatio < 1
+                        return (
+                          <div 
+                            className={`relative bg-gray-200 rounded overflow-hidden flex-shrink-0 ${
+                              isPortrait 
+                                ? 'w-12 h-20 sm:w-14 sm:h-24' // 9:16 竖屏
+                                : 'w-20 h-14 sm:w-24 sm:h-16'  // 16:9 横屏
+                            }`}
+                          >
+                            <video
+                              src={videoUrl}
+                              className="w-full h-full object-cover"
+                              muted
+                              preload="metadata"
+                              onLoadedMetadata={(e) => {
+                                const video = e.currentTarget
+                                const ratio = video.videoWidth / video.videoHeight
+                                setVideoAspectRatios(prev => new Map(prev).set(videoUrl, ratio))
+                              }}
+                            />
                           </div>
-                        )}
-                      </div>
+                        )
+                      })() : (
+                        <div className="relative w-20 h-14 sm:w-24 sm:h-16 bg-gray-200 rounded overflow-hidden flex-shrink-0 flex items-center justify-center">
+                          <Play className="w-5 h-5 sm:w-6 sm:h-6 text-gray-400" />
+                        </div>
+                      )}
                       <div className="flex-1 min-w-0">
                         <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">{fragment.name}</p>
                         <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5 sm:mt-1">

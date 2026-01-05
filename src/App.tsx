@@ -86,7 +86,7 @@ function App() {
       {AlertComponent}
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route path="/" element={isMobile ? <Navigate to="/works" replace /> : <Home />} />
+        <Route path="/" element={isMobile ? <Home /> : <Home />} />
         <Route
           path="/tasks"
           element={
@@ -250,19 +250,11 @@ function App() {
         />
         <Route
           path="/works"
-          element={
-            <ProtectedRoute>
-              <WorksShowcase />
-            </ProtectedRoute>
-          }
+          element={<WorksShowcase />}
         />
         <Route
           path="/works/:videoId"
-          element={
-            <ProtectedRoute>
-              <CommunityVideoDetail />
-            </ProtectedRoute>
-          }
+          element={<CommunityVideoDetail />}
         />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

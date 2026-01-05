@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import SidebarNavigation from '../components/SidebarNavigation'
-import { Plus, MoreVertical, Trash2, ArrowLeft, RefreshCw, Download, Upload, Heart } from 'lucide-react'
+import { Plus, MoreVertical, Trash2, ArrowLeft, RefreshCw, Download, Upload, Heart, Edit2, X, Check } from 'lucide-react'
 import CreateFragmentModal from '../components/CreateFragmentModal'
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
 import { UploadToCommunityModal } from '../components/UploadToCommunityModal'
@@ -35,6 +35,8 @@ function FragmentCard({
   const menuRef = useRef<HTMLDivElement>(null)
   const [videoAspectRatio, setVideoAspectRatio] = useState<number | null>(null)
   const [showUploadModal, setShowUploadModal] = useState(false)
+  const [isRenaming, setIsRenaming] = useState(false)
+  const [renameValue, setRenameValue] = useState('')
 
   // 点击外部关闭菜单
   useEffect(() => {
@@ -130,6 +132,69 @@ function FragmentCard({
     alertSuccess('收藏功能开发中', '提示')
   }
 
+  // 重命名片段
+  const handleRename = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    e.preventDefault()
+    setShowMenu(false)
+    setIsRenaming(true)
+    setRenameValue(fragment.name)
+  }
+
+  // 确认重命名
+  const handleRenameConfirm = async () => {
+    if (!renameValue.trim() || renameValue.trim() === fragment.name) {
+      setIsRenaming(false)
+      return
+    }
+
+    try {
+      const API_BASE_URL = (() => {
+        if (import.meta.env.VITE_API_BASE_URL !== undefined) return import.meta.env.VITE_API_BASE_URL
+        const isProduction = !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')
+        return isProduction ? '' : 'http://localhost:3002'
+      })()
+      const token = localStorage.getItem('auth_token')
+      
+      if (!token) {
+        alertError('请先登录', '错误')
+        setIsRenaming(false)
+        return
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/fragments/${fragment.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ name: renameValue.trim() }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || '重命名失败')
+      }
+
+      alertSuccess('重命名成功', '成功')
+      setIsRenaming(false)
+      
+      // 触发片段更新事件
+      window.dispatchEvent(new CustomEvent('fragment-updated', {
+        detail: { projectId, fragmentId: fragment.id }
+      }))
+    } catch (error) {
+      console.error('重命名失败:', error)
+      alertError(error instanceof Error ? error.message : '重命名失败，请稍后重试', '错误')
+    }
+  }
+
+  // 取消重命名
+  const handleRenameCancel = () => {
+    setIsRenaming(false)
+    setRenameValue(fragment.name)
+  }
+
   // 检测视频宽高比
   const handleVideoLoadedMetadata = () => {
     if (videoRef.current) {
@@ -212,9 +277,47 @@ function FragmentCard({
           </div>
         )}
       </div>
-      {/* 片段名称 - 去掉黑边，改为白色文字带阴影 */}
+      {/* 片段名称或重命名输入框 */}
       <div className="absolute bottom-0 left-0 right-0 p-1.5 sm:p-2 text-center text-xs sm:text-sm text-white font-medium" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
-        {fragment.name}
+        {isRenaming ? (
+          <div className="flex items-center gap-1 bg-black bg-opacity-60 rounded px-2 py-1">
+            <input
+              type="text"
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleRenameConfirm()
+                } else if (e.key === 'Escape') {
+                  handleRenameCancel()
+                }
+              }}
+              className="flex-1 bg-transparent text-white text-xs sm:text-sm outline-none border-none"
+              autoFocus
+              onClick={(e) => e.stopPropagation()}
+            />
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                handleRenameConfirm()
+              }}
+              className="text-green-400 hover:text-green-300"
+            >
+              <Check size={14} />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                handleRenameCancel()
+              }}
+              className="text-red-400 hover:text-red-300"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        ) : (
+          fragment.name
+        )}
       </div>
       {/* 删除按钮 */}
       <button
@@ -245,6 +348,13 @@ function FragmentCard({
           {/* 菜单下拉列表 */}
           {showMenu && (
             <div className="absolute bottom-full right-0 mb-2 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-30">
+              <button
+                onClick={handleRename}
+                className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 touch-manipulation"
+              >
+                <Edit2 size={16} />
+                <span>重命名</span>
+              </button>
               <button
                 onClick={handleDownload}
                 className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 touch-manipulation"

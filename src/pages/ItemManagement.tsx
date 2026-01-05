@@ -242,21 +242,21 @@ function ItemManagement() {
 
         <div className="flex-1 p-6">
           <div className="flex gap-6">
-          {/* 左侧按钮区域 */}
-          <div className="flex flex-col gap-3">
+          {/* 左侧操作按钮 - 竖向布局（9:16），与场景/角色管理一致 */}
+          <div className="flex flex-col gap-4 w-48">
             <button
               onClick={() => setShowCreateModal(true)}
-              className="px-6 py-4 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all flex items-center justify-center gap-2"
+              className="w-48 aspect-[9/16] bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all flex flex-col items-center justify-center gap-2"
             >
-              <Plus size={20} />
-              新建物品
+              <Plus size={24} />
+              <span className="text-base font-medium">新建物品</span>
             </button>
             <button 
               onClick={() => setShowCreateModal(true)}
-              className="px-6 py-4 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-lg hover:from-pink-600 hover:to-purple-700 transition-all flex items-center justify-center gap-2"
+              className="w-48 aspect-[9/16] bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-lg hover:from-pink-600 hover:to-purple-700 transition-all flex flex-col items-center justify-center gap-2"
             >
-              <Plus size={20} />
-              公共物品
+              <Plus size={24} />
+              <span className="text-base font-medium">公共物品</span>
             </button>
           </div>
 

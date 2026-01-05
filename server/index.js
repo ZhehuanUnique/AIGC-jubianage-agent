@@ -4836,6 +4836,63 @@ app.get('/api/projects/:projectId/fragments', authenticateToken, async (req, res
 })
 
 // 删除片段（删除对应的分镜）
+// 更新片段名称
+app.put('/api/fragments/:fragmentId', authenticateToken, async (req, res) => {
+  try {
+    const { fragmentId } = req.params
+    const { name } = req.body
+    const userId = req.user?.id
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: '片段名称不能为空',
+      })
+    }
+
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+
+    // 检查片段是否存在
+    const fragment = await db.query('SELECT id, project_id, user_id FROM fragments WHERE id = $1', [fragmentId])
+    if (fragment.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: '片段不存在',
+      })
+    }
+
+    // 检查权限：只有创建者或项目所有者可以重命名
+    const fragmentData = fragment.rows[0]
+    if (fragmentData.user_id !== userId && fragmentData.project_id) {
+      const project = await db.query('SELECT user_id FROM projects WHERE id = $1', [fragmentData.project_id])
+      if (project.rows.length > 0 && project.rows[0].user_id !== userId) {
+        return res.status(403).json({
+          success: false,
+          error: '没有权限重命名此片段',
+        })
+      }
+    }
+
+    // 更新片段名称
+    await db.query('UPDATE fragments SET name = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [
+      name.trim(),
+      fragmentId,
+    ])
+
+    res.json({
+      success: true,
+      message: '片段已重命名',
+    })
+  } catch (error) {
+    console.error('重命名片段失败:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '重命名片段失败',
+    })
+  }
+})
+
 app.delete('/api/fragments/:fragmentId', authenticateToken, async (req, res) => {
   try {
     const { fragmentId } = req.params
