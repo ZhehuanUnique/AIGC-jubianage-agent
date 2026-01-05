@@ -26,6 +26,13 @@ interface VideoTask {
 function FirstLastFrameVideo() {
   const { projectId } = useParams()
   const navigate = useNavigate()
+  const [enterKeySubmit, setEnterKeySubmit] = useState(false)
+  
+  // 加载设置
+  useEffect(() => {
+    const settings = getUserSettings()
+    setEnterKeySubmit(settings.workflow?.enterKeySubmit || false)
+  }, [])
   
   const [firstFrameFile, setFirstFrameFile] = useState<File | null>(null)
   const [lastFrameFile, setLastFrameFile] = useState<File | null>(null)
