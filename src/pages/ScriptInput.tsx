@@ -76,6 +76,13 @@ function ScriptInput() {
   const [showStyleDropdown, setShowStyleDropdown] = useState(false)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [enterKeySubmit, setEnterKeySubmit] = useState(false)
+  
+  // 加载设置
+  useEffect(() => {
+    const settings = getUserSettings()
+    setEnterKeySubmit(settings.workflow?.enterKeySubmit || false)
+  }, [])
   
   // 保存所有数据到 sessionStorage 的辅助函数
   const saveAllData = () => {
