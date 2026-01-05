@@ -8347,6 +8347,10 @@ app.delete('/api/community-videos/:videoId', authenticateToken, async (req, res)
       })
     }
 
+    // 导入数据库连接
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+
     // 检查视频是否存在
     const videoResult = await db.query(
       'SELECT id, user_id FROM public.community_videos WHERE id = $1',
