@@ -36,6 +36,9 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
   const isLoadingBalanceRef = useRef(false) // 用于防止重复请求
   const lastBalanceRef = useRef<string>('') // 记录上次的余额，避免不必要的更新
 
+  // 检测是否为移动设备
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+
   // 获取用户角色显示名称
   const getUserRoleDisplay = (username: string): string => {
     if (username === 'Chiefavefan') {
@@ -229,11 +232,18 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
     if (location.pathname.includes('/project/')) {
       navigate('/project-management');
     } else if (location.pathname === '/project-management') {
-      // 如果在项目管理页面，返回到作品展示
-      navigate('/works')
+      // 如果在项目管理页面，根据设备类型返回
+      // 电脑端返回到首页（/），手机端返回到作品展示（/works）
+      navigate(isMobile ? '/works' : '/')
     } else {
       navigate(-1)
     }
+  }
+
+  // 处理首页按钮点击
+  const handleHomeClick = () => {
+    // 电脑端跳转到首页（/），手机端跳转到作品展示（/works）
+    navigate(isMobile ? '/works' : '/')
   }
 
   return (
@@ -256,9 +266,9 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
         />
         <nav className="hidden md:flex items-center gap-4 lg:gap-6">
           <button
-            onClick={() => navigate('/works')}
+            onClick={handleHomeClick}
             className={`px-3 lg:px-4 py-2 rounded-lg transition-colors text-sm lg:text-base ${
-              activeTab === 'works' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-600 hover:text-gray-900'
+              (isMobile ? activeTab === 'works' : activeTab === 'home') ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-600 hover:text-gray-900'
             }`}
           >
             首页
