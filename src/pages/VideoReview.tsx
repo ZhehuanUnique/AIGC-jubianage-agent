@@ -871,7 +871,6 @@ function VideoReview() {
                   className="w-full h-full object-contain"
                   onLoadStart={() => setIsVideoLoading(true)}
                   onCanPlay={() => setIsVideoLoading(false)}
-                  onError={() => setIsVideoLoading(false)}
                   onTimeUpdate={(e) => {
                     try {
                       const video = e.currentTarget
@@ -915,6 +914,7 @@ function VideoReview() {
                     }
                   }}
                   onError={(e) => {
+                    setIsVideoLoading(false)
                     console.error('视频加载错误:', e)
                     alertError('视频加载失败，请检查视频文件是否有效', '视频错误')
                     // 清空视频URL，回到上传状态
