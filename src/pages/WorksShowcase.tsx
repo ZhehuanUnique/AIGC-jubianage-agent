@@ -61,6 +61,33 @@ function WorksShowcase() {
     }
   }
 
+  // 删除/下架视频（仅管理员）
+  const handleDeleteVideo = async (videoId: number, e: React.MouseEvent) => {
+    e.stopPropagation() // 阻止触发卡片的点击事件
+    
+    if (!isAdmin) {
+      alertWarning('您没有权限删除视频', '权限不足')
+      return
+    }
+
+    if (!window.confirm('确定要删除/下架这个视频吗？此操作不可恢复。')) {
+      return
+    }
+
+    try {
+      setDeletingVideoId(videoId)
+      await deleteCommunityVideo(videoId)
+      alertSuccess('视频已成功删除/下架', '成功')
+      // 刷新视频列表
+      loadVideos()
+    } catch (error) {
+      console.error('删除视频失败:', error)
+      alertError(error instanceof Error ? error.message : '删除视频失败，请稍后重试', '错误')
+    } finally {
+      setDeletingVideoId(null)
+    }
+  }
+
   useEffect(() => {
     loadVideos()
   }, [page, sortBy])
