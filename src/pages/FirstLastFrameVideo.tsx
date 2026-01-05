@@ -135,6 +135,7 @@ function FirstLastFrameVideo() {
   const firstFrameInputRef = useRef<HTMLInputElement>(null)
   const lastFrameInputRef = useRef<HTMLInputElement>(null)
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const polledTasksRef = useRef<Set<string>>(new Set())
   const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const bottomBarHoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const bottomEdgeHoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -542,8 +543,6 @@ function FirstLastFrameVideo() {
       const result = await generateFirstLastFrameVideo(formData)
 
       if (result.success && result.data?.taskId) {
-        alertSuccess('视频生成任务已提交', '成功')
-        
         // 移除输入框聚焦状态，恢复样式
         setIsInputFocused(false)
         const activeElement = document.activeElement as HTMLElement
@@ -655,9 +654,8 @@ function FirstLastFrameVideo() {
           if (task && (task.status === 'completed' || task.status === 'failed')) {
             clearInterval(pollIntervalRef.current!)
             pollIntervalRef.current = null
+            polledTasksRef.current.delete(taskId)
             if (task.status === 'completed') {
-              alertSuccess('视频生成完成', '成功')
-              
               // 刷新历史记录（静默模式）
               loadHistory(true)
               

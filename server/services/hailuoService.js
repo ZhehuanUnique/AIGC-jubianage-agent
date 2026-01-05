@@ -140,14 +140,26 @@ export async function generateVideoWithHailuo(imageUrl, options = {}) {
     if (!response.ok) {
       const errorText = await response.text()
       console.error('❌ MiniMax Hailuo API 错误响应:', errorText)
-      throw new Error(`MiniMax Hailuo API 请求失败: ${response.status} ${response.statusText}`)
+      let errorMessage = `MiniMax Hailuo API 请求失败: ${response.status} ${response.statusText}`
+      try {
+        const errorJson = JSON.parse(errorText)
+        if (errorJson.base_resp && errorJson.base_resp.status_msg) {
+          errorMessage = `MiniMax Hailuo API 错误: ${errorJson.base_resp.status_msg}`
+        } else if (errorJson.message) {
+          errorMessage = `MiniMax Hailuo API 错误: ${errorJson.message}`
+        }
+      } catch (e) {
+        // 如果无法解析JSON，使用默认错误消息
+      }
+      throw new Error(errorMessage)
     }
 
     const result = await response.json()
     console.log('📥 MiniMax Hailuo API 响应:', result)
 
     if (result.base_resp && result.base_resp.status_code !== 0) {
-      throw new Error(`MiniMax Hailuo API 错误: ${result.base_resp.status_msg || '未知错误'}`)
+      const errorMsg = result.base_resp.status_msg || '未知错误'
+      throw new Error(`MiniMax Hailuo API 错误: ${errorMsg}`)
     }
 
     if (!result.task_id) {

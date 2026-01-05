@@ -1018,18 +1018,24 @@ app.get('/api/first-last-frame-video/status/:taskId', authenticateToken, async (
         if (projectId) {
           // 检查是否已经处理过（通过查询first_last_frame_videos表的状态）
           const existingRecord = await db.query(
-            'SELECT status, shot_id FROM first_last_frame_videos WHERE task_id = $1',
+            'SELECT status, shot_id, video_url FROM first_last_frame_videos WHERE task_id = $1',
             [taskId]
           )
           
-          // 如果已经处理过（status为completed且有shot_id），则跳过
+          // 如果已经处理过（status为completed且有shot_id和video_url），则跳过
           if (existingRecord.rows.length > 0 && 
               existingRecord.rows[0].status === 'completed' && 
-              existingRecord.rows[0].shot_id) {
+              existingRecord.rows[0].shot_id &&
+              existingRecord.rows[0].video_url) {
             console.log(`ℹ️ 任务 ${taskId} 已经处理过，跳过重复处理`)
+            // 直接返回已存在的视频URL，不重复处理
             return res.json({
               success: true,
-              data: result,
+              data: {
+                ...result,
+                videoUrl: existingRecord.rows[0].video_url,
+                status: 'completed',
+              },
             })
           }
           
