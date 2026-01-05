@@ -474,26 +474,61 @@ function WorksShowcase() {
                     
                     {/* 悬停时显示的磨砂质感覆盖层（图3样式） */}
                     {hoveredVideoId === video.id && (
-                      <div className="absolute inset-0 bg-black bg-opacity-40 backdrop-blur-md flex flex-col justify-end p-4 transition-all">
-                        {/* 底部操作栏 - 磨砂质感 */}
-                        <div className="bg-white bg-opacity-20 backdrop-blur-lg rounded-lg p-3 border border-white border-opacity-30">
+                      <div className="absolute inset-0 bg-black bg-opacity-30 backdrop-blur-sm flex flex-col justify-end p-4 transition-all animate-fadeIn">
+                        {/* 底部操作栏 - 磨砂质感（更强烈的磨砂效果） */}
+                        <div 
+                          className="bg-white bg-opacity-25 backdrop-blur-xl rounded-lg p-3 border border-white border-opacity-40 shadow-lg"
+                          style={{
+                            background: 'rgba(255, 255, 255, 0.15)',
+                            backdropFilter: 'blur(20px) saturate(180%)',
+                            WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+                          }}
+                        >
                           {/* 使用模板按钮 */}
                           <div className="flex items-center gap-2 mb-3">
-                            <button className="flex-1 bg-white bg-opacity-30 backdrop-blur-sm rounded-lg px-4 py-2 text-white text-sm font-medium hover:bg-opacity-40 transition-all flex items-center justify-center gap-2">
-                              <span className="text-xs">⭐</span>
+                            <button 
+                              className="flex-1 bg-white bg-opacity-40 backdrop-blur-md rounded-lg px-4 py-2.5 text-white text-sm font-medium hover:bg-opacity-50 transition-all flex items-center justify-center gap-2 shadow-md"
+                              style={{
+                                background: 'rgba(255, 255, 255, 0.3)',
+                                backdropFilter: 'blur(10px)',
+                                WebkitBackdropFilter: 'blur(10px)',
+                              }}
+                            >
+                              <span className="text-base">⭐</span>
                               <span>使用模板</span>
                             </button>
-                            <button className="w-10 h-10 bg-white bg-opacity-30 backdrop-blur-sm rounded-lg flex items-center justify-center text-white hover:bg-opacity-40 transition-all">
+                            <button 
+                              className="w-11 h-11 bg-white bg-opacity-30 backdrop-blur-md rounded-lg flex items-center justify-center text-white hover:bg-opacity-40 transition-all shadow-md"
+                              style={{
+                                background: 'rgba(255, 255, 255, 0.25)',
+                                backdropFilter: 'blur(10px)',
+                                WebkitBackdropFilter: 'blur(10px)',
+                              }}
+                            >
                               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                               </svg>
                             </button>
-                            <button className="w-10 h-10 bg-white bg-opacity-30 backdrop-blur-sm rounded-lg flex items-center justify-center text-white hover:bg-opacity-40 transition-all">
+                            <button 
+                              className="w-11 h-11 bg-white bg-opacity-30 backdrop-blur-md rounded-lg flex items-center justify-center text-white hover:bg-opacity-40 transition-all shadow-md"
+                              style={{
+                                background: 'rgba(255, 255, 255, 0.25)',
+                                backdropFilter: 'blur(10px)',
+                                WebkitBackdropFilter: 'blur(10px)',
+                              }}
+                            >
                               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                               </svg>
                             </button>
-                            <button className="w-10 h-10 bg-white bg-opacity-30 backdrop-blur-sm rounded-lg flex items-center justify-center text-white hover:bg-opacity-40 transition-all">
+                            <button 
+                              className="w-11 h-11 bg-white bg-opacity-30 backdrop-blur-md rounded-lg flex items-center justify-center text-white hover:bg-opacity-40 transition-all shadow-md"
+                              style={{
+                                background: 'rgba(255, 255, 255, 0.25)',
+                                backdropFilter: 'blur(10px)',
+                                WebkitBackdropFilter: 'blur(10px)',
+                              }}
+                            >
                               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
                               </svg>
@@ -501,14 +536,14 @@ function WorksShowcase() {
                           </div>
                           
                           {/* 视频描述 */}
-                          <div className="text-white text-sm">
-                            <p className="font-medium mb-1">{video.title}</p>
+                          <div className="text-white">
+                            <p className="font-medium text-sm mb-1">{video.title}</p>
                             {video.description && (
-                              <p className="text-xs text-white text-opacity-80 line-clamp-2">{video.description}</p>
+                              <p className="text-xs text-white text-opacity-90 line-clamp-2 mb-2">{video.description}</p>
                             )}
-                            <div className="flex items-center gap-2 mt-2 text-xs text-white text-opacity-70">
+                            <div className="flex items-center gap-2 text-xs text-white text-opacity-80">
                               <span>00:{Math.floor((video.duration || 0) / 10).toString().padStart(2, '0')}</span>
-                              <span>模板</span>
+                              <span className="px-2 py-0.5 bg-white bg-opacity-20 rounded">模板</span>
                             </div>
                           </div>
                         </div>
