@@ -10,6 +10,7 @@ function CommunityVideoDetail() {
   const navigate = useNavigate()
   const [video, setVideo] = useState<CommunityVideo | null>(null)
   const [relatedVideos, setRelatedVideos] = useState<CommunityVideo[]>([])
+  const [allVideos, setAllVideos] = useState<CommunityVideo[]>([]) // 所有视频列表（用于导航）
   const [isLoading, setIsLoading] = useState(true)
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -34,9 +35,12 @@ function CommunityVideoDetail() {
       // 记录观看
       recordVideoView(videoData.id)
       
-      // 加载相关视频
-      const related = await getCommunityVideos({ page: 1, limit: 10, sortBy: 'latest' })
-      const filteredRelated = related.videos.filter(v => v.id !== videoData.id).slice(0, 5)
+      // 加载所有视频（用于导航）
+      const allVideosResult = await getCommunityVideos({ page: 1, limit: 100, sortBy: 'latest' })
+      setAllVideos(allVideosResult.videos)
+      
+      // 加载相关视频（用于显示在侧边栏）
+      const filteredRelated = allVideosResult.videos.filter(v => v.id !== videoData.id).slice(0, 5)
       setRelatedVideos(filteredRelated)
       
       // 为没有缩略图的相关视频提取首帧
@@ -105,14 +109,16 @@ function CommunityVideoDetail() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
         e.preventDefault()
-        const currentIndex = relatedVideos.findIndex(v => v.id === video?.id)
+        if (!video || allVideos.length === 0) return
+        
+        const currentIndex = allVideos.findIndex(v => v.id === video.id)
         if (currentIndex === -1) return
         
         const direction = e.key === 'ArrowUp' ? -1 : 1
         const newIndex = currentIndex + direction
         
-        if (newIndex >= 0 && newIndex < relatedVideos.length) {
-          navigate(`/works/${relatedVideos[newIndex].id}`)
+        if (newIndex >= 0 && newIndex < allVideos.length) {
+          navigate(`/works/${allVideos[newIndex].id}`)
         }
       } else if (e.key === 'Escape' && isFullscreen) {
         exitFullscreen()
@@ -124,28 +130,56 @@ function CommunityVideoDetail() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [relatedVideos, video, isFullscreen, navigate])
+  }, [allVideos, video, isFullscreen, navigate])
 
-  // 滚轮导航
+  // 滚轮导航（Windows逻辑：向下滚动切换到下一个，向上滚动切换到上一个）
   useEffect(() => {
+    let wheelTimeout: ReturnType<typeof setTimeout> | null = null
+    let isNavigating = false
+    
     const handleWheel = (e: WheelEvent) => {
-      if (relatedVideos.length === 0) return
+      if (!video || allVideos.length === 0 || isNavigating) return
       
-      const currentIndex = relatedVideos.findIndex(v => v.id === video?.id)
-      if (currentIndex === -1) return
+      // 如果用户在输入框或文本区域中，不触发导航
+      const target = e.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return
+      }
       
       e.preventDefault()
-      const direction = e.deltaY > 0 ? 1 : -1
-      const newIndex = currentIndex + direction
       
-      if (newIndex >= 0 && newIndex < relatedVideos.length) {
-        navigate(`/works/${relatedVideos[newIndex].id}`)
+      // 防抖：避免快速滚动时频繁切换
+      if (wheelTimeout) {
+        clearTimeout(wheelTimeout)
       }
+      
+      wheelTimeout = setTimeout(() => {
+        const currentIndex = allVideos.findIndex(v => v.id === video.id)
+        if (currentIndex === -1) return
+        
+        // Windows逻辑：向下滚动（deltaY > 0）切换到下一个，向上滚动（deltaY < 0）切换到上一个
+        const direction = e.deltaY > 0 ? 1 : -1
+        const newIndex = currentIndex + direction
+        
+        if (newIndex >= 0 && newIndex < allVideos.length) {
+          isNavigating = true
+          navigate(`/works/${allVideos[newIndex].id}`)
+          // 重置导航标志，允许下一次导航
+          setTimeout(() => {
+            isNavigating = false
+          }, 500)
+        }
+      }, 150) // 150ms 防抖延迟
     }
 
     window.addEventListener('wheel', handleWheel, { passive: false })
-    return () => window.removeEventListener('wheel', handleWheel)
-  }, [relatedVideos, video, navigate])
+    return () => {
+      window.removeEventListener('wheel', handleWheel)
+      if (wheelTimeout) {
+        clearTimeout(wheelTimeout)
+      }
+    }
+  }, [allVideos, video, navigate])
 
   // 播放控制
   const togglePlay = () => {
