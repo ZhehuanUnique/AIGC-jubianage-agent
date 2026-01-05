@@ -203,170 +203,193 @@ function CommunityVideoDetail() {
     )
   }
 
+  // 检测视频宽高比
+  const [videoAspectRatio, setVideoAspectRatio] = useState<number | null>(null)
+  
+  useEffect(() => {
+    if (videoRef.current && video?.videoUrl) {
+      const handleLoadedMetadata = () => {
+        if (videoRef.current) {
+          const ratio = videoRef.current.videoWidth / videoRef.current.videoHeight
+          setVideoAspectRatio(ratio)
+        }
+      }
+      videoRef.current.addEventListener('loadedmetadata', handleLoadedMetadata)
+      return () => {
+        if (videoRef.current) {
+          videoRef.current.removeEventListener('loadedmetadata', handleLoadedMetadata)
+        }
+      }
+    }
+  }, [video?.videoUrl])
+
+  const isPortrait = videoAspectRatio !== null && videoAspectRatio < 1
+
   return (
-    <div className="min-h-screen bg-white">
-      <NavigationBar activeTab="works" />
-      
-      <div className="flex flex-col lg:flex-row h-[calc(100vh-80px)]">
-        {/* 左侧：视频播放器 */}
-        <div className="flex-1 flex flex-col bg-gray-900 order-2 lg:order-1">
-          {/* 返回按钮 */}
-          <div className="p-2 sm:p-4">
+    <div className="min-h-screen bg-gray-100 flex">
+      {/* 左侧窄边栏：返回按钮 */}
+      <div className="w-16 bg-gray-800 flex flex-col items-center py-4">
+        <button
+          onClick={() => navigate('/works')}
+          className="w-12 h-12 bg-purple-600 text-white rounded-lg active:bg-purple-700 hover:bg-purple-700 flex items-center justify-center gap-1 transition-colors touch-manipulation"
+        >
+          <ArrowLeft size={20} />
+        </button>
+      </div>
+
+      {/* 中间：视频播放器 */}
+      <div className="flex-1 bg-gray-900 flex items-center justify-center p-4">
+        <div 
+          className="relative w-full max-w-5xl"
+          style={{ 
+            aspectRatio: isPortrait ? '9/16' : '16/9',
+            maxHeight: 'calc(100vh - 2rem)'
+          }}
+        >
+          <video
+            ref={videoRef}
+            src={video.videoUrl}
+            className="w-full h-full object-contain rounded-lg"
+            onTimeUpdate={handleTimeUpdate}
+            onLoadedMetadata={() => {
+              if (videoRef.current) {
+                setDuration(videoRef.current.duration)
+                const ratio = videoRef.current.videoWidth / videoRef.current.videoHeight
+                setVideoAspectRatio(ratio)
+              }
+            }}
+            onPlay={() => setIsPlaying(true)}
+            onPause={() => setIsPlaying(false)}
+            onEnded={() => setIsPlaying(false)}
+            autoPlay
+          />
+
+          {/* 播放控制覆盖层 */}
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-black bg-opacity-30 rounded-lg">
             <button
-              onClick={() => navigate('/works')}
-              className="px-3 py-2 bg-purple-600 text-white rounded-lg active:bg-purple-700 sm:hover:bg-purple-700 flex items-center gap-2 touch-manipulation text-sm sm:text-base"
+              onClick={togglePlay}
+              className="w-16 h-16 bg-white bg-opacity-90 rounded-full flex items-center justify-center hover:bg-opacity-100 transition-all touch-manipulation"
             >
-              <ArrowLeft size={16} className="sm:w-[18px] sm:h-[18px]" />
-              返回
+              {isPlaying ? (
+                <Pause className="w-8 h-8 text-gray-900" />
+              ) : (
+                <Play className="w-8 h-8 text-gray-900 ml-1" />
+              )}
             </button>
           </div>
 
-          {/* 视频播放器 */}
-          <div className="flex-1 flex items-center justify-center p-2 sm:p-4">
-            <div className="relative w-full max-w-4xl" style={{ aspectRatio: '9/16' }}>
-              <video
-                ref={videoRef}
-                src={video.videoUrl}
-                className="w-full h-full object-contain rounded-lg"
-                onTimeUpdate={handleTimeUpdate}
-                onLoadedMetadata={() => {
-                  if (videoRef.current) {
-                    setDuration(videoRef.current.duration)
-                  }
-                }}
-                onPlay={() => setIsPlaying(true)}
-                onPause={() => setIsPlaying(false)}
-                onEnded={() => setIsPlaying(false)}
-              />
-
-              {/* 播放控制覆盖层 */}
-              <div className="absolute inset-0 flex items-center justify-center opacity-0 sm:hover:opacity-100 transition-opacity bg-black bg-opacity-30 rounded-lg">
-                <button
-                  onClick={togglePlay}
-                  className="w-14 h-14 sm:w-16 sm:h-16 bg-white bg-opacity-90 rounded-full flex items-center justify-center active:bg-opacity-100 sm:hover:bg-opacity-100 transition-all touch-manipulation"
-                >
-                  {isPlaying ? (
-                    <Pause className="w-7 h-7 sm:w-8 sm:h-8 text-gray-900" />
-                  ) : (
-                    <Play className="w-7 h-7 sm:w-8 sm:h-8 text-gray-900 ml-0.5 sm:ml-1" />
-                  )}
-                </button>
-              </div>
-
-              {/* 进度条 */}
+          {/* 进度条和控制按钮 */}
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent rounded-b-lg p-4">
+            <div
+              ref={progressBarRef}
+              onClick={handleProgressClick}
+              className="h-1 bg-gray-700 bg-opacity-50 cursor-pointer rounded-full mb-3"
+            >
               <div
-                ref={progressBarRef}
-                onClick={handleProgressClick}
-                className="absolute bottom-0 left-0 right-0 h-2 bg-gray-700 bg-opacity-50 cursor-pointer rounded-b-lg"
-              >
-                <div
-                  className="h-full bg-purple-600 transition-all"
-                  style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
-                />
-              </div>
-
-              {/* 控制按钮 */}
-              <div className="absolute bottom-2 sm:bottom-4 left-2 sm:left-4 right-2 sm:right-4 flex items-center justify-between text-white">
-                <div className="flex items-center gap-1 sm:gap-2">
-                  <button onClick={togglePlay} className="p-1.5 sm:p-2 active:bg-white active:bg-opacity-20 sm:hover:bg-white sm:hover:bg-opacity-20 rounded touch-manipulation">
-                    {isPlaying ? <Pause size={18} className="sm:w-5 sm:h-5" /> : <Play size={18} className="sm:w-5 sm:h-5" />}
-                  </button>
-                  <button onClick={toggleMute} className="p-1.5 sm:p-2 active:bg-white active:bg-opacity-20 sm:hover:bg-white sm:hover:bg-opacity-20 rounded touch-manipulation">
-                    {isMuted ? <VolumeX size={18} className="sm:w-5 sm:h-5" /> : <Volume2 size={18} className="sm:w-5 sm:h-5" />}
-                  </button>
-                  <span className="text-xs sm:text-sm">
-                    {formatTime(currentTime)} / {formatTime(duration)}
-                  </span>
-                </div>
-                <button onClick={enterFullscreen} className="p-1.5 sm:p-2 active:bg-white active:bg-opacity-20 sm:hover:bg-white sm:hover:bg-opacity-20 rounded touch-manipulation">
-                  <Maximize size={18} className="sm:w-5 sm:h-5" />
+                className="h-full bg-purple-600 transition-all rounded-full"
+                style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
+              />
+            </div>
+            <div className="flex items-center justify-between text-white">
+              <div className="flex items-center gap-2">
+                <button onClick={togglePlay} className="p-2 hover:bg-white hover:bg-opacity-20 rounded transition-colors">
+                  {isPlaying ? <Pause size={20} /> : <Play size={20} />}
                 </button>
+                <button onClick={toggleMute} className="p-2 hover:bg-white hover:bg-opacity-20 rounded transition-colors">
+                  {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+                </button>
+                <span className="text-sm">
+                  {formatTime(currentTime)} / {formatTime(duration)}
+                </span>
               </div>
+              <button onClick={enterFullscreen} className="p-2 hover:bg-white hover:bg-opacity-20 rounded transition-colors">
+                <Maximize size={20} />
+              </button>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* 右侧：视频信息 */}
-        <div className="w-full lg:w-80 bg-white border-t lg:border-t-0 lg:border-l border-gray-200 flex flex-col order-1 lg:order-2 max-h-[40vh] lg:max-h-none overflow-y-auto">
-          {/* 用户信息 */}
-          <div className="p-3 sm:p-4 border-b border-gray-200">
-            <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
-              {video.avatar ? (
-                <img
-                  src={video.avatar}
-                  alt={video.username}
-                  className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover"
-                />
-              ) : (
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-purple-600 flex items-center justify-center text-white text-base sm:text-lg font-semibold">
-                  {video.username.charAt(0).toUpperCase()}
-                </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-sm sm:text-base text-gray-900 truncate">{video.username}</p>
-                <p className="text-xs sm:text-sm text-gray-500">{formatNumber(video.viewsCount)} 次观看</p>
+      {/* 右侧：视频信息（浅灰色背景） */}
+      <div className="w-80 bg-gray-100 flex flex-col overflow-y-auto">
+        {/* 用户信息 */}
+        <div className="p-4 border-b border-gray-300">
+          <div className="flex items-center gap-3 mb-3">
+            {video.avatar ? (
+              <img
+                src={video.avatar}
+                alt={video.username}
+                className="w-12 h-12 rounded-full object-cover"
+              />
+            ) : (
+              <div className="w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center text-white text-lg font-semibold">
+                {video.username.charAt(0).toUpperCase()}
               </div>
-            </div>
-            
-            {/* 标题和描述 */}
-            <h1 className="text-base sm:text-lg font-bold text-gray-900 mb-1.5 sm:mb-2 line-clamp-2">{video.title}</h1>
-            {video.description && (
-              <p className="text-xs sm:text-sm text-gray-600 line-clamp-2 sm:line-clamp-3">{video.description}</p>
             )}
+            <div>
+              <p className="font-semibold text-base text-gray-900">{video.username}</p>
+              <p className="text-sm text-gray-600">{formatNumber(video.viewsCount)}次观看</p>
+            </div>
           </div>
+          
+          {/* 分隔线 */}
+          <div className="h-px bg-gray-300 my-3"></div>
+          
+          {/* 标题 */}
+          <h1 className="text-base font-semibold text-gray-900">{video.title}</h1>
+        </div>
 
-          {/* 操作按钮 */}
-          <div className="p-3 sm:p-4 border-b border-gray-200">
-            <button
-              onClick={handleLike}
-              className="w-full px-4 py-2.5 sm:py-2 bg-gray-100 active:bg-gray-200 sm:hover:bg-gray-200 rounded-lg flex items-center justify-center gap-2 transition-colors touch-manipulation text-sm sm:text-base"
-            >
-              <Heart className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span>{formatNumber(video.likesCount)}</span>
-            </button>
-          </div>
+        {/* 点赞 */}
+        <div className="p-4 border-b border-gray-300">
+          <button
+            onClick={handleLike}
+            className="flex items-center gap-2 text-gray-700 hover:text-red-500 transition-colors"
+          >
+            <Heart className="w-5 h-5" />
+            <span className="text-base">{formatNumber(video.likesCount)}</span>
+          </button>
+        </div>
 
-          {/* 相关视频 */}
-          {relatedVideos.length > 0 && (
-            <div className="flex-1 overflow-y-auto p-3 sm:p-4">
-              <h3 className="text-xs sm:text-sm font-semibold text-gray-900 mb-2 sm:mb-3">相关视频</h3>
-              <div className="space-y-2 sm:space-y-3">
-                {relatedVideos.map((relatedVideo) => (
-                  <div
-                    key={relatedVideo.id}
-                    onClick={() => navigate(`/works/${relatedVideo.id}`)}
-                    className="flex gap-2 sm:gap-3 cursor-pointer active:bg-gray-50 sm:hover:bg-gray-50 p-2 rounded-lg transition-colors touch-manipulation"
-                  >
-                    <div className="relative w-20 h-28 sm:w-24 sm:h-32 bg-gray-200 rounded overflow-hidden flex-shrink-0">
-                      {relatedVideo.thumbnailUrl ? (
-                        <img
-                          src={relatedVideo.thumbnailUrl}
-                          alt={relatedVideo.title}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Play className="w-6 h-6 text-gray-400" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-xs sm:text-sm font-medium text-gray-900 line-clamp-2 mb-0.5 sm:mb-1">
-                        {relatedVideo.title}
-                      </h4>
-                      <p className="text-[10px] sm:text-xs text-gray-500 truncate">{relatedVideo.username}</p>
-                      <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5 sm:mt-1 text-[10px] sm:text-xs text-gray-500">
-                        <span>{formatNumber(relatedVideo.viewsCount)} 次观看</span>
-                        <span>•</span>
-                        <span>{formatNumber(relatedVideo.likesCount)} 点赞</span>
+        {/* 相关视频 */}
+        {relatedVideos.length > 0 && (
+          <div className="flex-1 overflow-y-auto p-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">相关视频</h3>
+            <div className="space-y-3">
+              {relatedVideos.map((relatedVideo) => (
+                <div
+                  key={relatedVideo.id}
+                  onClick={() => navigate(`/works/${relatedVideo.id}`)}
+                  className="flex gap-3 cursor-pointer hover:bg-gray-200 p-2 rounded-lg transition-colors"
+                >
+                  <div className="relative w-24 h-32 bg-gray-300 rounded overflow-hidden flex-shrink-0">
+                    {relatedVideo.thumbnailUrl ? (
+                      <img
+                        src={relatedVideo.thumbnailUrl}
+                        alt={relatedVideo.title}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Play className="w-8 h-8 text-gray-400" />
                       </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-sm font-medium text-gray-900 line-clamp-2 mb-1">
+                      {relatedVideo.title}
+                    </h4>
+                    <p className="text-xs text-gray-600 truncate mb-1">{relatedVideo.username}</p>
+                    <div className="text-xs text-gray-500">
+                      <span>{formatNumber(relatedVideo.viewsCount)}次观看</span>
+                      <span className="mx-1">•</span>
+                      <span>{formatNumber(relatedVideo.likesCount)}点赞</span>
                     </div>
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   )
