@@ -530,7 +530,6 @@ function ScriptInput() {
                 <option value="现代">现代</option>
                 <option value="未来">未来</option>
                 <option value="中古世纪">中古世纪</option>
-                <option value="异世界穿越">异世界穿越</option>
                 <option value="末世">末世</option>
               </select>
               <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-600 pointer-events-none">▼</span>

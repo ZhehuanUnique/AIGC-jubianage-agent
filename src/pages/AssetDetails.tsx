@@ -35,7 +35,7 @@ function AssetDetails() {
 
   // 从 sessionStorage 或 location.state 恢复数据
   const [characters, setCharacters] = useState<Asset[]>(() => {
-    // 优先使用 location.state
+    // 优先使用 location.state（来自剧本分析）
     if (state?.analysisResult?.characters && state.analysisResult.characters.length > 0) {
       const assets = state.analysisResult.characters.map((char, index) => ({
         id: `char-${index}`,
@@ -52,7 +52,18 @@ function AssetDetails() {
       return assets
     }
     
-    // 尝试从 sessionStorage 恢复
+    // 如果有项目ID，说明是继续编辑，尝试从 sessionStorage 恢复
+    // 如果没有项目ID且没有分析结果，清空 sessionStorage 并返回空数组
+    if (!state?.projectId) {
+      try {
+        sessionStorage.removeItem('assetDetails_characters')
+      } catch (error) {
+        console.warn('⚠️ 清除 sessionStorage 失败:', error)
+      }
+      return []
+    }
+    
+    // 尝试从 sessionStorage 恢复（仅当有项目ID时）
     try {
       const saved = sessionStorage.getItem('assetDetails_characters')
       if (saved) {
@@ -71,7 +82,7 @@ function AssetDetails() {
   })
 
   const [scenes, setScenes] = useState<Asset[]>(() => {
-    // 优先使用 location.state
+    // 优先使用 location.state（来自剧本分析）
     if (state?.analysisResult?.scenes && state.analysisResult.scenes.length > 0) {
       const assets = state.analysisResult.scenes.map((scene, index) => ({
         id: `scene-${index}`,
@@ -88,7 +99,18 @@ function AssetDetails() {
       return assets
     }
     
-    // 尝试从 sessionStorage 恢复
+    // 如果有项目ID，说明是继续编辑，尝试从 sessionStorage 恢复
+    // 如果没有项目ID且没有分析结果，清空 sessionStorage 并返回空数组
+    if (!state?.projectId) {
+      try {
+        sessionStorage.removeItem('assetDetails_scenes')
+      } catch (error) {
+        console.warn('⚠️ 清除 sessionStorage 失败:', error)
+      }
+      return []
+    }
+    
+    // 尝试从 sessionStorage 恢复（仅当有项目ID时）
     try {
       const saved = sessionStorage.getItem('assetDetails_scenes')
       if (saved) {
@@ -122,7 +144,7 @@ function AssetDetails() {
   const itemBatchUploadRef = useRef<HTMLInputElement>(null)
 
   const [items, setItems] = useState<Asset[]>(() => {
-    // 优先使用 location.state
+    // 优先使用 location.state（来自剧本分析）
     if (state?.analysisResult?.items && state.analysisResult.items.length > 0) {
       const assets = state.analysisResult.items.map((item, index) => ({
         id: `item-${index}`,
@@ -139,7 +161,18 @@ function AssetDetails() {
       return assets
     }
     
-    // 尝试从 sessionStorage 恢复
+    // 如果有项目ID，说明是继续编辑，尝试从 sessionStorage 恢复
+    // 如果没有项目ID且没有分析结果，清空 sessionStorage 并返回空数组
+    if (!state?.projectId) {
+      try {
+        sessionStorage.removeItem('assetDetails_items')
+      } catch (error) {
+        console.warn('⚠️ 清除 sessionStorage 失败:', error)
+      }
+      return []
+    }
+    
+    // 尝试从 sessionStorage 恢复（仅当有项目ID时）
     try {
       const saved = sessionStorage.getItem('assetDetails_items')
       if (saved) {
