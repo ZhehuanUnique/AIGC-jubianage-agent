@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Upload, Loader2 } from 'lucide-react'
+import { ArrowLeft, Upload, Loader2, Share2, Download, MoreVertical, Heart, ThumbsUp, Edit, Sparkles, Zap } from 'lucide-react'
 import { alertSuccess, alertError } from '../utils/alert'
-import { generateFirstLastFrameVideo, getFirstLastFrameVideoStatus, getFirstLastFrameVideos } from '../services/api'
+import { generateFirstLastFrameVideo, getFirstLastFrameVideoStatus, getFirstLastFrameVideos, toggleFirstLastFrameVideoLike, toggleFirstLastFrameVideoFavorite, createVideoProcessingTask } from '../services/api'
 import { calculateVideoGenerationCredit } from '../utils/creditCalculator'
 
 interface VideoTask {
@@ -18,6 +18,8 @@ interface VideoTask {
   duration: number
   text?: string
   createdAt: string
+  isLiked?: boolean
+  isFavorited?: boolean
 }
 
 function FirstLastFrameVideo() {
@@ -83,6 +85,7 @@ function FirstLastFrameVideo() {
   const [isBottomEdgeHovered, setIsBottomEdgeHovered] = useState(false)
   const [hoveredVideoId, setHoveredVideoId] = useState<string | null>(null)
   const videoRefs = useRef<Map<string, HTMLVideoElement>>(new Map())
+  const [showMenuForVideo, setShowMenuForVideo] = useState<string | null>(null)
   
   // 筛选状态
   const [timeFilter, setTimeFilter] = useState<'all' | 'week' | 'month' | 'quarter' | 'custom'>('all')
@@ -200,6 +203,8 @@ function FirstLastFrameVideo() {
           duration: v.duration,
           text: v.text || undefined,
           createdAt: v.createdAt,
+          isLiked: v.isLiked || false,
+          isFavorited: v.isFavorited || false,
         }))
         
         // 合并本地任务和数据库任务：保留本地新添加的任务（如果数据库还没有）
@@ -753,7 +758,7 @@ function FirstLastFrameVideo() {
               {/* 日期显示（黄色框） */}
               <div className="px-4 py-2 bg-yellow-100 border-2 border-yellow-300 rounded-lg">
                 <span className="text-sm font-semibold text-gray-800">
-                  {new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
+                  {new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })}
                 </span>
               </div>
               {/* 时间筛选 */}
@@ -995,103 +1000,368 @@ function FirstLastFrameVideo() {
               <p className="text-gray-500">暂无历史视频</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {tasks.map((task) => (
-                <div
-                  key={task.id}
-                  className="group relative bg-white rounded-xl shadow-sm hover:shadow-lg transition-all"
-                  style={{ overflow: 'visible' }}
-                  onMouseEnter={() => {
-                    setHoveredVideoId(task.id)
-                    const video = videoRefs.current.get(task.id)
-                    if (video) {
-                      video.play().catch(() => {})
-                    }
-                  }}
-                  onMouseLeave={() => {
-                    setHoveredVideoId(null)
-                    const video = videoRefs.current.get(task.id)
-                    if (video) {
-                      video.pause()
-                      video.currentTime = 0
-                    }
-                  }}
-                >
-                  {/* 视频容器 */}
-                  <div 
-                    className="relative aspect-video bg-gray-100 rounded-t-xl overflow-hidden"
-                    style={task.status !== 'completed' && task.firstFrameUrl ? {
-                      backgroundImage: `url(${task.firstFrameUrl})`,
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center'
-                    } : {}}
-                  >
-                    {task.videoUrl && task.status === 'completed' ? (
-                      <video
-                        ref={(el) => {
-                          if (el) {
-                            videoRefs.current.set(task.id, el)
-                          } else {
-                            videoRefs.current.delete(task.id)
-                          }
-                        }}
-                        src={task.videoUrl}
-                        className="w-full h-full object-cover"
-                        muted
-                        loop
-                        preload="metadata"
-                      />
-                    ) : task.firstFrameUrl ? (
-                      <img
-                        src={task.firstFrameUrl}
-                        alt="首帧"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                        <Upload className="w-12 h-12 text-gray-400" />
-                      </div>
-                    )}
-                    
-                    {/* 状态覆盖层 */}
-                    {task.status !== 'completed' && (
-                      <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                        <div className="text-center text-white px-4 w-full">
-                          {(task.status === 'processing' || task.status === 'pending') && (
-                            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-2"></div>
-                          )}
-                          <p className="text-sm font-medium mb-2">{getStatusText(task.status)}</p>
-                          {/* 进度条 */}
-                          {(task.status === 'processing' || task.status === 'pending') && (
-                            <div className="w-full max-w-xs mx-auto mb-2">
-                              <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
-                                <div
-                                  className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                                  style={{ width: `${getEstimatedProgress(task)}%` }}
-                                ></div>
-                              </div>
-                              <p className="text-xs text-gray-300 mt-1">{Math.round(getEstimatedProgress(task))}%</p>
+            (() => {
+              // 获取日期显示文本（今天/昨天/具体日期）
+              const getDateLabel = (date: Date): string => {
+                const today = new Date()
+                today.setHours(0, 0, 0, 0)
+                
+                const yesterday = new Date(today)
+                yesterday.setDate(yesterday.getDate() - 1)
+                
+                const taskDate = new Date(date)
+                taskDate.setHours(0, 0, 0, 0)
+                
+                if (taskDate.getTime() === today.getTime()) {
+                  return '今天'
+                } else if (taskDate.getTime() === yesterday.getTime()) {
+                  return '昨天'
+                } else {
+                  return date.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })
+                }
+              }
+
+              // 按日期分组任务
+              const groupedTasks = tasks.reduce((groups, task) => {
+                const date = new Date(task.createdAt)
+                const dateKey = getDateLabel(date)
+                
+                if (!groups[dateKey]) {
+                  groups[dateKey] = []
+                }
+                groups[dateKey].push(task)
+                return groups
+              }, {} as Record<string, VideoTask[]>)
+
+              // 按日期排序（最新的在前）
+              // 特殊处理：今天和昨天始终在最前面
+              const sortedDates = Object.keys(groupedTasks).sort((a, b) => {
+                // 今天和昨天优先
+                if (a === '今天') return -1
+                if (b === '今天') return 1
+                if (a === '昨天') return -1
+                if (b === '昨天') return 1
+                
+                // 其他日期按时间排序
+                const dateA = new Date(groupedTasks[a][0].createdAt).getTime()
+                const dateB = new Date(groupedTasks[b][0].createdAt).getTime()
+                return dateB - dateA
+              })
+
+              return (
+                <div className="space-y-8">
+                  {sortedDates.map((dateKey) => (
+                    <div key={dateKey} className="space-y-4">
+                      {/* 日期标题 */}
+                      <h3 className="text-lg font-semibold text-gray-800">{dateKey}</h3>
+                      
+                      {/* 该日期的视频网格 */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        {groupedTasks[dateKey].map((task) => (
+                          <div
+                            key={task.id}
+                            className="group relative bg-white rounded-xl shadow-sm hover:shadow-lg transition-all"
+                            style={{ overflow: 'visible' }}
+                            onMouseEnter={() => {
+                              setHoveredVideoId(task.id)
+                              const video = videoRefs.current.get(task.id)
+                              if (video) {
+                                video.play().catch(() => {})
+                              }
+                            }}
+                            onMouseLeave={() => {
+                              setHoveredVideoId(null)
+                              const video = videoRefs.current.get(task.id)
+                              if (video) {
+                                video.pause()
+                                video.currentTime = 0
+                              }
+                            }}
+                          >
+                            {/* 视频容器 */}
+                            <div 
+                              className="relative aspect-video bg-gray-100 rounded-t-xl overflow-hidden"
+                              style={task.status !== 'completed' && task.firstFrameUrl ? {
+                                backgroundImage: `url(${task.firstFrameUrl})`,
+                                backgroundSize: 'cover',
+                                backgroundPosition: 'center'
+                              } : {}}
+                            >
+                              {task.videoUrl && task.status === 'completed' ? (
+                                <video
+                                  ref={(el) => {
+                                    if (el) {
+                                      videoRefs.current.set(task.id, el)
+                                    } else {
+                                      videoRefs.current.delete(task.id)
+                                    }
+                                  }}
+                                  src={task.videoUrl}
+                                  className="w-full h-full object-cover"
+                                  muted
+                                  loop
+                                  preload="metadata"
+                                />
+                              ) : task.firstFrameUrl ? (
+                                <img
+                                  src={task.firstFrameUrl}
+                                  alt="首帧"
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                                  <Upload className="w-12 h-12 text-gray-400" />
+                                </div>
+                              )}
+                              
+                              {/* 状态覆盖层 */}
+                              {task.status !== 'completed' && (
+                                <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                                  <div className="text-center text-white px-4 w-full">
+                                    {(task.status === 'processing' || task.status === 'pending') && (
+                                      <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-2"></div>
+                                    )}
+                                    <p className="text-sm font-medium mb-2">{getStatusText(task.status)}</p>
+                                    {/* 进度条 */}
+                                    {(task.status === 'processing' || task.status === 'pending') && (
+                                      <div className="w-full max-w-xs mx-auto mb-2">
+                                        <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
+                                          <div
+                                            className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                                            style={{ width: `${getEstimatedProgress(task)}%` }}
+                                          ></div>
+                                        </div>
+                                        <p className="text-xs text-gray-300 mt-1">{Math.round(getEstimatedProgress(task))}%</p>
+                                      </div>
+                                    )}
+                                    {task.status === 'failed' && task.errorMessage && (
+                                      <p className="text-xs text-gray-300 mt-1">{task.errorMessage}</p>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* 悬停时的控制栏 - 图2样式 */}
+                              {hoveredVideoId === task.id && task.status === 'completed' && (
+                                <>
+                                  {/* 顶部控制栏 */}
+                                  <div className="absolute top-2 right-2 flex items-center gap-2 z-20">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        // 上传到社区
+                                        alertSuccess('上传到社区功能开发中', '提示')
+                                      }}
+                                      className="p-2 bg-black bg-opacity-60 hover:bg-opacity-80 text-white rounded-lg transition-all"
+                                      title="上传到社区"
+                                    >
+                                      <Share2 size={18} />
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        // 下载视频
+                                        if (task.videoUrl) {
+                                          const link = document.createElement('a')
+                                          link.href = task.videoUrl
+                                          link.download = `video_${task.id}.mp4`
+                                          link.click()
+                                          alertSuccess('视频下载已开始', '下载成功')
+                                        }
+                                      }}
+                                      className="p-2 bg-black bg-opacity-60 hover:bg-opacity-80 text-white rounded-lg transition-all"
+                                      title="下载"
+                                    >
+                                      <Download size={18} />
+                                    </button>
+                                    <div className="relative">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          setShowMenuForVideo(showMenuForVideo === task.id ? null : task.id)
+                                        }}
+                                        className="p-2 bg-black bg-opacity-60 hover:bg-opacity-80 text-white rounded-lg transition-all"
+                                        title="更多选项"
+                                      >
+                                        <MoreVertical size={18} />
+                                      </button>
+                                      {showMenuForVideo === task.id && (
+                                        <div className="absolute top-full right-0 mt-2 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-30">
+                                          <button
+                                            onClick={async (e) => {
+                                              e.stopPropagation()
+                                              try {
+                                                const result = await toggleFirstLastFrameVideoFavorite(task.id)
+                                                // 更新任务状态
+                                                setAllTasks(prev => prev.map(t => 
+                                                  t.id === task.id ? { ...t, isFavorited: result.isFavorited } : t
+                                                ))
+                                                setTasks(prev => prev.map(t => 
+                                                  t.id === task.id ? { ...t, isFavorited: result.isFavorited } : t
+                                                ))
+                                                setShowMenuForVideo(null)
+                                              } catch (error) {
+                                                console.error('收藏失败:', error)
+                                                alertError(error instanceof Error ? error.message : '收藏失败，请稍后重试', '操作失败')
+                                              }
+                                            }}
+                                            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                          >
+                                            <Heart size={16} className={task.isFavorited ? 'fill-red-500 text-red-500' : ''} />
+                                            <span>收藏</span>
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
+                                    <button
+                                      onClick={async (e) => {
+                                        e.stopPropagation()
+                                        try {
+                                          const result = await toggleFirstLastFrameVideoLike(task.id)
+                                          // 更新任务状态
+                                          setAllTasks(prev => prev.map(t => 
+                                            t.id === task.id ? { ...t, isLiked: result.isLiked } : t
+                                          ))
+                                          setTasks(prev => prev.map(t => 
+                                            t.id === task.id ? { ...t, isLiked: result.isLiked } : t
+                                          ))
+                                        } catch (error) {
+                                          console.error('点赞失败:', error)
+                                          alertError(error instanceof Error ? error.message : '点赞失败，请稍后重试', '操作失败')
+                                        }
+                                      }}
+                                      className={`p-2 bg-black bg-opacity-60 hover:bg-opacity-80 text-white rounded-lg transition-all ${
+                                        task.isLiked ? 'bg-red-500 bg-opacity-80' : ''
+                                      }`}
+                                      title="点赞"
+                                    >
+                                      <ThumbsUp size={18} className={task.isLiked ? 'fill-white' : ''} />
+                                    </button>
+                                  </div>
+
+                                  {/* 底部控制栏 */}
+                                  <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between z-20">
+                                    <button
+                                      onClick={async (e) => {
+                                        e.stopPropagation()
+                                        try {
+                                          await createVideoProcessingTask({
+                                            videoTaskId: task.id,
+                                            processingType: 'frame_interpolation'
+                                          })
+                                          alertSuccess('补帧任务已创建，请稍后查看结果', '任务创建成功')
+                                        } catch (error) {
+                                          console.error('创建补帧任务失败:', error)
+                                          alertError(error instanceof Error ? error.message : '创建补帧任务失败，请稍后重试', '操作失败')
+                                        }
+                                      }}
+                                      className="px-3 py-1.5 bg-black bg-opacity-60 hover:bg-opacity-80 text-white rounded-lg text-sm transition-all flex items-center gap-2"
+                                      title="补帧"
+                                    >
+                                      <Sparkles size={16} />
+                                      <span>补帧</span>
+                                    </button>
+                                    <button
+                                      onClick={async (e) => {
+                                        e.stopPropagation()
+                                        try {
+                                          await createVideoProcessingTask({
+                                            videoTaskId: task.id,
+                                            processingType: 'super_resolution'
+                                          })
+                                          alertSuccess('超分辨率任务已创建，请稍后查看结果', '任务创建成功')
+                                        } catch (error) {
+                                          console.error('创建超分辨率任务失败:', error)
+                                          alertError(error instanceof Error ? error.message : '创建超分辨率任务失败，请稍后重试', '操作失败')
+                                        }
+                                      }}
+                                      className="px-3 py-1.5 bg-black bg-opacity-60 hover:bg-opacity-80 text-white rounded-lg text-sm transition-all flex items-center gap-2"
+                                      title="超分辨率"
+                                    >
+                                      <Zap size={16} />
+                                      <span>超分辨率</span>
+                                    </button>
+                                  </div>
+                                </>
+                              )}
                             </div>
-                          )}
-                          {task.status === 'failed' && task.errorMessage && (
-                            <p className="text-xs text-gray-300 mt-1">{task.errorMessage}</p>
-                          )}
-                        </div>
+                            
+                            {/* 视频信息 */}
+                            <div className="p-3">
+                              <p className="text-sm text-gray-700 line-clamp-2 mb-2">{task.text || '无描述'}</p>
+                              <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
+                                <span>视频 {videoVersion} | {task.duration}s | {task.resolution}</span>
+                              </div>
+                              {/* 操作按钮 */}
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    // 重新编辑：填充提示词、首帧和尾帧
+                                    setPrompt(task.text || '')
+                                    // 如果有首帧URL，需要转换为File对象或直接使用URL
+                                    if (task.firstFrameUrl) {
+                                      // 从URL加载图片并转换为File
+                                      fetch(task.firstFrameUrl)
+                                        .then(res => res.blob())
+                                        .then(blob => {
+                                          const file = new File([blob], 'first-frame.jpg', { type: 'image/jpeg' })
+                                          setFirstFrameFile(file)
+                                          setFirstFramePreview(task.firstFrameUrl)
+                                        })
+                                        .catch(err => {
+                                          console.error('加载首帧失败:', err)
+                                          setFirstFramePreview(task.firstFrameUrl)
+                                        })
+                                    }
+                                    // 如果有尾帧URL
+                                    if (task.lastFrameUrl) {
+                                      fetch(task.lastFrameUrl)
+                                        .then(res => res.blob())
+                                        .then(blob => {
+                                          const file = new File([blob], 'last-frame.jpg', { type: 'image/jpeg' })
+                                          setLastFrameFile(file)
+                                          setLastFramePreview(task.lastFrameUrl!)
+                                        })
+                                        .catch(err => {
+                                          console.error('加载尾帧失败:', err)
+                                          setLastFramePreview(task.lastFrameUrl!)
+                                        })
+                                    }
+                                    // 设置模型和分辨率
+                                    setSelectedModel(task.model)
+                                    setResolution(task.resolution as '720p' | '1080p')
+                                    setDuration(task.duration)
+                                    // 滚动到底部输入区域
+                                    setTimeout(() => {
+                                      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
+                                    }, 100)
+                                    alertSuccess('已填充到输入框', '重新编辑')
+                                  }}
+                                  className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700 transition-colors flex items-center gap-1"
+                                >
+                                  <Edit size={14} />
+                                  <span>重新编辑</span>
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    alertSuccess('再次生成功能开发中', '提示')
+                                  }}
+                                  className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200 transition-colors"
+                                >
+                                  再次生成
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    )}
-                  </div>
-                  
-                  {/* 视频信息 */}
-                  <div className="p-3">
-                    <p className="text-sm text-gray-700 line-clamp-2 mb-2">{task.text || '无描述'}</p>
-                    <div className="flex items-center justify-between text-xs text-gray-500">
-                      <span>视频 {videoVersion} | {task.duration}s | {task.resolution}</span>
-                      <span>{new Date(task.createdAt).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })}</span>
                     </div>
-                  </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              )
+            })()
           )}
         </div>
       </div>

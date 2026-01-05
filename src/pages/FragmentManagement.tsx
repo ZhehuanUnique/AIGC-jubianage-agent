@@ -4,6 +4,7 @@ import SidebarNavigation from '../components/SidebarNavigation'
 import { Plus, MoreVertical, Trash2, ArrowLeft, RefreshCw, Download, Upload, Heart } from 'lucide-react'
 import CreateFragmentModal from '../components/CreateFragmentModal'
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
+import { UploadToCommunityModal } from '../components/UploadToCommunityModal'
 import { getProjectFragments, publishVideoToCommunity } from '../services/api'
 import { alert, alertSuccess, alertError } from '../utils/alert'
 
@@ -32,6 +33,8 @@ function FragmentCard({
   const videoRef = useRef<HTMLVideoElement>(null)
   const [showMenu, setShowMenu] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const [videoAspectRatio, setVideoAspectRatio] = useState<number | null>(null)
+  const [showUploadModal, setShowUploadModal] = useState(false)
 
   // 点击外部关闭菜单
   useEffect(() => {
@@ -87,22 +90,26 @@ function FragmentCard({
       return
     }
 
-    const videoUrl = fragment.videoUrls[0]
-    const title = prompt('请输入视频标题：', fragment.name)
-    if (!title) {
+    // 显示上传模态框
+    setShowUploadModal(true)
+  }
+
+  // 处理上传确认
+  const handleUploadConfirm = async (data: { title: string; description?: string; tags?: string[] }) => {
+    setShowUploadModal(false)
+
+    if (!fragment.videoUrls || fragment.videoUrls.length === 0) {
+      alertError('该片段没有视频', '上传失败')
       return
     }
 
-    const description = prompt('请输入视频描述（可选）：', '') || undefined
-    const tagsInput = prompt('请输入标签，用逗号分隔（可选）：', '') || undefined
-    const tags = tagsInput ? tagsInput.split(',').map(t => t.trim()).filter(t => t) : undefined
-
+    const videoUrl = fragment.videoUrls[0]
     try {
       await publishVideoToCommunity({
         videoUrl,
-        title,
-        description,
-        tags,
+        title: data.title || fragment.name,
+        description: data.description,
+        tags: data.tags,
         projectId: projectId ? parseInt(projectId, 10) : undefined,
         shotId: fragment.id ? parseInt(fragment.id, 10) : undefined,
       })
@@ -123,9 +130,32 @@ function FragmentCard({
     alertSuccess('收藏功能开发中', '提示')
   }
 
+  // 检测视频宽高比
+  const handleVideoLoadedMetadata = () => {
+    if (videoRef.current) {
+      const video = videoRef.current
+      const aspectRatio = video.videoWidth / video.videoHeight
+      setVideoAspectRatio(aspectRatio)
+    }
+  }
+
+  // 判断是否为竖屏视频（9:16，宽高比小于1）
+  // 如果视频还未加载，默认使用横屏样式
+  const isPortrait = videoAspectRatio !== null && videoAspectRatio < 1
+  const hasVideo = fragment.videoUrls && fragment.videoUrls.length > 0
+
   return (
-    <div
-      className="w-full sm:w-64 h-40 sm:h-48 bg-gray-50 border border-gray-200 rounded-lg overflow-hidden cursor-pointer sm:hover:scale-105 transition-transform relative group touch-manipulation"
+    <>
+      <div
+        className={`bg-gray-50 border border-gray-200 rounded-lg overflow-hidden cursor-pointer sm:hover:scale-105 transition-transform relative group touch-manipulation ${
+          hasVideo && isPortrait
+            ? 'w-full sm:w-48' // 竖屏视频使用较小宽度
+            : 'w-full sm:w-64' // 横屏视频或未加载时使用默认宽度
+        } ${
+          hasVideo && isPortrait
+            ? 'aspect-[9/16]' // 竖屏视频使用9:16比例
+            : 'h-40 sm:h-48' // 横屏视频或未加载时使用固定高度
+        }`}
       onMouseEnter={() => {
         // 桌面端悬停播放
         if (window.innerWidth >= 640 && videoRef.current && fragment.videoUrls && fragment.videoUrls.length > 0) {
@@ -157,7 +187,7 @@ function FragmentCard({
     >
       <div
         onClick={() => onNavigate(fragment.id)}
-        className="w-full h-full bg-gray-700 flex items-center justify-center"
+        className="w-full h-full bg-transparent flex items-center justify-center"
       >
         {fragment.videoUrls && fragment.videoUrls.length > 0 ? (
           <video
@@ -168,6 +198,7 @@ function FragmentCard({
             loop
             preload="metadata"
             playsInline
+            onLoadedMetadata={handleVideoLoadedMetadata}
           />
         ) : fragment.imageUrl && fragment.imageUrl.startsWith('http') ? (
           <img
@@ -239,7 +270,15 @@ function FragmentCard({
           )}
         </div>
       )}
-    </div>
+
+      {/* 上传到社区模态框 */}
+      <UploadToCommunityModal
+        isOpen={showUploadModal}
+        defaultTitle={fragment.name}
+        onConfirm={handleUploadConfirm}
+        onCancel={() => setShowUploadModal(false)}
+      />
+    </>
   )
 }
 

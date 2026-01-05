@@ -2082,6 +2082,107 @@ export async function getFirstLastFrameVideoStatus(taskId: string, projectId: st
   }
 }
 
+/**
+ * 点赞/取消点赞首尾帧视频
+ */
+export async function toggleFirstLastFrameVideoLike(videoTaskId: string): Promise<{ success: boolean; isLiked: boolean }> {
+  try {
+    const token = AuthService.getToken()
+    if (!token) {
+      throw new Error('未登录，请先登录')
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/first-last-frame-videos/${videoTaskId}/like`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || '操作失败')
+    }
+
+    const result = await response.json()
+    return { success: true, isLiked: result.data?.isLiked || false }
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('网络错误，请检查服务器连接')
+  }
+}
+
+/**
+ * 收藏/取消收藏首尾帧视频
+ */
+export async function toggleFirstLastFrameVideoFavorite(videoTaskId: string): Promise<{ success: boolean; isFavorited: boolean }> {
+  try {
+    const token = AuthService.getToken()
+    if (!token) {
+      throw new Error('未登录，请先登录')
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/first-last-frame-videos/${videoTaskId}/favorite`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || '操作失败')
+    }
+
+    const result = await response.json()
+    return { success: true, isFavorited: result.data?.isFavorited || false }
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('网络错误，请检查服务器连接')
+  }
+}
+
+/**
+ * 创建视频处理任务（补帧或超分辨率）
+ */
+export async function createVideoProcessingTask(params: {
+  videoTaskId: string
+  processingType: 'frame_interpolation' | 'super_resolution'
+}): Promise<{ success: boolean; taskId: string }> {
+  try {
+    const token = AuthService.getToken()
+    if (!token) {
+      throw new Error('未登录，请先登录')
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/video-processing-tasks`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(params),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || '创建任务失败')
+    }
+
+    const result = await response.json()
+    return { success: true, taskId: result.data?.taskId || '' }
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('网络错误，请检查服务器连接')
+  }
+}
+
 export async function getFirstLastFrameVideos(projectId: number): Promise<Array<{
   id: string
   taskId: string
@@ -2095,6 +2196,8 @@ export async function getFirstLastFrameVideos(projectId: number): Promise<Array<
   duration: number
   text?: string | null
   createdAt: string
+  isLiked?: boolean
+  isFavorited?: boolean
 }>> {
   const token = AuthService.getToken()
   if (!token) {

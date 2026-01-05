@@ -1285,6 +1285,29 @@ app.get('/api/projects/:projectId/first-last-frame-videos', authenticateToken, a
       [projectId, userId]
     )
     
+    // 获取当前用户的点赞和收藏状态
+    const taskIds = videosResult.rows.map(v => v.task_id)
+    let likedTaskIds = new Set()
+    let favoritedTaskIds = new Set()
+    
+    if (taskIds.length > 0) {
+      // 查询点赞状态
+      const likesResult = await db.query(
+        `SELECT video_task_id FROM first_last_frame_video_likes 
+         WHERE user_id = $1 AND video_task_id = ANY($2)`,
+        [userId, taskIds]
+      )
+      likedTaskIds = new Set(likesResult.rows.map(r => r.video_task_id))
+      
+      // 查询收藏状态
+      const favoritesResult = await db.query(
+        `SELECT video_task_id FROM first_last_frame_video_favorites 
+         WHERE user_id = $1 AND video_task_id = ANY($2)`,
+        [userId, taskIds]
+      )
+      favoritedTaskIds = new Set(favoritesResult.rows.map(r => r.video_task_id))
+    }
+    
     // 格式化返回数据
     const videos = videosResult.rows.map((video) => {
       return {
@@ -1304,6 +1327,8 @@ app.get('/api/projects/:projectId/first-last-frame-videos', authenticateToken, a
         shotId: video.shot_id || null,
         createdAt: video.created_at,
         updatedAt: video.updated_at,
+        isLiked: likedTaskIds.has(video.task_id),
+        isFavorited: favoritedTaskIds.has(video.task_id),
       }
     })
     
@@ -1316,6 +1341,183 @@ app.get('/api/projects/:projectId/first-last-frame-videos', authenticateToken, a
     res.status(500).json({
       success: false,
       error: error.message || '获取首尾帧视频历史失败'
+    })
+  }
+})
+
+// 点赞/取消点赞首尾帧视频
+app.post('/api/first-last-frame-videos/:videoTaskId/like', authenticateToken, async (req, res) => {
+  try {
+    const { videoTaskId } = req.params
+    const userId = req.user?.id
+    
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: '未登录，请先登录',
+      })
+    }
+    
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+    
+    // 检查是否已点赞
+    const existingLike = await db.query(
+      'SELECT id FROM first_last_frame_video_likes WHERE user_id = $1 AND video_task_id = $2',
+      [userId, videoTaskId]
+    )
+    
+    let isLiked = false
+    if (existingLike.rows.length > 0) {
+      // 取消点赞
+      await db.query(
+        'DELETE FROM first_last_frame_video_likes WHERE user_id = $1 AND video_task_id = $2',
+        [userId, videoTaskId]
+      )
+      isLiked = false
+    } else {
+      // 添加点赞
+      await db.query(
+        'INSERT INTO first_last_frame_video_likes (user_id, video_task_id) VALUES ($1, $2)',
+        [userId, videoTaskId]
+      )
+      isLiked = true
+    }
+    
+    res.json({
+      success: true,
+      data: { isLiked }
+    })
+  } catch (error) {
+    console.error('点赞操作失败:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '点赞操作失败'
+    })
+  }
+})
+
+// 收藏/取消收藏首尾帧视频
+app.post('/api/first-last-frame-videos/:videoTaskId/favorite', authenticateToken, async (req, res) => {
+  try {
+    const { videoTaskId } = req.params
+    const userId = req.user?.id
+    
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: '未登录，请先登录',
+      })
+    }
+    
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+    
+    // 检查是否已收藏
+    const existingFavorite = await db.query(
+      'SELECT id FROM first_last_frame_video_favorites WHERE user_id = $1 AND video_task_id = $2',
+      [userId, videoTaskId]
+    )
+    
+    let isFavorited = false
+    if (existingFavorite.rows.length > 0) {
+      // 取消收藏
+      await db.query(
+        'DELETE FROM first_last_frame_video_favorites WHERE user_id = $1 AND video_task_id = $2',
+        [userId, videoTaskId]
+      )
+      isFavorited = false
+    } else {
+      // 添加收藏
+      await db.query(
+        'INSERT INTO first_last_frame_video_favorites (user_id, video_task_id) VALUES ($1, $2)',
+        [userId, videoTaskId]
+      )
+      isFavorited = true
+    }
+    
+    res.json({
+      success: true,
+      data: { isFavorited }
+    })
+  } catch (error) {
+    console.error('收藏操作失败:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '收藏操作失败'
+    })
+  }
+})
+
+// 创建视频处理任务（补帧、超分辨率等）
+app.post('/api/video-processing-tasks', authenticateToken, async (req, res) => {
+  try {
+    const { videoTaskId, processingType } = req.body
+    const userId = req.user?.id
+    
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: '未登录，请先登录',
+      })
+    }
+    
+    if (!videoTaskId || !processingType) {
+      return res.status(400).json({
+        success: false,
+        error: '缺少必要参数：videoTaskId 和 processingType',
+      })
+    }
+    
+    if (!['frame_interpolation', 'super_resolution'].includes(processingType)) {
+      return res.status(400).json({
+        success: false,
+        error: 'processingType 必须是 frame_interpolation 或 super_resolution',
+      })
+    }
+    
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+    
+    // 获取源视频信息
+    const sourceVideoResult = await db.query(
+      'SELECT video_url, cos_key, project_id FROM first_last_frame_videos WHERE task_id = $1 AND user_id = $2',
+      [videoTaskId, userId]
+    )
+    
+    if (sourceVideoResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: '未找到源视频',
+      })
+    }
+    
+    const sourceVideo = sourceVideoResult.rows[0]
+    
+    // 创建处理任务
+    const taskResult = await db.query(
+      `INSERT INTO video_processing_tasks 
+       (user_id, project_id, source_video_task_id, source_video_url, source_cos_key, processing_type, status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'pending')
+       RETURNING id`,
+      [userId, sourceVideo.project_id, videoTaskId, sourceVideo.video_url, sourceVideo.cos_key, processingType]
+    )
+    
+    const taskId = taskResult.rows[0].id
+    
+    // TODO: 这里应该调用实际的视频处理服务（补帧或超分辨率）
+    // 目前先返回任务ID，后续可以异步处理
+    console.log(`📹 创建视频处理任务: ${processingType} for video ${videoTaskId}, taskId: ${taskId}`)
+    
+    res.json({
+      success: true,
+      data: { taskId: taskId.toString() }
+    })
+  } catch (error) {
+    console.error('创建视频处理任务失败:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '创建视频处理任务失败'
     })
   }
 })
