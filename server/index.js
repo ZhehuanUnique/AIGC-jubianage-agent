@@ -7825,6 +7825,27 @@ app.get('/api/community-videos', authenticateToken, async (req, res) => {
     const pool = await import('./db/connection.js')
     const db = pool.default
 
+    // 检查表是否存在，如果不存在则返回空列表
+    try {
+      await db.query('SELECT 1 FROM public.community_videos LIMIT 1')
+    } catch (tableError) {
+      if (tableError.message.includes('does not exist')) {
+        // 表不存在，返回空列表而不是错误
+        return res.json({
+          success: true,
+          data: {
+            videos: [],
+            total: 0,
+            page: parseInt(page),
+            limit: parseInt(limit),
+            totalPages: 0,
+          },
+        })
+      } else {
+        throw tableError
+      }
+    }
+
     // 构建排序SQL
     let orderBy = 'cv.published_at DESC'
     if (sortBy === 'popular') {
@@ -7997,40 +8018,68 @@ app.post('/api/community-videos', authenticateToken, async (req, res) => {
     } catch (tableError) {
       if (tableError.message.includes('does not exist')) {
         console.log('⚠️ community_videos 表不存在，正在创建...')
-        // 创建表
-        await db.query(`
-          CREATE TABLE IF NOT EXISTS public.community_videos (
-            id SERIAL PRIMARY KEY,
-            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-            project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
-            shot_id INTEGER REFERENCES shots(id) ON DELETE SET NULL,
-            video_url TEXT NOT NULL,
-            cos_key TEXT NOT NULL,
-            thumbnail_url TEXT,
-            title VARCHAR(255) NOT NULL,
-            description TEXT,
-            tags TEXT[],
-            likes_count INTEGER DEFAULT 0,
-            views_count INTEGER DEFAULT 0,
-            is_published BOOLEAN DEFAULT false,
-            published_at TIMESTAMP,
-            model VARCHAR(100),
-            resolution VARCHAR(20),
-            duration INTEGER,
-            prompt TEXT,
-            metadata JSONB,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-          )
-        `)
-        // 创建索引
-        await db.query('CREATE INDEX IF NOT EXISTS idx_community_videos_user_id ON public.community_videos(user_id)')
-        await db.query('CREATE INDEX IF NOT EXISTS idx_community_videos_is_published ON public.community_videos(is_published)')
-        await db.query('CREATE INDEX IF NOT EXISTS idx_community_videos_published_at ON public.community_videos(published_at DESC)')
-        await db.query('CREATE INDEX IF NOT EXISTS idx_community_videos_likes_count ON public.community_videos(likes_count DESC)')
-        await db.query('CREATE INDEX IF NOT EXISTS idx_community_videos_views_count ON public.community_videos(views_count DESC)')
-        await db.query('CREATE INDEX IF NOT EXISTS idx_community_videos_created_at ON public.community_videos(created_at DESC)')
-        console.log('✅ community_videos 表创建成功')
+        try {
+          // 读取并执行 SQL 文件
+          const { readFileSync } = await import('fs')
+          const { join } = await import('path')
+          const sqlPath = join(__dirname, 'db', 'communityVideosSchema.sql')
+          const sql = readFileSync(sqlPath, 'utf-8')
+          
+          // 将 SQL 中的 community_videos 替换为 public.community_videos
+          const sqlWithSchema = sql.replace(/community_videos/g, 'public.community_videos')
+          
+          // 执行 SQL（需要按语句分割）
+          const statements = sqlWithSchema.split(';').filter(s => s.trim())
+          for (const statement of statements) {
+            if (statement.trim()) {
+              await db.query(statement.trim())
+            }
+          }
+          
+          // 添加外键索引
+          await db.query('CREATE INDEX IF NOT EXISTS idx_community_videos_project_id ON public.community_videos(project_id)')
+          await db.query('CREATE INDEX IF NOT EXISTS idx_community_videos_shot_id ON public.community_videos(shot_id)')
+          
+          console.log('✅ community_videos 表创建成功')
+        } catch (createError) {
+          console.error('❌ 创建 community_videos 表失败:', createError)
+          // 如果 SQL 文件执行失败，使用内联 SQL 作为后备方案
+          await db.query(`
+            CREATE TABLE IF NOT EXISTS public.community_videos (
+              id SERIAL PRIMARY KEY,
+              user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+              project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
+              shot_id INTEGER REFERENCES shots(id) ON DELETE SET NULL,
+              video_url TEXT NOT NULL,
+              cos_key TEXT NOT NULL,
+              thumbnail_url TEXT,
+              title VARCHAR(255) NOT NULL,
+              description TEXT,
+              tags TEXT[],
+              likes_count INTEGER DEFAULT 0,
+              views_count INTEGER DEFAULT 0,
+              is_published BOOLEAN DEFAULT false,
+              published_at TIMESTAMP,
+              model VARCHAR(100),
+              resolution VARCHAR(20),
+              duration INTEGER,
+              prompt TEXT,
+              metadata JSONB,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+          `)
+          // 创建索引
+          await db.query('CREATE INDEX IF NOT EXISTS idx_community_videos_user_id ON public.community_videos(user_id)')
+          await db.query('CREATE INDEX IF NOT EXISTS idx_community_videos_is_published ON public.community_videos(is_published)')
+          await db.query('CREATE INDEX IF NOT EXISTS idx_community_videos_published_at ON public.community_videos(published_at DESC)')
+          await db.query('CREATE INDEX IF NOT EXISTS idx_community_videos_likes_count ON public.community_videos(likes_count DESC)')
+          await db.query('CREATE INDEX IF NOT EXISTS idx_community_videos_views_count ON public.community_videos(views_count DESC)')
+          await db.query('CREATE INDEX IF NOT EXISTS idx_community_videos_created_at ON public.community_videos(created_at DESC)')
+          await db.query('CREATE INDEX IF NOT EXISTS idx_community_videos_project_id ON public.community_videos(project_id)')
+          await db.query('CREATE INDEX IF NOT EXISTS idx_community_videos_shot_id ON public.community_videos(shot_id)')
+          console.log('✅ community_videos 表创建成功（使用后备方案）')
+        }
       } else {
         throw tableError
       }
