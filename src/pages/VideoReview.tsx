@@ -939,75 +939,76 @@ function VideoReview() {
                 {/* 视频播放 */}
                 {videoUrl && (
                   <video
-                  ref={videoRef}
-                  src={videoUrl}
-                  className="w-full h-full object-contain"
-                  onLoadStart={() => setIsVideoLoading(true)}
-                  onCanPlay={() => {
-                    setIsVideoLoading(false)
-                    // 视频加载完成后，可以清空缩略图（可选，保留也可以）
-                    // setVideoThumbnail(null)
-                  }}
-                  onTimeUpdate={(e) => {
-                    try {
-                      const video = e.currentTarget
-                      // 只在视频已加载元数据时更新（避免显示错误的时间）
-                      if (video.duration && video.duration > 0) {
-                        // 保留2位小数，提供更精确的时间跟踪
-                        setCurrentTime(Math.round(video.currentTime * 100) / 100)
-                      }
-                    } catch (error) {
-                      console.error('视频时间更新错误:', error)
-                    }
-                  }}
-                  onLoadedMetadata={(e) => {
-                    try {
-                      const video = e.currentTarget
-                      // 保留2位小数，提供更精确的时长
-                      const videoDuration = Math.round(video.duration * 100) / 100
-                      setDuration(videoDuration)
-                      // 确保当前时间为0
-                      setCurrentTime(0)
-                      // 如果视频元素存在，重置播放位置
-                      if (videoRef.current) {
-                        videoRef.current.currentTime = 0
-                      }
-                    } catch (error) {
-                      console.error('视频元数据加载错误:', error)
-                    }
-                  }}
-                  onPlay={() => {
-                    try {
-                      setIsPlaying(true)
-                    } catch (error) {
-                      console.error('视频播放错误:', error)
-                    }
-                  }}
-                  onPause={() => {
-                    try {
-                      setIsPlaying(false)
-                    } catch (error) {
-                      console.error('视频暂停错误:', error)
-                    }
-                  }}
-                  onError={(e) => {
-                    setIsVideoLoading(false)
-                    console.error('视频加载错误:', e)
-                    alertError('视频加载失败，请检查视频文件是否有效', '视频错误')
-                    // 清空视频URL，回到上传状态
-                    setVideoUrl(null)
-                    setCosVideoUrl(null)
-                    if (videoFile) {
-                      // 释放本地URL
+                    ref={videoRef}
+                    src={videoUrl}
+                    className="w-full h-full object-contain"
+                    onLoadStart={() => setIsVideoLoading(true)}
+                    onCanPlay={() => {
+                      setIsVideoLoading(false)
+                      // 视频加载完成后，可以清空缩略图（可选，保留也可以）
+                      // setVideoThumbnail(null)
+                    }}
+                    onTimeUpdate={(e) => {
                       try {
-                        URL.revokeObjectURL(videoFile.name)
-                      } catch (err) {
-                        // 忽略释放错误
+                        const video = e.currentTarget
+                        // 只在视频已加载元数据时更新（避免显示错误的时间）
+                        if (video.duration && video.duration > 0) {
+                          // 保留2位小数，提供更精确的时间跟踪
+                          setCurrentTime(Math.round(video.currentTime * 100) / 100)
+                        }
+                      } catch (error) {
+                        console.error('视频时间更新错误:', error)
                       }
-                    }
-                    setVideoFile(null)
-                  }}
-                />
+                    }}
+                    onLoadedMetadata={(e) => {
+                      try {
+                        const video = e.currentTarget
+                        // 保留2位小数，提供更精确的时长
+                        const videoDuration = Math.round(video.duration * 100) / 100
+                        setDuration(videoDuration)
+                        // 确保当前时间为0
+                        setCurrentTime(0)
+                        // 如果视频元素存在，重置播放位置
+                        if (videoRef.current) {
+                          videoRef.current.currentTime = 0
+                        }
+                      } catch (error) {
+                        console.error('视频元数据加载错误:', error)
+                      }
+                    }}
+                    onPlay={() => {
+                      try {
+                        setIsPlaying(true)
+                      } catch (error) {
+                        console.error('视频播放错误:', error)
+                      }
+                    }}
+                    onPause={() => {
+                      try {
+                        setIsPlaying(false)
+                      } catch (error) {
+                        console.error('视频暂停错误:', error)
+                      }
+                    }}
+                    onError={(e) => {
+                      setIsVideoLoading(false)
+                      console.error('视频加载错误:', e)
+                      alertError('视频加载失败，请检查视频文件是否有效', '视频错误')
+                      // 清空视频URL，回到上传状态
+                      setVideoUrl(null)
+                      setCosVideoUrl(null)
+                      if (videoFile) {
+                        // 释放本地URL
+                        try {
+                          URL.revokeObjectURL(videoFile.name)
+                        } catch (err) {
+                          // 忽略释放错误
+                        }
+                      }
+                      setVideoFile(null)
+                    }}
+                  />
+                )}
                 
                 {/* 上传进度覆盖层 */}
                 {isUploading && (
