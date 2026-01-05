@@ -73,42 +73,58 @@ function AssetDetails() {
     ]
   })
 
+  // 默认场景数据（始终显示）
+  const defaultScenes: Asset[] = [
+    { id: 'default-scene-1', name: '外景-公司等候区', type: 'scene', selectionMethod: '通过本地上传' },
+  ]
+
   const [scenes, setScenes] = useState<Asset[]>(() => {
-    // 优先使用 location.state
+    // 默认场景（始终包含）
+    const result: Asset[] = [...defaultScenes]
+    
+    // 如果有分析结果，添加分析出的场景（排除与默认场景同名的）
     if (state?.analysisResult?.scenes && state.analysisResult.scenes.length > 0) {
-      const assets = state.analysisResult.scenes.map((scene, index) => ({
-        id: `scene-${index}`,
-        name: scene.name,
-        type: 'scene' as const,
-        selectionMethod: '通过本地上传',
-      }))
-      // 保存到 sessionStorage
-      try {
-        sessionStorage.setItem('assetDetails_scenes', JSON.stringify(assets))
-      } catch (error) {
-        console.warn('⚠️ 保存 scenes 到 sessionStorage 失败:', error)
-      }
-      return assets
+      const analyzedScenes = state.analysisResult.scenes
+        .map((scene, index) => ({
+          id: `scene-${index}`,
+          name: scene.name,
+          type: 'scene' as const,
+          selectionMethod: '通过本地上传',
+        }))
+        .filter(scene => !defaultScenes.some(defaultScene => defaultScene.name === scene.name))
+      
+      result.push(...analyzedScenes)
     }
     
-    // 尝试从 sessionStorage 恢复
+    // 保存到 sessionStorage
+    try {
+      sessionStorage.setItem('assetDetails_scenes', JSON.stringify(result))
+    } catch (error) {
+      console.warn('⚠️ 保存 scenes 到 sessionStorage 失败:', error)
+    }
+    
+    // 尝试从 sessionStorage 恢复（如果存在且不是第一次加载）
     try {
       const saved = sessionStorage.getItem('assetDetails_scenes')
-      if (saved) {
+      if (saved && !state?.analysisResult) {
         const parsed = JSON.parse(saved)
         if (Array.isArray(parsed) && parsed.length > 0) {
           console.log('✅ 从 sessionStorage 恢复 scenes 数据')
-          return parsed
+          // 确保默认场景存在
+          const savedScenes = [...parsed]
+          defaultScenes.forEach(defaultScene => {
+            if (!savedScenes.some(s => s.name === defaultScene.name)) {
+              savedScenes.unshift(defaultScene)
+            }
+          })
+          return savedScenes
         }
       }
     } catch (error) {
       console.warn('⚠️ 从 sessionStorage 恢复 scenes 失败:', error)
     }
     
-    // 默认数据
-    return [
-      { id: '1', name: '外景-公司等候区', type: 'scene', selectionMethod: '通过本地上传' },
-    ]
+    return result
   })
 
   const [showCharacterSelector, setShowCharacterSelector] = useState(false)
