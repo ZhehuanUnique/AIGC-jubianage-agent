@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { X, Upload, Folder, Video, Loader2 } from 'lucide-react'
 import { getProjects, getProjectFragments, publishVideoToCommunity, uploadVideo } from '../services/api'
 import { UploadToCommunityModal } from './UploadToCommunityModal'
@@ -35,7 +35,7 @@ export function PublishVideoModal({ isOpen, onClose, onSuccess }: PublishVideoMo
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [showInfoModal, setShowInfoModal] = useState(false)
-  const fileInputRef = useState<HTMLInputElement | null>(null)[0]
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   // 加载项目列表
   useEffect(() => {
@@ -335,17 +335,13 @@ export function PublishVideoModal({ isOpen, onClose, onSuccess }: PublishVideoMo
                       accept="video/*"
                       onChange={handleLocalFileSelect}
                       className="hidden"
-                      ref={(el) => {
-                        if (el) {
-                          (fileInputRef as any) = el
-                        }
-                      }}
+                      ref={fileInputRef}
                     />
                     <Upload className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                     <p className="text-gray-600 mb-2">点击选择视频文件</p>
                     <p className="text-sm text-gray-500 mb-4">支持 MP4、AVI、MOV 等格式</p>
                     <button
-                      onClick={() => (fileInputRef as any)?.click()}
+                      onClick={() => fileInputRef.current?.click()}
                       className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
                     >
                       选择文件
