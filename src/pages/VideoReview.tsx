@@ -26,6 +26,7 @@ function VideoReview() {
   const [isUploading, setIsUploading] = useState(false)
   const [cosVideoUrl, setCosVideoUrl] = useState<string | null>(null)
   const [isVideoLoading, setIsVideoLoading] = useState(false)
+  const [videoThumbnail, setVideoThumbnail] = useState<string | null>(null) // 视频第一帧（乐观更新）
   const videoRef = useRef<HTMLVideoElement>(null)
   const progressBarRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -218,6 +219,12 @@ function VideoReview() {
                 setCosVideoUrl(latestVideoUrl)
                 setIsVideoLoading(true) // 设置加载状态
                 console.log('✅ 已加载片段视频:', latestVideoUrl)
+                
+                // 乐观更新：立即提取视频第一帧作为占位符
+                extractVideoThumbnail(latestVideoUrl)
+              } else {
+                // 如果没有视频，清空缩略图
+                setVideoThumbnail(null)
               }
               
               // 加载批注列表
@@ -250,6 +257,54 @@ function VideoReview() {
     
     loadFragmentData()
   }, [projectId, fragmentId])
+
+  // 提取视频第一帧作为缩略图（乐观更新）
+  const extractVideoThumbnail = (videoUrl: string) => {
+    if (!videoUrl) {
+      setVideoThumbnail(null)
+      return
+    }
+
+    // 创建一个隐藏的video元素来提取第一帧
+    const video = document.createElement('video')
+    video.crossOrigin = 'anonymous'
+    video.preload = 'metadata'
+    video.muted = true
+    video.playsInline = true
+    
+    video.onloadedmetadata = () => {
+      // 设置到第一帧（0秒）
+      video.currentTime = 0.1 // 稍微偏移一点，确保能获取到帧
+    }
+    
+    video.onseeked = () => {
+      try {
+        // 创建canvas来绘制视频帧
+        const canvas = document.createElement('canvas')
+        canvas.width = video.videoWidth || 1920
+        canvas.height = video.videoHeight || 1080
+        const ctx = canvas.getContext('2d')
+        
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+          // 将canvas转换为base64图片
+          const thumbnail = canvas.toDataURL('image/jpeg', 0.8)
+          setVideoThumbnail(thumbnail)
+          console.log('✅ 已提取视频第一帧作为占位符')
+        }
+      } catch (error) {
+        console.error('提取视频第一帧失败:', error)
+        setVideoThumbnail(null)
+      }
+    }
+    
+    video.onerror = () => {
+      console.error('视频加载失败，无法提取第一帧')
+      setVideoThumbnail(null)
+    }
+    
+    video.src = videoUrl
+  }
 
   // 视频加载后自动播放（仅在预览模式下）
   useEffect(() => {
@@ -854,10 +909,26 @@ function VideoReview() {
         <div className="flex-1 flex flex-col p-3 sm:p-6 order-2 lg:order-1">
           {/* 视频播放器 */}
           <div className="flex-1 bg-gray-50 border border-gray-200 rounded-lg mb-4 flex items-center justify-center relative overflow-hidden">
-            {videoUrl ? (
+            {videoUrl || videoThumbnail ? (
               <>
-                {/* 视频加载状态 */}
-                {isVideoLoading && (
+                {/* 乐观更新：显示视频第一帧作为占位符 */}
+                {isVideoLoading && videoThumbnail && (
+                  <div className="absolute inset-0 z-10">
+                    <img
+                      src={videoThumbnail}
+                      alt="视频预览"
+                      className="w-full h-full object-contain"
+                    />
+                    <div className="absolute inset-0 bg-gray-900 bg-opacity-30 flex items-center justify-center">
+                      <div className="text-center">
+                        <div className="w-16 h-16 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                        <p className="text-white text-lg font-medium">视频加载中...</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {/* 视频加载状态（没有缩略图时显示） */}
+                {isVideoLoading && !videoThumbnail && (
                   <div className="absolute inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-20">
                     <div className="text-center">
                       <div className="w-16 h-16 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
@@ -866,12 +937,17 @@ function VideoReview() {
                   </div>
                 )}
                 {/* 视频播放 */}
-                <video
+                {videoUrl && (
+                  <video
                   ref={videoRef}
                   src={videoUrl}
                   className="w-full h-full object-contain"
                   onLoadStart={() => setIsVideoLoading(true)}
-                  onCanPlay={() => setIsVideoLoading(false)}
+                  onCanPlay={() => {
+                    setIsVideoLoading(false)
+                    // 视频加载完成后，可以清空缩略图（可选，保留也可以）
+                    // setVideoThumbnail(null)
+                  }}
                   onTimeUpdate={(e) => {
                     try {
                       const video = e.currentTarget
