@@ -229,8 +229,8 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
     if (location.pathname.includes('/project/')) {
       navigate('/project-management');
     } else if (location.pathname === '/project-management') {
-      // 如果在项目管理页面，返回到首页
-      navigate('/')
+      // 如果在项目管理页面，返回到作品展示
+      navigate('/works')
     } else {
       navigate(-1)
     }
@@ -256,9 +256,9 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
         />
         <nav className="hidden md:flex items-center gap-4 lg:gap-6">
           <button
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/works')}
             className={`px-3 lg:px-4 py-2 rounded-lg transition-colors text-sm lg:text-base ${
-              activeTab === 'home' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-600 hover:text-gray-900'
+              activeTab === 'works' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-600 hover:text-gray-900'
             }`}
           >
             首页
