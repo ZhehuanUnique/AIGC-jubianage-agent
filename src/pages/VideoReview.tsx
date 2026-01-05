@@ -25,6 +25,7 @@ function VideoReview() {
   const [uploadProgress, setUploadProgress] = useState(0)
   const [isUploading, setIsUploading] = useState(false)
   const [cosVideoUrl, setCosVideoUrl] = useState<string | null>(null)
+  const [isVideoLoading, setIsVideoLoading] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
   const progressBarRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -214,6 +215,7 @@ function VideoReview() {
                 const latestVideoUrl = currentFragment.videoUrls[0]
                 setVideoUrl(latestVideoUrl)
                 setCosVideoUrl(latestVideoUrl)
+                setIsVideoLoading(true) // 设置加载状态
                 console.log('✅ 已加载片段视频:', latestVideoUrl)
               }
               
@@ -853,11 +855,23 @@ function VideoReview() {
           <div className="flex-1 bg-gray-50 border border-gray-200 rounded-lg mb-4 flex items-center justify-center relative overflow-hidden">
             {videoUrl ? (
               <>
+                {/* 视频加载状态 */}
+                {isVideoLoading && (
+                  <div className="absolute inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-20">
+                    <div className="text-center">
+                      <div className="w-16 h-16 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                      <p className="text-white text-lg font-medium">视频加载中...</p>
+                    </div>
+                  </div>
+                )}
                 {/* 视频播放 */}
                 <video
                   ref={videoRef}
                   src={videoUrl}
                   className="w-full h-full object-contain"
+                  onLoadStart={() => setIsVideoLoading(true)}
+                  onCanPlay={() => setIsVideoLoading(false)}
+                  onError={() => setIsVideoLoading(false)}
                   onTimeUpdate={(e) => {
                     try {
                       const video = e.currentTarget

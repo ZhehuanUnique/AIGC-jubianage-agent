@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import SidebarNavigation from '../components/SidebarNavigation'
-import { Plus, MoreVertical, Trash2, ArrowLeft, RefreshCw } from 'lucide-react'
+import { Plus, MoreVertical, Trash2, ArrowLeft, RefreshCw, Download, Upload, Heart } from 'lucide-react'
 import CreateFragmentModal from '../components/CreateFragmentModal'
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
-import { getProjectFragments } from '../services/api'
-import { alert } from '../utils/alert'
+import { getProjectFragments, publishVideoToCommunity } from '../services/api'
+import { alert, alertSuccess, alertError } from '../utils/alert'
 
 interface Fragment {
   id: string
@@ -30,6 +30,98 @@ function FragmentCard({
   onDelete: (id: string) => void
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
+  const [showMenu, setShowMenu] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  // 点击外部关闭菜单
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowMenu(false)
+      }
+    }
+    if (showMenu) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showMenu])
+
+  // 下载视频
+  const handleDownload = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    e.preventDefault()
+    setShowMenu(false)
+    
+    if (!fragment.videoUrls || fragment.videoUrls.length === 0) {
+      alertError('该片段没有视频', '下载失败')
+      return
+    }
+
+    const videoUrl = fragment.videoUrls[0]
+    try {
+      // 创建下载链接
+      const link = document.createElement('a')
+      link.href = videoUrl
+      link.download = `${fragment.name}.mp4`
+      link.target = '_blank'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      alertSuccess('视频下载已开始', '下载成功')
+    } catch (error) {
+      console.error('下载视频失败:', error)
+      alertError('下载视频失败，请稍后重试', '下载失败')
+    }
+  }
+
+  // 上传到社区
+  const handleUploadToCommunity = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    e.preventDefault()
+    setShowMenu(false)
+    
+    if (!fragment.videoUrls || fragment.videoUrls.length === 0) {
+      alertError('该片段没有视频', '上传失败')
+      return
+    }
+
+    const videoUrl = fragment.videoUrls[0]
+    const title = prompt('请输入视频标题：', fragment.name)
+    if (!title) {
+      return
+    }
+
+    const description = prompt('请输入视频描述（可选）：', '') || undefined
+    const tagsInput = prompt('请输入标签，用逗号分隔（可选）：', '') || undefined
+    const tags = tagsInput ? tagsInput.split(',').map(t => t.trim()).filter(t => t) : undefined
+
+    try {
+      await publishVideoToCommunity({
+        videoUrl,
+        title,
+        description,
+        tags,
+        projectId: projectId ? parseInt(projectId, 10) : undefined,
+        shotId: fragment.id ? parseInt(fragment.id, 10) : undefined,
+      })
+      alertSuccess('视频已上传到社区', '上传成功')
+    } catch (error) {
+      console.error('上传到社区失败:', error)
+      alertError(error instanceof Error ? error.message : '上传到社区失败，请稍后重试', '上传失败')
+    }
+  }
+
+  // 收藏视频
+  const handleFavorite = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    e.preventDefault()
+    setShowMenu(false)
+    
+    // TODO: 实现收藏功能
+    alertSuccess('收藏功能开发中', '提示')
+  }
 
   return (
     <div
@@ -89,9 +181,11 @@ function FragmentCard({
           </div>
         )}
       </div>
-      <div className="absolute bottom-0 left-0 right-0 p-1.5 sm:p-2 text-center text-xs sm:text-sm text-white bg-black bg-opacity-50">
+      {/* 片段名称 - 去掉黑边，改为白色文字带阴影 */}
+      <div className="absolute bottom-0 left-0 right-0 p-1.5 sm:p-2 text-center text-xs sm:text-sm text-white font-medium" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
         {fragment.name}
       </div>
+      {/* 删除按钮 */}
       <button
         onClick={(e) => {
           e.stopPropagation()
@@ -103,6 +197,48 @@ function FragmentCard({
       >
         <Trash2 size={12} className="sm:w-3.5 sm:h-3.5" />
       </button>
+      {/* 三个点菜单按钮 - 右下角 */}
+      {fragment.videoUrls && fragment.videoUrls.length > 0 && (
+        <div className="absolute bottom-1.5 sm:bottom-2 right-1.5 sm:right-2 z-20" ref={menuRef}>
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              e.preventDefault()
+              setShowMenu(!showMenu)
+            }}
+            className="w-7 h-7 sm:w-8 sm:h-8 bg-black bg-opacity-60 hover:bg-opacity-80 text-white rounded-full flex items-center justify-center transition-all touch-manipulation"
+            title="更多操作"
+          >
+            <MoreVertical size={16} className="sm:w-4 sm:h-4" />
+          </button>
+          {/* 菜单下拉列表 */}
+          {showMenu && (
+            <div className="absolute bottom-full right-0 mb-2 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-30">
+              <button
+                onClick={handleDownload}
+                className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 touch-manipulation"
+              >
+                <Download size={16} />
+                <span>下载</span>
+              </button>
+              <button
+                onClick={handleUploadToCommunity}
+                className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 touch-manipulation"
+              >
+                <Upload size={16} />
+                <span>上传到社区</span>
+              </button>
+              <button
+                onClick={handleFavorite}
+                className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 touch-manipulation"
+              >
+                <Heart size={16} />
+                <span>收藏</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

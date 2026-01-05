@@ -27,7 +27,15 @@ function WorksShowcase() {
       setTotal(result.total)
     } catch (error) {
       console.error('加载视频失败:', error)
-      alertError(error instanceof Error ? error.message : '加载视频失败，请稍后重试', '错误')
+      // 如果是数据库表不存在的错误，不显示错误提示，只显示"暂无视频"
+      const errorMessage = error instanceof Error ? error.message : '加载视频失败，请稍后重试'
+      if (errorMessage.includes('does not exist') || errorMessage.includes('relation')) {
+        // 表不存在时，只设置空列表，不显示错误提示
+        setVideos([])
+        setTotal(0)
+      } else {
+        alertError(errorMessage, '错误')
+      }
     } finally {
       setIsLoading(false)
     }
