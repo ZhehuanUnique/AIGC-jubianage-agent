@@ -156,35 +156,35 @@ function FragmentCard({
             ? 'aspect-[9/16]' // 竖屏视频使用9:16比例
             : 'h-40 sm:h-48' // 横屏视频或未加载时使用固定高度
         }`}
-      onMouseEnter={() => {
-        // 桌面端悬停播放
-        if (window.innerWidth >= 640 && videoRef.current && fragment.videoUrls && fragment.videoUrls.length > 0) {
-          videoRef.current.play().catch(() => {})
-        }
-      }}
-      onMouseLeave={() => {
-        // 桌面端离开暂停
-        if (window.innerWidth >= 640 && videoRef.current) {
-          videoRef.current.pause()
-          videoRef.current.currentTime = 0
-        }
-      }}
-      onTouchStart={() => {
-        // 移动端触摸时播放预览
-        if (videoRef.current && fragment.videoUrls && fragment.videoUrls.length > 0) {
-          videoRef.current.play().catch(() => {})
-        }
-      }}
-      onTouchEnd={() => {
-        // 移动端触摸结束时暂停
-        setTimeout(() => {
-          if (videoRef.current) {
+        onMouseEnter={() => {
+          // 桌面端悬停播放
+          if (window.innerWidth >= 640 && videoRef.current && fragment.videoUrls && fragment.videoUrls.length > 0) {
+            videoRef.current.play().catch(() => {})
+          }
+        }}
+        onMouseLeave={() => {
+          // 桌面端离开暂停
+          if (window.innerWidth >= 640 && videoRef.current) {
             videoRef.current.pause()
             videoRef.current.currentTime = 0
           }
-        }, 500)
-      }}
-    >
+        }}
+        onTouchStart={() => {
+          // 移动端触摸时播放预览
+          if (videoRef.current && fragment.videoUrls && fragment.videoUrls.length > 0) {
+            videoRef.current.play().catch(() => {})
+          }
+        }}
+        onTouchEnd={() => {
+          // 移动端触摸结束时暂停
+          setTimeout(() => {
+            if (videoRef.current) {
+              videoRef.current.pause()
+              videoRef.current.currentTime = 0
+            }
+          }, 500)
+        }}
+      >
       <div
         onClick={() => onNavigate(fragment.id)}
         className="w-full h-full bg-transparent flex items-center justify-center"
@@ -270,6 +270,7 @@ function FragmentCard({
           )}
         </div>
       )}
+      </div>
 
       {/* 上传到社区模态框 */}
       <UploadToCommunityModal
@@ -288,7 +289,7 @@ function FragmentManagement() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [fragments, setFragments] = useState<Fragment[]>([])
   const [isLoading, setIsLoading] = useState(false)
-  const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const refreshIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [deleteConfirmFragmentId, setDeleteConfirmFragmentId] = useState<string | null>(null)
   const deletingFragmentsRef = useRef<Set<string>>(new Set()) // 正在删除的片段ID集合，防止重复删除
 
@@ -526,7 +527,7 @@ function FragmentManagement() {
             <h2 className="text-lg sm:text-xl font-semibold">片段管理</h2>
           </div>
           <button
-            onClick={loadFragments}
+            onClick={() => loadFragments()}
             disabled={isLoading}
             className="px-2.5 sm:px-3 py-1.5 sm:py-2 bg-purple-600 text-white rounded-lg active:bg-purple-700 sm:hover:bg-purple-700 flex items-center gap-1.5 sm:gap-2 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation text-sm sm:text-base"
             title="刷新片段列表"
