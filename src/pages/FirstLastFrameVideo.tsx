@@ -573,6 +573,37 @@ function FirstLastFrameVideo() {
     }
   }
 
+  // Enter键提交功能（全局监听，当按钮可用时）
+  useEffect(() => {
+    if (!enterKeySubmit) return
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 如果焦点在输入框、文本域或模态框中，不触发（让textarea的onKeyDown处理）
+      const activeElement = document.activeElement
+      if (
+        activeElement?.tagName === 'INPUT' ||
+        activeElement?.tagName === 'TEXTAREA' ||
+        activeElement?.closest('[role="dialog"]') ||
+        activeElement?.closest('.modal')
+      ) {
+        return
+      }
+      
+      if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+        e.preventDefault()
+        // 检查按钮是否可用（和按钮的disabled条件一致）
+        if (prompt.trim() && firstFrameFile && !isGenerating) {
+          generateVideo()
+        }
+      }
+    }
+    
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [enterKeySubmit, prompt, firstFrameFile, isGenerating])
+
   // 轮询任务状态
   const pollTaskStatus = async (taskId: string) => {
     if (!projectId) return
