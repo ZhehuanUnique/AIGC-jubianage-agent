@@ -7901,6 +7901,20 @@ app.get('/api/community-videos/:videoId', authenticateToken, async (req, res) =>
     const pool = await import('./db/connection.js')
     const db = pool.default
 
+    // 检查表是否存在
+    try {
+      await db.query('SELECT 1 FROM public.community_videos LIMIT 1')
+    } catch (tableError) {
+      if (tableError.message.includes('does not exist')) {
+        return res.status(404).json({
+          success: false,
+          error: '视频不存在',
+        })
+      } else {
+        throw tableError
+      }
+    }
+
     const result = await db.query(
       `SELECT 
         cv.*,
