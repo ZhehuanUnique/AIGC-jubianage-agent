@@ -43,8 +43,9 @@ function CommunityVideoDetail() {
       const filteredRelated = allVideosResult.videos.filter(v => v.id !== videoData.id).slice(0, 5)
       setRelatedVideos(filteredRelated)
       
-      // 为没有缩略图的相关视频提取首帧
+      // 为没有缩略图的相关视频尝试提取首帧（如果提取失败，会显示占位符）
       filteredRelated.forEach((relatedVideo) => {
+        // 优先使用数据库中的 thumbnailUrl，如果没有再尝试提取
         if (!relatedVideo.thumbnailUrl && relatedVideo.videoUrl) {
           extractVideoThumbnail(relatedVideo.id, relatedVideo.videoUrl)
         }
@@ -57,7 +58,7 @@ function CommunityVideoDetail() {
     }
   }
 
-  // 提取视频第一帧作为缩略图
+  // 提取视频第一帧作为缩略图（可选，如果失败会显示占位符）
   const extractVideoThumbnail = (videoId: number, videoUrl: string) => {
     if (!videoUrl) return
 
@@ -68,6 +69,12 @@ function CommunityVideoDetail() {
     video.muted = true
     video.playsInline = true
     
+    // 设置超时，避免长时间等待
+    const timeout = setTimeout(() => {
+      console.warn(`提取相关视频 ${videoId} 缩略图超时`)
+      video.src = ''
+    }, 10000) // 10秒超时
+    
     video.onloadedmetadata = () => {
       // 设置到第一帧（0秒）
       video.currentTime = 0.1 // 稍微偏移一点，确保能获取到帧
@@ -75,6 +82,7 @@ function CommunityVideoDetail() {
     
     video.onseeked = () => {
       try {
+        clearTimeout(timeout)
         // 创建canvas来绘制视频帧
         const canvas = document.createElement('canvas')
         canvas.width = video.videoWidth || 1920
@@ -86,15 +94,20 @@ function CommunityVideoDetail() {
           // 将canvas转换为base64图片
           const thumbnail = canvas.toDataURL('image/jpeg', 0.8)
           setRelatedVideoThumbnails(prev => new Map(prev).set(videoId, thumbnail))
-          console.log(`✅ 已提取相关视频 ${videoId} 的第一帧作为缩略图`)
+          console.log(`✅ 已提取相关视频 ${videoId} 的缩略图`)
         }
+        video.src = '' // 清理
       } catch (error) {
-        console.error(`提取相关视频 ${videoId} 第一帧失败:`, error)
+        clearTimeout(timeout)
+        console.warn(`提取相关视频 ${videoId} 缩略图失败，将显示占位符:`, error)
+        video.src = '' // 清理
       }
     }
     
     video.onerror = () => {
-      console.error(`相关视频 ${videoId} 加载失败，无法提取第一帧`)
+      clearTimeout(timeout)
+      console.warn(`相关视频 ${videoId} 加载失败，将显示占位符`)
+      video.src = '' // 清理
     }
     
     video.src = videoUrl

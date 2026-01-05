@@ -6,6 +6,7 @@ import { alertError, alertSuccess, alertWarning } from '../utils/alert'
 import { AuthService } from '../services/auth'
 import NavigationBar from '../components/NavigationBar'
 import { PublishVideoModal } from '../components/PublishVideoModal'
+import DeleteConfirmModal from '../components/DeleteConfirmModal'
 
 function WorksShowcase() {
   const navigate = useNavigate()
@@ -23,6 +24,7 @@ function WorksShowcase() {
   const [currentUser, setCurrentUser] = useState<{ username: string } | null>(null)
   const [deletingVideoId, setDeletingVideoId] = useState<number | null>(null)
   const [showPublishModal, setShowPublishModal] = useState(false)
+  const [deleteConfirmState, setDeleteConfirmState] = useState<{ isOpen: boolean; videoId: number | null }>({ isOpen: false, videoId: null })
 
   // 检查用户权限
   useEffect(() => {
@@ -72,9 +74,14 @@ function WorksShowcase() {
       return
     }
 
-    if (!window.confirm('确定要删除/下架这个视频吗？此操作不可恢复。')) {
-      return
-    }
+    // 显示删除确认对话框
+    setDeleteConfirmState({ isOpen: true, videoId })
+  }
+
+  // 确认删除视频
+  const handleConfirmDelete = async () => {
+    const videoId = deleteConfirmState.videoId
+    if (!videoId) return
 
     try {
       setDeletingVideoId(videoId)
@@ -87,6 +94,7 @@ function WorksShowcase() {
       alertError(error instanceof Error ? error.message : '删除视频失败，请稍后重试', '错误')
     } finally {
       setDeletingVideoId(null)
+      setDeleteConfirmState({ isOpen: false, videoId: null })
     }
   }
 
@@ -685,6 +693,14 @@ function WorksShowcase() {
           loadVideos()
           window.dispatchEvent(new CustomEvent('community-video-uploaded'))
         }}
+      />
+
+      {/* 删除确认对话框 */}
+      <DeleteConfirmModal
+        isOpen={deleteConfirmState.isOpen}
+        onClose={() => setDeleteConfirmState({ isOpen: false, videoId: null })}
+        onConfirm={handleConfirmDelete}
+        message="确定要删除/下架这个视频吗？此操作不可恢复。"
       />
     </div>
   )
