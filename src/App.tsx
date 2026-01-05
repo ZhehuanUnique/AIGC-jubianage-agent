@@ -24,6 +24,7 @@ import Analytics from './pages/Analytics'
 import VideoReview from './pages/VideoReview'
 import FragmentDetail from './pages/FragmentDetail'
 import CreditRecharge from './pages/CreditRecharge'
+import PaymentServiceAgreement from './pages/PaymentServiceAgreement'
 import WorksShowcase from './pages/WorksShowcase'
 import CommunityVideoDetail from './pages/CommunityVideoDetail'
 import { useAlert } from './hooks/useAlert.tsx'
@@ -247,6 +248,10 @@ function App() {
               <CreditRecharge />
             </ProtectedRoute>
           }
+        />
+        <Route
+          path="/payment-service-agreement"
+          element={<PaymentServiceAgreement />}
         />
         <Route
           path="/works"

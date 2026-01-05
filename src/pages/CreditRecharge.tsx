@@ -115,11 +115,11 @@ function CreditRecharge() {
           <div className="mt-4 flex items-center justify-between">
             <span className="text-gray-600 text-sm">点击充值即表示同意</span>
             <a
-              href="#"
+              href="/payment-service-agreement"
               className="text-blue-400 hover:text-blue-300 text-sm underline"
               onClick={(e) => {
                 e.preventDefault()
-                // TODO: 打开支付服务协议
+                navigate('/payment-service-agreement')
               }}
             >
               《支付服务协议》
