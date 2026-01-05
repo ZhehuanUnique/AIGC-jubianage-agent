@@ -7841,7 +7841,7 @@ app.get('/api/community-videos', authenticateToken, async (req, res) => {
         u.username,
         u.display_name,
         u.avatar_url
-      FROM community_videos cv
+      FROM public.community_videos cv
       JOIN users u ON cv.user_id = u.id
       WHERE cv.is_published = true
       ORDER BY ${orderBy}
@@ -7851,7 +7851,7 @@ app.get('/api/community-videos', authenticateToken, async (req, res) => {
 
     // 查询总数
     const countResult = await db.query(
-      'SELECT COUNT(*) as total FROM community_videos WHERE is_published = true'
+      'SELECT COUNT(*) as total FROM public.community_videos WHERE is_published = true'
     )
     const total = parseInt(countResult.rows[0].total)
 
@@ -7907,7 +7907,7 @@ app.get('/api/community-videos/:videoId', authenticateToken, async (req, res) =>
         u.username,
         u.display_name,
         u.avatar_url
-      FROM community_videos cv
+      FROM public.community_videos cv
       JOIN users u ON cv.user_id = u.id
       WHERE cv.id = $1 AND cv.is_published = true`,
       [videoId]
@@ -8008,9 +8008,9 @@ app.post('/api/community-videos', authenticateToken, async (req, res) => {
       }
     }
 
-    // 插入社区视频
+    // 插入社区视频（显式指定 schema）
     const result = await db.query(
-      `INSERT INTO community_videos 
+      `INSERT INTO public.community_videos 
        (user_id, project_id, shot_id, video_url, cos_key, thumbnail_url, title, description, tags, 
         is_published, published_at, model, resolution, duration, prompt, metadata)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_TIMESTAMP, $11, $12, $13, $14, $15)
@@ -8086,7 +8086,7 @@ app.post('/api/community-videos/:videoId/like', authenticateToken, async (req, r
     // 检查是否已点赞（这里简化处理，实际应该有一个likes表）
     // 暂时使用简单的增加/减少逻辑
     const videoResult = await db.query(
-      'SELECT likes_count FROM community_videos WHERE id = $1',
+      'SELECT likes_count FROM public.community_videos WHERE id = $1',
       [videoId]
     )
 
@@ -8101,7 +8101,7 @@ app.post('/api/community-videos/:videoId/like', authenticateToken, async (req, r
     const newLikesCount = (videoResult.rows[0].likes_count || 0) + 1
 
     await db.query(
-      'UPDATE community_videos SET likes_count = $1 WHERE id = $2',
+      'UPDATE public.community_videos SET likes_count = $1 WHERE id = $2',
       [newLikesCount, videoId]
     )
 
@@ -8130,7 +8130,7 @@ app.post('/api/community-videos/:videoId/view', authenticateToken, async (req, r
 
     // 增加观看数
     await db.query(
-      'UPDATE community_videos SET views_count = COALESCE(views_count, 0) + 1 WHERE id = $1',
+      'UPDATE public.community_videos SET views_count = COALESCE(views_count, 0) + 1 WHERE id = $1',
       [videoId]
     )
 
