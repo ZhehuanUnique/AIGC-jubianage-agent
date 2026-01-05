@@ -102,7 +102,7 @@ function ScriptInput() {
     saveAllData()
   }, [scriptTitle, workStyle, workBackground, scriptContent])
 
-  const styles = ['真人电影风格', '2d动漫风', '3d动漫风']
+  const styles = ['真人电影风格', '2D动漫风', '2.5DCG风', '3D动漫风']
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
