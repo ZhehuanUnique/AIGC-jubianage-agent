@@ -68,7 +68,17 @@ export function PublishVideoModal({ isOpen, onClose, onSuccess }: PublishVideoMo
     try {
       setIsLoadingFragments(true)
       const fragmentsList = await getProjectFragments(projectId)
-      setFragments(fragmentsList.filter(f => f.videoUrls && f.videoUrls.length > 0))
+      
+      // 过滤掉没有视频的片段
+      const fragmentsWithVideos = fragmentsList.filter(f => f.videoUrls && f.videoUrls.length > 0)
+      
+      // 对每个片段的 videoUrls 进行去重，确保每个视频URL只出现一次
+      const deduplicatedFragments = fragmentsWithVideos.map(fragment => ({
+        ...fragment,
+        videoUrls: Array.from(new Set(fragment.videoUrls || []))
+      }))
+      
+      setFragments(deduplicatedFragments)
     } catch (error) {
       console.error('加载片段列表失败:', error)
       alertError(error instanceof Error ? error.message : '加载片段列表失败', '错误')
@@ -278,26 +288,42 @@ export function PublishVideoModal({ isOpen, onClose, onSuccess }: PublishVideoMo
                       </div>
                     ) : (
                       <div className="space-y-2 max-h-60 overflow-y-auto">
-                        {fragments.map((fragment) =>
-                          fragment.videoUrls?.map((videoUrl, index) => (
+                        {(() => {
+                          // 收集所有唯一的视频URL，确保每个视频只显示一次
+                          const seenVideoUrls = new Set<string>()
+                          const videoList: Array<{ videoUrl: string; fragmentName: string; fragmentId: string }> = []
+                          
+                          fragments.forEach((fragment) => {
+                            fragment.videoUrls?.forEach((videoUrl) => {
+                              if (!seenVideoUrls.has(videoUrl)) {
+                                seenVideoUrls.add(videoUrl)
+                                videoList.push({
+                                  videoUrl,
+                                  fragmentName: fragment.name,
+                                  fragmentId: fragment.id,
+                                })
+                              }
+                            })
+                          })
+                          
+                          return videoList.map((item, index) => (
                             <button
-                              key={`${fragment.id}-${index}`}
-                              onClick={() => handleVideoSelect(videoUrl, fragment.name)}
+                              key={`${item.fragmentId}-${item.videoUrl}`}
+                              onClick={() => handleVideoSelect(item.videoUrl, item.fragmentName)}
                               className="w-full p-3 text-left border border-gray-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-all flex items-center gap-3"
                             >
                               <Video className="w-5 h-5 text-purple-600 flex-shrink-0" />
                               <div className="flex-1 min-w-0">
                                 <div className="font-medium text-gray-800 truncate">
-                                  {fragment.name}
-                                  {fragment.videoUrls && fragment.videoUrls.length > 1 && ` (视频${index + 1})`}
+                                  {item.fragmentName}
                                 </div>
                                 <div className="text-xs text-gray-500 truncate mt-1">
-                                  {videoUrl.substring(0, 50)}...
+                                  {item.videoUrl.substring(0, 50)}...
                                 </div>
                               </div>
                             </button>
                           ))
-                        )}
+                        })()}
                       </div>
                     )}
                   </div>
