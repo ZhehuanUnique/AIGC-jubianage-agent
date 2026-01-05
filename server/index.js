@@ -8117,6 +8117,15 @@ app.post('/api/community-videos', authenticateToken, async (req, res) => {
     }
 
     // 插入社区视频（显式指定 schema）
+    console.log('📤 准备插入社区视频:', {
+      userId,
+      projectId,
+      shotId,
+      videoUrl: videoUrl.substring(0, 100) + '...',
+      title,
+      is_published: true,
+    })
+    
     const result = await db.query(
       `INSERT INTO public.community_videos 
        (user_id, project_id, shot_id, video_url, cos_key, thumbnail_url, title, description, tags, 
@@ -8142,6 +8151,7 @@ app.post('/api/community-videos', authenticateToken, async (req, res) => {
       ]
     )
 
+    console.log('✅ 社区视频插入成功，ID:', result.rows[0]?.id)
     const row = result.rows[0]
     const video = {
       id: row.id,

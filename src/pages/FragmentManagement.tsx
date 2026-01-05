@@ -107,17 +107,29 @@ function FragmentCard({
 
     const videoUrl = fragment.videoUrls[0]
     try {
-      await publishVideoToCommunity({
+      console.log('📤 准备上传视频到社区:', {
+        videoUrl: videoUrl.substring(0, 50) + '...',
+        title: data.title || fragment.name,
+        projectId: projectId ? parseInt(projectId, 10) : undefined,
+        shotId: fragment.id ? parseInt(fragment.id.toString(), 10) : undefined,
+      })
+      
+      const result = await publishVideoToCommunity({
         videoUrl,
         title: data.title || fragment.name,
         description: data.description,
         tags: data.tags,
         projectId: projectId ? parseInt(projectId, 10) : undefined,
-        shotId: fragment.id ? parseInt(fragment.id, 10) : undefined,
+        shotId: fragment.id ? parseInt(fragment.id.toString(), 10) : undefined,
       })
+      
+      console.log('✅ 视频上传成功:', result)
       alertSuccess('视频已上传到社区', '上传成功')
+      
+      // 触发全局事件，通知其他页面刷新
+      window.dispatchEvent(new CustomEvent('community-video-uploaded', { detail: result }))
     } catch (error) {
-      console.error('上传到社区失败:', error)
+      console.error('❌ 上传到社区失败:', error)
       alertError(error instanceof Error ? error.message : '上传到社区失败，请稍后重试', '上传失败')
     }
   }

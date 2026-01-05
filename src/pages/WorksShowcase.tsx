@@ -52,6 +52,19 @@ function WorksShowcase() {
     loadVideos()
   }, [page, sortBy])
 
+  // 监听社区视频上传事件，自动刷新
+  useEffect(() => {
+    const handleVideoUploaded = () => {
+      console.log('📢 收到社区视频上传事件，刷新视频列表')
+      loadVideos()
+    }
+    
+    window.addEventListener('community-video-uploaded', handleVideoUploaded)
+    return () => {
+      window.removeEventListener('community-video-uploaded', handleVideoUploaded)
+    }
+  }, [])
+
   // 切换到指定视频
   const switchToVideo = (index: number) => {
     if (index < 0 || index >= videos.length) return
