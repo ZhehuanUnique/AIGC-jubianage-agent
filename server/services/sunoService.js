@@ -222,8 +222,9 @@ export class SunoService {
         prompt,
       }
 
-      if (callBackUrl) {
-        requestBody.callBackUrl = callBackUrl
+      // 如果提供了callBackUrl且不为空，则添加到请求体中
+      if (callBackUrl && callBackUrl.trim()) {
+        requestBody.callBackUrl = callBackUrl.trim()
       }
 
       const response = await fetch(`${SUNO_API_BASE_URL}/api/v1/lyrics`, {
