@@ -53,6 +53,49 @@ function CommunityVideoDetail() {
     }
   }
 
+  // 提取视频第一帧作为缩略图
+  const extractVideoThumbnail = (videoId: number, videoUrl: string) => {
+    if (!videoUrl) return
+
+    // 创建一个隐藏的video元素来提取第一帧
+    const video = document.createElement('video')
+    video.crossOrigin = 'anonymous'
+    video.preload = 'metadata'
+    video.muted = true
+    video.playsInline = true
+    
+    video.onloadedmetadata = () => {
+      // 设置到第一帧（0秒）
+      video.currentTime = 0.1 // 稍微偏移一点，确保能获取到帧
+    }
+    
+    video.onseeked = () => {
+      try {
+        // 创建canvas来绘制视频帧
+        const canvas = document.createElement('canvas')
+        canvas.width = video.videoWidth || 1920
+        canvas.height = video.videoHeight || 1080
+        const ctx = canvas.getContext('2d')
+        
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+          // 将canvas转换为base64图片
+          const thumbnail = canvas.toDataURL('image/jpeg', 0.8)
+          setRelatedVideoThumbnails(prev => new Map(prev).set(videoId, thumbnail))
+          console.log(`✅ 已提取相关视频 ${videoId} 的第一帧作为缩略图`)
+        }
+      } catch (error) {
+        console.error(`提取相关视频 ${videoId} 第一帧失败:`, error)
+      }
+    }
+    
+    video.onerror = () => {
+      console.error(`相关视频 ${videoId} 加载失败，无法提取第一帧`)
+    }
+    
+    video.src = videoUrl
+  }
+
   useEffect(() => {
     loadVideo()
   }, [videoId])
