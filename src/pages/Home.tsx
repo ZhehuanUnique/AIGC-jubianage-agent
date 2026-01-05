@@ -194,7 +194,7 @@ function Home() {
           </div>
 
           {/* 横向滚动海报带容器 - 固定在底部 */}
-          <div className="w-full space-y-4 relative z-10 mt-auto">
+          <div className="w-full space-y-6 relative z-10 mt-auto pb-8">
             {/* 横向滚动海报带 - 7:10 */}
             <div className="w-full">
               <PosterCarousel posterFolder="7：10" />

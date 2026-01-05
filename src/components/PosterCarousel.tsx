@@ -23,6 +23,7 @@ function PosterCarousel({ posterFolder }: PosterCarouselProps) {
   const animationRef = useRef<number>()
   const lastScrollTimeRef = useRef<number>(0)
   const [posters, setPosters] = useState<string[]>([])
+  const baseScrollSpeed = 0.8 // 基础滚动速度（像素/帧）
 
   // 从配置文件或本地路径加载海报图片列表
   useEffect(() => {
@@ -85,13 +86,17 @@ function PosterCarousel({ posterFolder }: PosterCarouselProps) {
 
   const is34 = posterFolder === '3：4'
 
-  // 自动滚动动画
+  // 自动滚动动画（流畅的连续滚动）
   useEffect(() => {
+    if (!containerRef.current || posters.length === 0) return
+
     const animate = (timestamp: number) => {
       if (containerRef.current && !isDragging) {
         const deltaTime = timestamp - lastScrollTimeRef.current
-        if (deltaTime >= 16) { // 约60fps
-          containerRef.current.scrollLeft += scrollSpeed * 0.5
+        if (deltaTime >= 0) {
+          // 使用时间差来计算滚动距离，确保流畅
+          const scrollDelta = (scrollSpeed * baseScrollSpeed * deltaTime) / 16
+          containerRef.current.scrollLeft += scrollDelta
           lastScrollTimeRef.current = timestamp
         }
       }
@@ -106,7 +111,7 @@ function PosterCarousel({ posterFolder }: PosterCarouselProps) {
         cancelAnimationFrame(animationRef.current)
       }
     }
-  }, [scrollSpeed, isDragging])
+  }, [scrollSpeed, isDragging, posters.length])
 
   // 处理无限循环滚动
   useEffect(() => {
@@ -191,18 +196,20 @@ function PosterCarousel({ posterFolder }: PosterCarouselProps) {
   }
 
   return (
-    <div
-      ref={containerRef}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseLeave}
-      className="flex overflow-x-hidden gap-4 cursor-grab active:cursor-grabbing"
-      style={{
-        scrollBehavior: 'auto',
-        WebkitOverflowScrolling: 'touch',
-      }}
-    >
+    <div className="w-full overflow-hidden">
+      <div
+        ref={containerRef}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
+        className="flex overflow-x-hidden gap-4 cursor-grab active:cursor-grabbing"
+        style={{
+          scrollBehavior: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          willChange: 'scroll-position', // 优化滚动性能
+        }}
+      >
       {/* 复制海报列表以实现无缝循环（3组） */}
       {[...posters, ...posters, ...posters].map((poster, index) => (
         <div
@@ -241,6 +248,7 @@ function PosterCarousel({ posterFolder }: PosterCarouselProps) {
           </div>
         </div>
       ))}
+      </div>
     </div>
   )
 }
