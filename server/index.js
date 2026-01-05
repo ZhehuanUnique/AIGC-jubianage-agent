@@ -7860,8 +7860,7 @@ app.get('/api/community-videos', authenticateToken, async (req, res) => {
       `SELECT 
         cv.*,
         u.username,
-        u.display_name,
-        u.avatar_url
+        u.display_name
       FROM public.community_videos cv
       JOIN users u ON cv.user_id = u.id
       WHERE cv.is_published = true
@@ -7881,7 +7880,7 @@ app.get('/api/community-videos', authenticateToken, async (req, res) => {
       id: row.id,
       userId: row.user_id,
       username: row.username || row.display_name || '匿名用户',
-      avatar: row.avatar_url,
+      avatar: null, // users 表中没有 avatar_url 字段
       videoUrl: row.video_url,
       thumbnailUrl: row.thumbnail_url,
       title: row.title,
@@ -7940,8 +7939,7 @@ app.get('/api/community-videos/:videoId', authenticateToken, async (req, res) =>
       `SELECT 
         cv.*,
         u.username,
-        u.display_name,
-        u.avatar_url
+        u.display_name
       FROM public.community_videos cv
       JOIN users u ON cv.user_id = u.id
       WHERE cv.id = $1 AND cv.is_published = true`,
@@ -7960,7 +7958,7 @@ app.get('/api/community-videos/:videoId', authenticateToken, async (req, res) =>
       id: row.id,
       userId: row.user_id,
       username: row.username || row.display_name || '匿名用户',
-      avatar: row.avatar_url,
+      avatar: null, // users 表中没有 avatar_url 字段
       videoUrl: row.video_url,
       thumbnailUrl: row.thumbnail_url,
       title: row.title,
@@ -8157,7 +8155,7 @@ app.post('/api/community-videos', authenticateToken, async (req, res) => {
       id: row.id,
       userId: row.user_id,
       username: req.user?.username || '匿名用户',
-      avatar: req.user?.avatar_url,
+      avatar: null, // users 表中没有 avatar_url 字段
       videoUrl: row.video_url,
       thumbnailUrl: row.thumbnail_url,
       title: row.title,
