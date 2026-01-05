@@ -7875,6 +7875,25 @@ app.get('/api/community-videos', authenticateToken, async (req, res) => {
     )
     const total = parseInt(countResult.rows[0].total)
 
+    // 获取当前用户的点赞状态（批量查询）
+    const userId = req.user?.id
+    const likedVideoIds = new Set<number>()
+    if (userId && videosResult.rows.length > 0) {
+      try {
+        const videoIds = videosResult.rows.map(row => row.id)
+        const likesResult = await db.query(
+          `SELECT video_id FROM community_video_likes WHERE user_id = $1 AND video_id = ANY($2::int[])`,
+          [userId, videoIds]
+        )
+        likesResult.rows.forEach(row => {
+          likedVideoIds.add(row.video_id)
+        })
+      } catch (likeError) {
+        // 如果表不存在，忽略错误（兼容旧版本）
+        console.warn('批量查询点赞状态失败（可能表不存在）:', likeError.message)
+      }
+    }
+
     // 格式化数据
     const videos = videosResult.rows.map(row => ({
       id: row.id,
@@ -7888,6 +7907,7 @@ app.get('/api/community-videos', authenticateToken, async (req, res) => {
       tags: row.tags || [],
       likesCount: row.likes_count || 0,
       viewsCount: row.views_count || 0,
+      isLiked: likedVideoIds.has(row.id),
       model: row.model,
       resolution: row.resolution,
       duration: row.duration,
@@ -7954,6 +7974,23 @@ app.get('/api/community-videos/:videoId', authenticateToken, async (req, res) =>
     }
 
     const row = result.rows[0]
+    const userId = req.user?.id
+
+    // 检查当前用户是否已点赞
+    let isLiked = false
+    if (userId) {
+      try {
+        const likeResult = await db.query(
+          'SELECT id FROM community_video_likes WHERE user_id = $1 AND video_id = $2',
+          [userId, videoId]
+        )
+        isLiked = likeResult.rows.length > 0
+      } catch (likeError) {
+        // 如果表不存在，忽略错误（兼容旧版本）
+        console.warn('检查点赞状态失败（可能表不存在）:', likeError.message)
+      }
+    }
+
     const video = {
       id: row.id,
       userId: row.user_id,
@@ -7966,6 +8003,7 @@ app.get('/api/community-videos/:videoId', authenticateToken, async (req, res) =>
       tags: row.tags || [],
       likesCount: row.likes_count || 0,
       viewsCount: row.views_count || 0,
+      isLiked: isLiked,
       model: row.model,
       resolution: row.resolution,
       duration: row.duration,
@@ -8222,10 +8260,9 @@ app.post('/api/community-videos/:videoId/like', authenticateToken, async (req, r
     const pool = await import('./db/connection.js')
     const db = pool.default
 
-    // 检查是否已点赞（这里简化处理，实际应该有一个likes表）
-    // 暂时使用简单的增加/减少逻辑
+    // 检查视频是否存在
     const videoResult = await db.query(
-      'SELECT likes_count FROM public.community_videos WHERE id = $1',
+      'SELECT id, likes_count FROM public.community_videos WHERE id = $1',
       [videoId]
     )
 
@@ -8236,9 +8273,36 @@ app.post('/api/community-videos/:videoId/like', authenticateToken, async (req, r
       })
     }
 
-    // 简单的点赞逻辑：每次点击增加1（实际应该检查用户是否已点赞）
-    const newLikesCount = (videoResult.rows[0].likes_count || 0) + 1
+    const currentLikesCount = videoResult.rows[0].likes_count || 0
 
+    // 检查是否已点赞
+    const existingLike = await db.query(
+      'SELECT id FROM community_video_likes WHERE user_id = $1 AND video_id = $2',
+      [userId, videoId]
+    )
+
+    let isLiked = false
+    let newLikesCount = currentLikesCount
+
+    if (existingLike.rows.length > 0) {
+      // 取消点赞
+      await db.query(
+        'DELETE FROM community_video_likes WHERE user_id = $1 AND video_id = $2',
+        [userId, videoId]
+      )
+      isLiked = false
+      newLikesCount = Math.max(0, currentLikesCount - 1)
+    } else {
+      // 添加点赞
+      await db.query(
+        'INSERT INTO community_video_likes (user_id, video_id) VALUES ($1, $2)',
+        [userId, videoId]
+      )
+      isLiked = true
+      newLikesCount = currentLikesCount + 1
+    }
+
+    // 更新视频的点赞数
     await db.query(
       'UPDATE public.community_videos SET likes_count = $1 WHERE id = $2',
       [newLikesCount, videoId]
@@ -8247,7 +8311,7 @@ app.post('/api/community-videos/:videoId/like', authenticateToken, async (req, r
     res.json({
       success: true,
       data: {
-        liked: true,
+        liked: isLiked,
         likesCount: newLikesCount,
       },
     })

@@ -246,7 +246,11 @@ function CommunityVideoDetail() {
 
     try {
       const result = await toggleVideoLike(video.id)
-      setVideo(prev => prev ? { ...prev, likesCount: result.likesCount } : null)
+      setVideo(prev => prev ? { 
+        ...prev, 
+        likesCount: result.likesCount,
+        isLiked: result.liked 
+      } : null)
     } catch (error) {
       console.error('点赞失败:', error)
       alertError(error instanceof Error ? error.message : '点赞失败，请稍后重试', '错误')
@@ -432,9 +436,13 @@ function CommunityVideoDetail() {
         <div className="p-4 border-b border-gray-300">
           <button
             onClick={handleLike}
-            className="flex items-center gap-2 text-gray-700 hover:text-red-500 transition-colors"
+            className={`flex items-center gap-2 transition-colors ${
+              video.isLiked 
+                ? 'text-red-500 hover:text-red-600' 
+                : 'text-gray-700 hover:text-red-500'
+            }`}
           >
-            <Heart className="w-5 h-5" />
+            <Heart className={`w-5 h-5 ${video.isLiked ? 'fill-current' : ''}`} />
             <span className="text-base">{formatNumber(video.likesCount)}</span>
           </button>
         </div>

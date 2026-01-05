@@ -2315,6 +2315,7 @@ export interface CommunityVideo {
   tags?: string[]
   likesCount: number
   viewsCount: number
+  isLiked?: boolean // 当前用户是否已点赞
   model?: string
   resolution?: string
   duration?: number
