@@ -1632,7 +1632,7 @@ function AssetDetails() {
             onClick={handleSubmit}
             className="px-6 py-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-lg hover:from-pink-600 hover:to-purple-700"
           >
-            提交至下一步(消耗10积分)
+            提交至下一步
           </button>
         </div>
       </div>
