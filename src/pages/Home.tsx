@@ -51,7 +51,7 @@ function Home() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [videoLoaded, setVideoLoaded] = useState(false)
   const [videoError, setVideoError] = useState(false)
-  const [videoUrl, setVideoUrl] = useState<string>('/index.mp4') // 默认本地路径
+  const [videoUrl, setVideoUrl] = useState<string | null>(null) // 初始为null，等待加载
 
   // 从配置文件加载视频URL（优先使用COS）
   useEffect(() => {
@@ -72,6 +72,7 @@ function Home() {
       }
       // 如果配置文件不存在或加载失败，使用本地路径
       setVideoUrl('/index.mp4')
+      console.log('📹 使用本地视频路径: /index.mp4')
     }
 
     loadVideoUrl()
@@ -81,21 +82,33 @@ function Home() {
     // 确保背景视频循环播放
     if (videoRef.current && videoUrl) {
       videoRef.current.loop = true
+      // 设置超时，如果5秒内视频还没加载，显示错误
+      const timeout = setTimeout(() => {
+        if (!videoLoaded && !videoError) {
+          console.warn('视频加载超时')
+          setVideoError(true)
+        }
+      }, 5000)
+
       const playPromise = videoRef.current.play()
       
       if (playPromise !== undefined) {
         playPromise
           .then(() => {
-            console.log('背景视频开始播放')
+            console.log('✅ 背景视频开始播放')
+            clearTimeout(timeout)
             setVideoLoaded(true)
           })
           .catch(err => {
-            console.warn('背景视频自动播放失败:', err)
+            console.warn('❌ 背景视频自动播放失败:', err)
+            clearTimeout(timeout)
             setVideoError(true)
           })
       }
+
+      return () => clearTimeout(timeout)
     }
-  }, [videoUrl])
+  }, [videoUrl, videoLoaded, videoError])
 
   const handleVideoLoaded = () => {
     setVideoLoaded(true)
@@ -106,39 +119,51 @@ function Home() {
     }
   }
 
-  const handleVideoError = () => {
-    console.error('视频加载失败')
+  const handleVideoError = (e: React.SyntheticEvent<HTMLVideoElement, Event>) => {
+    const video = e.currentTarget
+    console.error('❌ 视频加载失败:', {
+      error: video.error,
+      networkState: video.networkState,
+      readyState: video.readyState,
+      src: videoUrl
+    })
     setVideoError(true)
+    setVideoLoaded(false)
   }
 
   return (
-    <div className="w-full h-screen flex flex-col bg-black relative overflow-hidden">
-      {/* 背景视频 */}
-      <video
-        ref={videoRef}
-        className="absolute inset-0 w-full h-full object-cover z-0"
-        autoPlay
-        loop
-        muted
-        playsInline
-        onLoadedData={handleVideoLoaded}
-        onError={handleVideoError}
-        preload="auto"
-        key={videoUrl} // 当 videoUrl 改变时重新加载视频
-      >
-        <source src={videoUrl} type="video/mp4" />
-        您的浏览器不支持视频播放。
-      </video>
+    <div className="w-full h-screen flex flex-col relative overflow-hidden" style={{ backgroundColor: '#000' }}>
+      {/* 默认渐变背景（始终显示，视频加载后作为后备） */}
+      <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-purple-900 via-blue-900 to-black z-0" />
 
-      {/* 视频加载失败时的占位背景 */}
-      {videoError && (
-        <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-purple-900 via-blue-900 to-black z-0" />
+      {/* 背景视频 */}
+      {videoUrl && (
+        <video
+          ref={videoRef}
+          className="absolute inset-0 w-full h-full object-cover z-[1]"
+          autoPlay
+          loop
+          muted
+          playsInline
+          onLoadedData={handleVideoLoaded}
+          onCanPlay={handleVideoLoaded}
+          onError={handleVideoError}
+          preload="auto"
+          key={videoUrl} // 当 videoUrl 改变时重新加载视频
+          style={{ 
+            opacity: videoLoaded ? 1 : 0,
+            transition: 'opacity 0.5s ease-in-out'
+          }}
+        >
+          <source src={videoUrl} type="video/mp4" />
+          您的浏览器不支持视频播放。
+        </video>
       )}
 
-      {/* 视频加载中的遮罩 */}
-      {!videoLoaded && !videoError && (
-        <div className="absolute inset-0 w-full h-full bg-black z-0 flex items-center justify-center">
-          <div className="text-white text-sm">加载视频中...</div>
+      {/* 视频加载中的遮罩（仅在加载中且未出错时显示） */}
+      {!videoLoaded && !videoError && videoUrl && (
+        <div className="absolute inset-0 w-full h-full z-[2] flex items-center justify-center">
+          <div className="text-white text-sm opacity-50">加载视频中...</div>
         </div>
       )}
 
