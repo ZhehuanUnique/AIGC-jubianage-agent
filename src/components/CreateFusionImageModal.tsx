@@ -69,7 +69,6 @@ function CreateFusionImageModal({ onClose }: CreateFusionImageModalProps) {
               </label>
               <select className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500">
                 <option value="nano-banana-pro">Nano Banana Pro</option>
-                <option value="midjourney-v7-t2i">Midjourney v7</option>
                 <option value="flux-2-max">Flux-2-Max</option>
                 <option value="flux-2-flex">Flux-2-Flex</option>
                 <option value="flux-2-pro">Flux-2-Pro</option>
@@ -94,7 +93,15 @@ function CreateFusionImageModal({ onClose }: CreateFusionImageModalProps) {
                 <div key={asset} className="relative">
                   <label className="block text-xs mb-1.5 flex items-center gap-1">
                     {asset}
-                    <HelpCircle size={12} className="text-gray-600" />
+                    {(asset === '姿势' || asset === '特效') && (
+                      <div className="relative group">
+                        <HelpCircle size={12} className="text-gray-600 cursor-help" />
+                        <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-10">
+                          可上传线稿图或灰度图
+                          <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                        </div>
+                      </div>
+                    )}
                   </label>
                   <div className="h-20 bg-white border border-gray-300 rounded-lg flex items-center justify-center cursor-pointer hover:border-purple-500">
                     <div className="text-center">
