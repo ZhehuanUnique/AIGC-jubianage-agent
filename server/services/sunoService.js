@@ -95,8 +95,18 @@ export class SunoService {
     }
 
     // 添加可选字段
-    if (callBackUrl) {
-      requestBody.callBackUrl = callBackUrl
+    // 注意：对于V5模型，如果callBackUrl为空，不添加到请求体中（避免API报错）
+    // 如果提供了callBackUrl，则使用回调方式；否则使用轮询方式查询状态
+    if (callBackUrl && callBackUrl.trim()) {
+      requestBody.callBackUrl = callBackUrl.trim()
+    } else if (model === 'V5') {
+      // V5模型如果callBackUrl为空，不添加该字段，使用轮询方式
+      // 这样可以避免API返回"Please enter callBackUrl"错误
+    } else {
+      // 对于其他模型版本，如果提供了callBackUrl则添加
+      if (callBackUrl) {
+        requestBody.callBackUrl = callBackUrl
+      }
     }
     if (personaId) {
       requestBody.personaId = personaId
