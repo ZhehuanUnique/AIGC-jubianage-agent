@@ -1004,6 +1004,7 @@ app.get('/api/first-last-frame-video/status/:taskId', authenticateToken, async (
     }
 
     // 如果视频生成完成，下载并保存到项目文件夹
+    // 检查是否已经处理过（避免重复创建shot和保存文件）
     if (result.status === 'completed' && result.videoUrl) {
       try {
         const pool = await import('./db/connection.js')
@@ -1015,6 +1016,23 @@ app.get('/api/first-last-frame-video/status/:taskId', authenticateToken, async (
         const { projectId } = req.query
         
         if (projectId) {
+          // 检查是否已经处理过（通过查询first_last_frame_videos表的状态）
+          const existingRecord = await db.query(
+            'SELECT status, shot_id FROM first_last_frame_videos WHERE task_id = $1',
+            [taskId]
+          )
+          
+          // 如果已经处理过（status为completed且有shot_id），则跳过
+          if (existingRecord.rows.length > 0 && 
+              existingRecord.rows[0].status === 'completed' && 
+              existingRecord.rows[0].shot_id) {
+            console.log(`ℹ️ 任务 ${taskId} 已经处理过，跳过重复处理`)
+            return res.json({
+              success: true,
+              data: result,
+            })
+          }
+          
           // 验证项目权限
           const projectResult = await db.query(
             'SELECT id FROM projects WHERE id = $1 AND user_id = $2',
@@ -4532,8 +4550,9 @@ app.get('/api/projects/:projectId/fragments', authenticateToken, async (req, res
     const fragments = await Promise.all(
       shotsResult.rows.map(async (shot) => {
         // 查找该分镜关联的视频文件（支持 shot_id 和 fragment_id）
+        // 使用DISTINCT去重，避免重复视频
         const videoFiles = await db.query(
-          `SELECT f.cos_url, f.file_name, f.created_at
+          `SELECT DISTINCT ON (f.cos_url) f.cos_url, f.file_name, f.created_at
            FROM files f
            WHERE f.project_id = $1 
              AND f.file_type = 'video'
@@ -4541,51 +4560,69 @@ app.get('/api/projects/:projectId/fragments', authenticateToken, async (req, res
                f.metadata->>'shot_id' = $2::text
                OR f.metadata->>'fragment_id' = $2::text
              )
-           ORDER BY f.created_at DESC`,
+           ORDER BY f.cos_url, f.created_at DESC`,
           [projectId, shot.id.toString()]
         )
+        
+        // 只返回有视频的分镜，过滤掉空视频的分镜，并去重
+        const videoUrls = Array.from(new Set(
+          videoFiles.rows.map(f => f.cos_url).filter(url => url)
+        ))
+        if (videoUrls.length === 0) {
+          return null // 返回null，后续会过滤掉
+        }
         
         return {
           id: shot.id.toString(),
           name: `分镜${shot.shot_number}`,
           description: shot.description,
           imageUrl: shot.thumbnail_image_url,
-          videoUrls: videoFiles.rows.map(f => f.cos_url),
+          videoUrls: videoUrls,
           createdAt: shot.created_at,
           updatedAt: shot.updated_at,
         }
       })
     )
     
+    // 过滤掉没有视频的分镜（null值）
+    const validFragments = fragments.filter(f => f !== null)
+    
     // 同时获取首尾帧视频（作为特殊片段）
+    // 使用DISTINCT去重，避免重复视频
     const firstLastFrameVideos = await db.query(
-      `SELECT f.cos_url, f.file_name, f.created_at, f.metadata
+      `SELECT DISTINCT ON (f.cos_url) f.cos_url, f.file_name, f.created_at, f.metadata
        FROM files f
        WHERE f.project_id = $1 
          AND f.file_type = 'video'
          AND f.metadata->>'source' = 'first_last_frame_video'
-       ORDER BY f.created_at DESC
+       ORDER BY f.cos_url, f.created_at DESC
        LIMIT 50`,
       [projectId]
     )
     
     // 将首尾帧视频添加到片段列表（如果有）
     if (firstLastFrameVideos.rows.length > 0) {
-      const firstLastFrameFragment = {
-        id: 'first-last-frame-videos',
-        name: '首尾帧生视频',
-        description: '首尾帧生成的视频',
-        imageUrl: null,
-        videoUrls: firstLastFrameVideos.rows.map(f => f.cos_url),
-        createdAt: firstLastFrameVideos.rows[0].created_at,
-        updatedAt: firstLastFrameVideos.rows[0].created_at,
+      // 去重：使用Set确保每个视频URL只出现一次
+      const uniqueVideoUrls = Array.from(new Set(
+        firstLastFrameVideos.rows.map(f => f.cos_url).filter(url => url)
+      ))
+      if (uniqueVideoUrls.length > 0) {
+        const firstLastFrameFragment = {
+          id: 'first-last-frame-videos',
+          name: '首尾帧生视频',
+          description: '首尾帧生成的视频',
+          imageUrl: null,
+          videoUrls: uniqueVideoUrls,
+          createdAt: firstLastFrameVideos.rows[0].created_at,
+          updatedAt: firstLastFrameVideos.rows[0].created_at,
+        }
+        validFragments.push(firstLastFrameFragment)
       }
-      fragments.push(firstLastFrameFragment)
     }
     
     res.json({
       success: true,
-      data: fragments
+      data: validFragments
     })
   } catch (error) {
     console.error('获取片段列表失败:', error)
@@ -7520,6 +7557,335 @@ async function startServer() {
     console.log(`   - 检查环境变量: npm run check-env`)
   })
 }
+
+// ==================== 社区视频 API ====================
+// 获取社区视频列表
+app.get('/api/community-videos', authenticateToken, async (req, res) => {
+  try {
+    const { page = 1, limit = 20, sortBy = 'latest' } = req.query
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+
+    // 构建排序SQL
+    let orderBy = 'cv.published_at DESC'
+    if (sortBy === 'popular') {
+      orderBy = 'cv.views_count DESC, cv.published_at DESC'
+    } else if (sortBy === 'likes') {
+      orderBy = 'cv.likes_count DESC, cv.published_at DESC'
+    }
+
+    // 查询已发布的视频
+    const offset = (parseInt(page) - 1) * parseInt(limit)
+    const videosResult = await db.query(
+      `SELECT 
+        cv.*,
+        u.username,
+        u.display_name,
+        u.avatar_url
+      FROM community_videos cv
+      JOIN users u ON cv.user_id = u.id
+      WHERE cv.is_published = true
+      ORDER BY ${orderBy}
+      LIMIT $1 OFFSET $2`,
+      [parseInt(limit), offset]
+    )
+
+    // 查询总数
+    const countResult = await db.query(
+      'SELECT COUNT(*) as total FROM community_videos WHERE is_published = true'
+    )
+    const total = parseInt(countResult.rows[0].total)
+
+    // 格式化数据
+    const videos = videosResult.rows.map(row => ({
+      id: row.id,
+      userId: row.user_id,
+      username: row.username || row.display_name || '匿名用户',
+      avatar: row.avatar_url,
+      videoUrl: row.video_url,
+      thumbnailUrl: row.thumbnail_url,
+      title: row.title,
+      description: row.description,
+      tags: row.tags || [],
+      likesCount: row.likes_count || 0,
+      viewsCount: row.views_count || 0,
+      model: row.model,
+      resolution: row.resolution,
+      duration: row.duration,
+      prompt: row.prompt,
+      publishedAt: row.published_at,
+      createdAt: row.created_at,
+    }))
+
+    res.json({
+      success: true,
+      data: {
+        videos,
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+      },
+    })
+  } catch (error) {
+    console.error('获取社区视频列表失败:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '获取社区视频列表失败',
+    })
+  }
+})
+
+// 获取社区视频详情
+app.get('/api/community-videos/:videoId', authenticateToken, async (req, res) => {
+  try {
+    const { videoId } = req.params
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+
+    const result = await db.query(
+      `SELECT 
+        cv.*,
+        u.username,
+        u.display_name,
+        u.avatar_url
+      FROM community_videos cv
+      JOIN users u ON cv.user_id = u.id
+      WHERE cv.id = $1 AND cv.is_published = true`,
+      [videoId]
+    )
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: '视频不存在或未发布',
+      })
+    }
+
+    const row = result.rows[0]
+    const video = {
+      id: row.id,
+      userId: row.user_id,
+      username: row.username || row.display_name || '匿名用户',
+      avatar: row.avatar_url,
+      videoUrl: row.video_url,
+      thumbnailUrl: row.thumbnail_url,
+      title: row.title,
+      description: row.description,
+      tags: row.tags || [],
+      likesCount: row.likes_count || 0,
+      viewsCount: row.views_count || 0,
+      model: row.model,
+      resolution: row.resolution,
+      duration: row.duration,
+      prompt: row.prompt,
+      publishedAt: row.published_at,
+      createdAt: row.created_at,
+    }
+
+    res.json({
+      success: true,
+      data: video,
+    })
+  } catch (error) {
+    console.error('获取视频详情失败:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '获取视频详情失败',
+    })
+  }
+})
+
+// 发布视频到社区
+app.post('/api/community-videos', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.id
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: '未登录，请先登录',
+      })
+    }
+
+    const { videoUrl, title, description, tags, projectId, shotId } = req.body
+
+    if (!videoUrl || !title) {
+      return res.status(400).json({
+        success: false,
+        error: '视频URL和标题不能为空',
+      })
+    }
+
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+
+    // 从files表获取视频信息（如果提供了projectId和shotId）
+    let metadata = {}
+    if (projectId && shotId) {
+      const fileResult = await db.query(
+        `SELECT metadata, file_name, file_size, mime_type
+         FROM files
+         WHERE project_id = $1 
+           AND file_type = 'video'
+           AND (metadata->>'shot_id' = $2::text OR metadata->>'fragment_id' = $2::text)
+         ORDER BY created_at DESC
+         LIMIT 1`,
+        [projectId, shotId.toString()]
+      )
+
+      if (fileResult.rows.length > 0) {
+        metadata = fileResult.rows[0].metadata || {}
+      }
+    }
+
+    // 生成缩略图URL（可以从视频URL生成，或使用首帧）
+    const thumbnailUrl = metadata.first_frame_url || null
+
+    // 生成COS key（从videoUrl提取或生成新的）
+    let cosKey = videoUrl
+    if (videoUrl.includes('cos.ap-guangzhou.myqcloud.com')) {
+      const urlMatch = videoUrl.match(/cos\.ap-guangzhou\.myqcloud\.com\/(.+)/)
+      if (urlMatch) {
+        cosKey = urlMatch[1]
+      }
+    }
+
+    // 插入社区视频
+    const result = await db.query(
+      `INSERT INTO community_videos 
+       (user_id, project_id, shot_id, video_url, cos_key, thumbnail_url, title, description, tags, 
+        is_published, published_at, model, resolution, duration, prompt, metadata)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_TIMESTAMP, $11, $12, $13, $14, $15)
+       RETURNING *`,
+      [
+        userId,
+        projectId || null,
+        shotId || null,
+        videoUrl,
+        cosKey,
+        thumbnailUrl,
+        title,
+        description || null,
+        tags || [],
+        true, // 直接发布
+        metadata.model || null,
+        metadata.resolution || null,
+        metadata.duration || null,
+        metadata.prompt || metadata.text || null,
+        JSON.stringify(metadata),
+      ]
+    )
+
+    const row = result.rows[0]
+    const video = {
+      id: row.id,
+      userId: row.user_id,
+      username: req.user?.username || '匿名用户',
+      avatar: req.user?.avatar_url,
+      videoUrl: row.video_url,
+      thumbnailUrl: row.thumbnail_url,
+      title: row.title,
+      description: row.description,
+      tags: row.tags || [],
+      likesCount: row.likes_count || 0,
+      viewsCount: row.views_count || 0,
+      model: row.model,
+      resolution: row.resolution,
+      duration: row.duration,
+      prompt: row.prompt,
+      publishedAt: row.published_at,
+      createdAt: row.created_at,
+    }
+
+    res.json({
+      success: true,
+      data: video,
+    })
+  } catch (error) {
+    console.error('发布视频失败:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '发布视频失败',
+    })
+  }
+})
+
+// 点赞/取消点赞视频
+app.post('/api/community-videos/:videoId/like', authenticateToken, async (req, res) => {
+  try {
+    const { videoId } = req.params
+    const userId = req.user?.id
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: '未登录，请先登录',
+      })
+    }
+
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+
+    // 检查是否已点赞（这里简化处理，实际应该有一个likes表）
+    // 暂时使用简单的增加/减少逻辑
+    const videoResult = await db.query(
+      'SELECT likes_count FROM community_videos WHERE id = $1',
+      [videoId]
+    )
+
+    if (videoResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: '视频不存在',
+      })
+    }
+
+    // 简单的点赞逻辑：每次点击增加1（实际应该检查用户是否已点赞）
+    const newLikesCount = (videoResult.rows[0].likes_count || 0) + 1
+
+    await db.query(
+      'UPDATE community_videos SET likes_count = $1 WHERE id = $2',
+      [newLikesCount, videoId]
+    )
+
+    res.json({
+      success: true,
+      data: {
+        liked: true,
+        likesCount: newLikesCount,
+      },
+    })
+  } catch (error) {
+    console.error('点赞失败:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '点赞失败',
+    })
+  }
+})
+
+// 记录视频观看
+app.post('/api/community-videos/:videoId/view', authenticateToken, async (req, res) => {
+  try {
+    const { videoId } = req.params
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+
+    // 增加观看数
+    await db.query(
+      'UPDATE community_videos SET views_count = COALESCE(views_count, 0) + 1 WHERE id = $1',
+      [videoId]
+    )
+
+    res.json({
+      success: true,
+    })
+  } catch (error) {
+    console.error('记录观看失败:', error)
+    // 静默失败，不影响用户体验
+    res.json({
+      success: true,
+    })
+  }
+})
 
 startServer()
 

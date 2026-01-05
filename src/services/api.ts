@@ -395,12 +395,31 @@ export async function analyzeScriptText(request: AnalyzeScriptRequest): Promise<
       body: JSON.stringify(request),
     })
 
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.error || '分析剧本失败')
+    // 检查响应内容类型，确保是JSON
+    const contentType = response.headers.get('content-type')
+    const text = await response.text()
+    
+    // 检查是否为HTML（错误页面）
+    if (text.trim().startsWith('<')) {
+      console.error('❌ 分析剧本API返回HTML错误页面:', text.substring(0, 200))
+      throw new Error('服务器返回错误页面，请稍后重试')
     }
 
-    const result = await response.json()
+    if (!response.ok) {
+      try {
+        const error = JSON.parse(text)
+        throw new Error(error.error || '分析剧本失败')
+      } catch (parseError) {
+        throw new Error(`分析剧本失败: ${response.status} ${response.statusText}`)
+      }
+    }
+
+    // 确保响应是JSON格式
+    if (!contentType || !contentType.includes('application/json')) {
+      throw new Error('服务器返回非JSON响应，请稍后重试')
+    }
+
+    const result = JSON.parse(text)
     if (result.success) {
       return result.data
     } else {
@@ -435,12 +454,31 @@ export async function analyzeScriptFile(
       body: formData,
     })
 
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.error || '分析文件失败')
+    // 检查响应内容类型，确保是JSON
+    const contentType = response.headers.get('content-type')
+    const text = await response.text()
+    
+    // 检查是否为HTML（错误页面）
+    if (text.trim().startsWith('<')) {
+      console.error('❌ 分析文件API返回HTML错误页面:', text.substring(0, 200))
+      throw new Error('服务器返回错误页面，请稍后重试')
     }
 
-    const result = await response.json()
+    if (!response.ok) {
+      try {
+        const error = JSON.parse(text)
+        throw new Error(error.error || '分析文件失败')
+      } catch (parseError) {
+        throw new Error(`分析文件失败: ${response.status} ${response.statusText}`)
+      }
+    }
+
+    // 确保响应是JSON格式
+    if (!contentType || !contentType.includes('application/json')) {
+      throw new Error('服务器返回非JSON响应，请稍后重试')
+    }
+
+    const result = JSON.parse(text)
     if (result.success) {
       return result.data
     } else {
@@ -474,12 +512,31 @@ export async function segmentScript(request: {
       body: JSON.stringify(request),
     })
 
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.error || '切分剧本失败')
+    // 检查响应内容类型，确保是JSON
+    const contentType = response.headers.get('content-type')
+    const text = await response.text()
+    
+    // 检查是否为HTML（错误页面）
+    if (text.trim().startsWith('<')) {
+      console.error('❌ 切分剧本API返回HTML错误页面:', text.substring(0, 200))
+      throw new Error('服务器返回错误页面，请稍后重试')
     }
 
-    const result = await response.json()
+    if (!response.ok) {
+      try {
+        const error = JSON.parse(text)
+        throw new Error(error.error || '切分剧本失败')
+      } catch (parseError) {
+        throw new Error(`切分剧本失败: ${response.status} ${response.statusText}`)
+      }
+    }
+
+    // 确保响应是JSON格式
+    if (!contentType || !contentType.includes('application/json')) {
+      throw new Error('服务器返回非JSON响应，请稍后重试')
+    }
+
+    const result = JSON.parse(text)
     if (result.success) {
       return result.data
     } else {
@@ -504,9 +561,24 @@ export async function checkRAGScript(scriptId: string): Promise<boolean> {
       return false
     }
 
-    const result = await response.json()
+    // 检查响应内容类型，确保是JSON
+    const contentType = response.headers.get('content-type')
+    if (!contentType || !contentType.includes('application/json')) {
+      console.warn('⚠️ RAG检查API返回非JSON响应，跳过检查')
+      return false
+    }
+
+    const text = await response.text()
+    // 检查是否为HTML（错误页面）
+    if (text.trim().startsWith('<')) {
+      console.warn('⚠️ RAG检查API返回HTML响应，跳过检查')
+      return false
+    }
+
+    const result = JSON.parse(text)
     return result.exists || false
   } catch (error) {
+    console.warn('⚠️ 检查RAG脚本失败:', error)
     return false
   }
 }
@@ -2122,5 +2194,211 @@ export async function deleteAnnotation(projectId: number, annotationId: string):
       throw error
     }
     throw new Error('网络错误，请检查服务器连接')
+  }
+}
+
+/**
+ * 社区视频接口
+ */
+export interface CommunityVideo {
+  id: number
+  userId: number
+  username: string
+  avatar?: string
+  videoUrl: string
+  thumbnailUrl?: string
+  title: string
+  description?: string
+  tags?: string[]
+  likesCount: number
+  viewsCount: number
+  model?: string
+  resolution?: string
+  duration?: number
+  prompt?: string
+  publishedAt: string
+  createdAt: string
+}
+
+/**
+ * 获取社区视频列表
+ */
+export async function getCommunityVideos(params?: {
+  page?: number
+  limit?: number
+  sortBy?: 'latest' | 'popular' | 'likes'
+}): Promise<{ videos: CommunityVideo[]; total: number; page: number; limit: number }> {
+  try {
+    const token = AuthService.getToken()
+    if (!token) {
+      throw new Error('未登录，请先登录')
+    }
+
+    const queryParams = new URLSearchParams()
+    if (params?.page) queryParams.append('page', params.page.toString())
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    if (params?.sortBy) queryParams.append('sortBy', params.sortBy)
+
+    const response = await fetch(`${API_BASE_URL}/api/community-videos?${queryParams.toString()}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || '获取社区视频失败')
+    }
+
+    const result = await response.json()
+    if (result.success) {
+      return result.data
+    } else {
+      throw new Error(result.error || '获取社区视频失败')
+    }
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('网络错误，请检查服务器连接')
+  }
+}
+
+/**
+ * 获取社区视频详情
+ */
+export async function getCommunityVideoDetail(videoId: number): Promise<CommunityVideo> {
+  try {
+    const token = AuthService.getToken()
+    if (!token) {
+      throw new Error('未登录，请先登录')
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/community-videos/${videoId}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || '获取视频详情失败')
+    }
+
+    const result = await response.json()
+    if (result.success) {
+      return result.data
+    } else {
+      throw new Error(result.error || '获取视频详情失败')
+    }
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('网络错误，请检查服务器连接')
+  }
+}
+
+/**
+ * 发布视频到社区
+ */
+export async function publishVideoToCommunity(params: {
+  videoUrl: string
+  title: string
+  description?: string
+  tags?: string[]
+  projectId?: number
+  shotId?: number
+}): Promise<CommunityVideo> {
+  try {
+    const token = AuthService.getToken()
+    if (!token) {
+      throw new Error('未登录，请先登录')
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/community-videos`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(params),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || '发布视频失败')
+    }
+
+    const result = await response.json()
+    if (result.success) {
+      return result.data
+    } else {
+      throw new Error(result.error || '发布视频失败')
+    }
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('网络错误，请检查服务器连接')
+  }
+}
+
+/**
+ * 点赞/取消点赞视频
+ */
+export async function toggleVideoLike(videoId: number): Promise<{ liked: boolean; likesCount: number }> {
+  try {
+    const token = AuthService.getToken()
+    if (!token) {
+      throw new Error('未登录，请先登录')
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/community-videos/${videoId}/like`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || '操作失败')
+    }
+
+    const result = await response.json()
+    if (result.success) {
+      return result.data
+    } else {
+      throw new Error(result.error || '操作失败')
+    }
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('网络错误，请检查服务器连接')
+  }
+}
+
+/**
+ * 记录视频观看
+ */
+export async function recordVideoView(videoId: number): Promise<void> {
+  try {
+    const token = AuthService.getToken()
+    if (!token) {
+      return // 未登录不记录，但不抛出错误
+    }
+
+    await fetch(`${API_BASE_URL}/api/community-videos/${videoId}/view`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+    // 不等待响应，异步记录
+  } catch (error) {
+    // 静默失败，不影响用户体验
+    console.warn('记录观看失败:', error)
   }
 }

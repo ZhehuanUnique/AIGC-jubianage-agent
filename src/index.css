@@ -17,11 +17,47 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background-color: #ffffff;
   color: #1f2937;
+  /* 移动端优化 */
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 #root {
   width: 100%;
   min-height: 100vh;
+}
+
+/* 移动端优化 */
+@media (max-width: 640px) {
+  /* 禁用移动端文本选择（按钮等） */
+  button, a {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    user-select: none;
+  }
+  
+  /* 优化输入框 */
+  input, textarea {
+    font-size: 16px; /* 防止iOS自动缩放 */
+  }
+  
+  /* 优化滚动 */
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* 触摸优化类 */
+.touch-manipulation {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 移动端隐藏悬停效果 */
+@media (hover: none) {
+  .hover\:shadow-xl:hover {
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  }
 }
 
 

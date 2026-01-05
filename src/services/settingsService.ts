@@ -15,6 +15,10 @@ export interface UserSettings {
     autoCreateProject: boolean // 是否自动新建项目
     autoImportPoster: boolean // 是否自动导入海报图到最上面的图层
   }
+  // 审片设置
+  videoReview: {
+    defaultMode: 'preview' | 'review' // 默认模式：'preview' 预览, 'review' 审片
+  }
 }
 
 const SETTINGS_KEY = 'user_settings'
@@ -29,6 +33,9 @@ const DEFAULT_SETTINGS: UserSettings = {
   photoshop: {
     autoCreateProject: false,
     autoImportPoster: false,
+  },
+  videoReview: {
+    defaultMode: 'preview', // 默认预览模式
   },
 }
 
@@ -51,6 +58,10 @@ export function getUserSettings(): UserSettings {
         photoshop: {
           ...DEFAULT_SETTINGS.photoshop,
           ...parsed.photoshop,
+        },
+        videoReview: {
+          ...DEFAULT_SETTINGS.videoReview,
+          ...parsed.videoReview,
         },
       }
     }
@@ -87,6 +98,10 @@ export function updateUserSettings(updates: Partial<UserSettings>): void {
     photoshop: {
       ...current.photoshop,
       ...updates.photoshop,
+    },
+    videoReview: {
+      ...current.videoReview,
+      ...updates.videoReview,
     },
   }
   saveUserSettings(updated)

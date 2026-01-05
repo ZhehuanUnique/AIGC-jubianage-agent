@@ -237,27 +237,27 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
   }
 
   return (
-    <div className="w-full bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+    <div className="w-full bg-white border-b border-gray-200 px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
       {/* 左侧 */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
         {showBackButton && (
           <button
             onClick={handleBack}
-            className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
+            className="px-2.5 sm:px-3 py-1.5 sm:py-2 bg-purple-600 text-white rounded-lg active:bg-purple-700 sm:hover:bg-purple-700 flex items-center gap-1.5 sm:gap-2 touch-manipulation text-sm sm:text-base"
           >
-            <ArrowLeft size={18} />
-            返回
+            <ArrowLeft size={16} className="sm:w-[18px] sm:h-[18px]" />
+            <span className="hidden sm:inline">返回</span>
           </button>
         )}
         <img 
           src="/logo.png" 
           alt="Logo" 
-          className="w-10 h-10 rounded-full object-cover"
+          className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover flex-shrink-0"
         />
-        <nav className="flex items-center gap-6">
+        <nav className="hidden md:flex items-center gap-4 lg:gap-6">
           <button
             onClick={() => navigate('/')}
-            className={`px-4 py-2 rounded-lg transition-colors ${
+            className={`px-3 lg:px-4 py-2 rounded-lg transition-colors text-sm lg:text-base ${
               activeTab === 'home' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-600 hover:text-gray-900'
             }`}
           >
@@ -265,7 +265,7 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
           </button>
           <button
             onClick={() => navigate('/project-management')}
-            className={`px-4 py-2 rounded-lg transition-colors ${
+            className={`px-3 lg:px-4 py-2 rounded-lg transition-colors text-sm lg:text-base ${
               activeTab === 'project' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-600 hover:text-gray-900'
             }`}
           >
@@ -273,7 +273,7 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
           </button>
           <button
             onClick={() => navigate('/works')}
-            className={`px-4 py-2 rounded-lg transition-colors ${
+            className={`px-3 lg:px-4 py-2 rounded-lg transition-colors text-sm lg:text-base ${
               activeTab === 'works' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-600 hover:text-gray-900'
             }`}
           >
@@ -281,7 +281,7 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
           </button>
           <button
             onClick={() => window.open('https://e60nf37yjb.feishu.cn/wiki/FRwpwbfB1inQbskzC7dcw4HxnuK', '_blank')}
-            className={`px-4 py-2 rounded-lg transition-colors ${
+            className={`px-3 lg:px-4 py-2 rounded-lg transition-colors text-sm lg:text-base ${
               activeTab === 'guide' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-600 hover:text-gray-900'
             }`}
           >
@@ -292,20 +292,24 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
 
       {/* 右侧 - 仅在登录时显示 */}
       {isAuthenticated && user && (
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
           <button
             onClick={(e) => {
               e.preventDefault()
               e.stopPropagation()
               navigate('/credit-recharge')
             }}
-            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2 transition-colors"
+            className="px-2.5 sm:px-4 py-1.5 sm:py-2 bg-purple-600 text-white rounded-lg active:bg-purple-700 sm:hover:bg-purple-700 flex items-center gap-1 sm:gap-2 transition-colors touch-manipulation text-xs sm:text-sm lg:text-base"
           >
-            <span className="text-lg">¥</span>
-            积分充值
+            <span className="text-base sm:text-lg">¥</span>
+            <span className="hidden sm:inline">积分充值</span>
+            <span className="sm:hidden">充值</span>
           </button>
-          <span className="text-gray-700">
+          <span className="text-xs sm:text-sm lg:text-base text-gray-700 hidden sm:inline">
             积分余额: {isLoadingBalance ? '加载中...' : balance}
+          </span>
+          <span className="text-xs text-gray-700 sm:hidden">
+            {isLoadingBalance ? '...' : balance}
           </span>
           <SettingsButton />
           <div 

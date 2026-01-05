@@ -24,6 +24,8 @@ import Analytics from './pages/Analytics'
 import VideoReview from './pages/VideoReview'
 import FragmentDetail from './pages/FragmentDetail'
 import CreditRecharge from './pages/CreditRecharge'
+import WorksShowcase from './pages/WorksShowcase'
+import CommunityVideoDetail from './pages/CommunityVideoDetail'
 import { useAlert } from './hooks/useAlert.tsx'
 
 // 受保护的路由组件
@@ -240,6 +242,22 @@ function App() {
           element={
             <ProtectedRoute>
               <CreditRecharge />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/works"
+          element={
+            <ProtectedRoute>
+              <WorksShowcase />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/works/:videoId"
+          element={
+            <ProtectedRoute>
+              <CommunityVideoDetail />
             </ProtectedRoute>
           }
         />

@@ -5,7 +5,7 @@ import { getProject } from '../services/projectStorage'
 import { alertError, alertInfo, alertSuccess, alertWarning } from '../utils/alert'
 import { uploadVideo, importVideosToJianying, getProjectFragments, deleteAnnotation, getAnnotations } from '../services/api'
 import { AuthService } from '../services/auth'
-import { getUserSettings } from '../services/settingsService'
+import { getUserSettings, updateUserSettings } from '../services/settingsService'
 
 function VideoReview() {
   const { projectId, fragmentId } = useParams()
@@ -51,14 +51,19 @@ function VideoReview() {
     },
   ])
   const [danmakus, setDanmakus] = useState<Array<{ id: string; content: string; time: number }>>([])
-  const [fragments, setFragments] = useState<Array<{ id: string; name: string }>>([])
+  const [fragments, setFragments] = useState<Array<{ id: string; name: string; videoUrls?: string[] }>>([])
   const [currentFragmentIndex, setCurrentFragmentIndex] = useState(0)
   const [currentUser, setCurrentUser] = useState<{ username: string; displayName: string } | null>(null)
+  const [mode, setMode] = useState<'preview' | 'review'>('preview') // 预览/审片模式
 
-  // 加载当前用户信息
+  // 加载当前用户信息和默认模式
   useEffect(() => {
     const user = AuthService.getCurrentUser()
     setCurrentUser(user)
+    
+    // 从设置中读取默认模式
+    const settings = getUserSettings()
+    setMode(settings.videoReview?.defaultMode || 'preview')
   }, [])
 
   // 检查用户权限
@@ -192,6 +197,7 @@ function VideoReview() {
           const fragmentsList = fragmentsData.map((f: any) => ({
             id: f.id,
             name: f.name || `分镜${f.id}`,
+            videoUrls: f.videoUrls || [],
           }))
           setFragments(fragmentsList)
           
@@ -241,6 +247,21 @@ function VideoReview() {
     
     loadFragmentData()
   }, [projectId, fragmentId])
+
+  // 视频加载后自动播放（仅在预览模式下）
+  useEffect(() => {
+    if (videoRef.current && videoUrl && mode === 'preview') {
+      // 延迟一点确保视频已加载
+      const timer = setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.play().catch((error) => {
+            console.warn('自动播放失败（可能需要用户交互）:', error)
+          })
+        }
+      }, 300)
+      return () => clearTimeout(timer)
+    }
+  }, [videoUrl, mode])
 
   // 格式化时间（显示为 MM:SS，但内部计算支持小数）
   const formatTime = (seconds: number) => {
@@ -749,23 +770,53 @@ function VideoReview() {
   return (
     <div className="min-h-screen bg-white text-gray-900">
       {/* 顶部导航 */}
-      <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div className="border-b border-gray-200 px-3 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+        <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
           <button
             onClick={() => navigate(`/project/${projectId}/fragments`)}
-            className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
+            className="px-2.5 sm:px-3 py-1.5 sm:py-2 bg-purple-600 text-white rounded-lg active:bg-purple-700 sm:hover:bg-purple-700 flex items-center gap-1.5 sm:gap-2 touch-manipulation text-sm sm:text-base"
           >
-            <ArrowLeft size={18} />
+            <ArrowLeft size={16} className="sm:w-[18px] sm:h-[18px]" />
             返回
           </button>
           {projectName && (
-            <div className="text-gray-900 font-medium text-lg">
+            <div className="text-gray-900 font-medium text-base sm:text-lg truncate flex-1 sm:flex-none">
               {projectName}
           </div>
           )}
         </div>
-        <div className="flex items-center gap-4">
-          <h1 className="text-xl font-semibold">审片</h1>
+        <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
+          <div className="flex items-center gap-1 sm:gap-2 flex-1 sm:flex-none">
+            <button
+              onClick={() => {
+                const newMode = mode === 'preview' ? 'review' : 'preview'
+                setMode(newMode)
+                updateUserSettings({ videoReview: { defaultMode: newMode } })
+              }}
+              className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors touch-manipulation ${
+                mode === 'preview'
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-gray-100 text-gray-700 active:bg-gray-200 sm:hover:bg-gray-200'
+              }`}
+            >
+              预览
+            </button>
+            <span className="text-gray-400 text-xs sm:text-sm">/</span>
+            <button
+              onClick={() => {
+                const newMode = mode === 'review' ? 'preview' : 'review'
+                setMode(newMode)
+                updateUserSettings({ videoReview: { defaultMode: newMode } })
+              }}
+              className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors touch-manipulation ${
+                mode === 'review'
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-gray-100 text-gray-700 active:bg-gray-200 sm:hover:bg-gray-200'
+              }`}
+            >
+              审片
+            </button>
+          </div>
           <div className="flex items-center gap-2">
             <select 
               value={annotationFilter}
@@ -795,9 +846,9 @@ function VideoReview() {
         </div>
       </div>
 
-      <div className="flex h-[calc(100vh-80px)]">
+      <div className="flex flex-col lg:flex-row h-[calc(100vh-80px)]">
         {/* 左侧视频区域 */}
-        <div className="flex-1 flex flex-col p-6">
+        <div className="flex-1 flex flex-col p-3 sm:p-6 order-2 lg:order-1">
           {/* 视频播放器 */}
           <div className="flex-1 bg-gray-50 border border-gray-200 rounded-lg mb-4 flex items-center justify-center relative overflow-hidden">
             {videoUrl ? (
@@ -957,7 +1008,7 @@ function VideoReview() {
             )}
             
             {/* 播放控制栏 */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
             <button
                 onClick={() => {
                   if (videoRef.current) {
@@ -970,22 +1021,22 @@ function VideoReview() {
                   setIsPlaying(!isPlaying)
                 }}
                 disabled={!videoUrl}
-                className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-purple-600 flex items-center justify-center active:bg-purple-700 sm:hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
             >
-              {isPlaying ? <Pause size={20} /> : <Play size={20} />}
+              {isPlaying ? <Pause size={18} className="sm:w-5 sm:h-5" /> : <Play size={18} className="sm:w-5 sm:h-5" />}
             </button>
               <button 
                 onClick={handleNextEpisode}
-                className="w-10 h-10 rounded-full bg-gray-50 border border-gray-300 flex items-center justify-center hover:bg-gray-100"
+                className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gray-50 border border-gray-300 flex items-center justify-center active:bg-gray-100 sm:hover:bg-gray-100 touch-manipulation"
                 title="切换为下一集"
               >
-                <ChevronsRight size={18} />
+                <ChevronsRight size={16} className="sm:w-[18px] sm:h-[18px]" />
             </button>
-              <span className="text-sm text-gray-600">{duration > 0 ? formatTime(currentTime) : '00:00'}</span>
+              <span className="text-xs sm:text-sm text-gray-600 whitespace-nowrap">{duration > 0 ? formatTime(currentTime) : '00:00'}</span>
               <div 
                 ref={progressBarRef}
                 onClick={handleProgressClick}
-                className={`flex-1 h-2 bg-gray-300 rounded-full relative ${
+                className={`flex-1 h-2 sm:h-2.5 bg-gray-300 rounded-full relative touch-manipulation ${
                   duration > 0 ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'
                 }`}
               >
@@ -996,10 +1047,10 @@ function VideoReview() {
                   }}
                 ></div>
             </div>
-              <span className="text-sm text-gray-600">{duration > 0 ? formatTime(duration) : '00:00'}</span>
+              <span className="text-xs sm:text-sm text-gray-600 whitespace-nowrap">{duration > 0 ? formatTime(duration) : '00:00'}</span>
               <button 
                 onClick={() => setIsDanmakuEnabled(!isDanmakuEnabled)}
-                className={`px-3 py-1 rounded text-sm border ${
+                className={`px-2 sm:px-3 py-1 rounded text-xs sm:text-sm border touch-manipulation ${
                   isDanmakuEnabled 
                     ? 'bg-gray-50 border-gray-300' 
                     : 'bg-gray-200 border-gray-400 line-through'
@@ -1009,17 +1060,17 @@ function VideoReview() {
               </button>
               <button 
                 onClick={handleToggleFullscreen}
-                className="w-10 h-10 rounded-full bg-gray-50 border border-gray-300 flex items-center justify-center hover:bg-gray-100"
+                className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gray-50 border border-gray-300 flex items-center justify-center active:bg-gray-100 sm:hover:bg-gray-100 touch-manipulation"
               >
-              <Maximize size={18} />
+              <Maximize size={16} className="sm:w-[18px] sm:h-[18px]" />
             </button>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 sm:gap-2">
                 <button
                   onClick={handleToggleMute}
-                  className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded transition-colors"
+                  className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center active:bg-gray-100 sm:hover:bg-gray-100 rounded transition-colors touch-manipulation"
                   title={isMuted ? '取消静音' : '静音'}
                 >
-                  {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+                  {isMuted ? <VolumeX size={16} className="sm:w-[18px] sm:h-[18px]" /> : <Volume2 size={16} className="sm:w-[18px] sm:h-[18px]" />}
             </button>
                 <input
                   type="range"
@@ -1027,85 +1078,144 @@ function VideoReview() {
                   max="100"
                   value={volume}
                   onChange={handleVolumeChange}
-                  className="w-20 h-1 bg-gray-300 rounded-lg appearance-none cursor-pointer"
+                  className="w-16 sm:w-20 h-1 bg-gray-300 rounded-lg appearance-none cursor-pointer touch-manipulation"
                 />
               </div>
             </div>
           </div>
 
-          {/* 批注输入 */}
-          <div className="space-y-2">
-            <textarea
-              value={annotation}
-              onChange={(e) => setAnnotation(e.target.value)}
-              placeholder="请输入批注内容..."
-              rows={4}
-              maxLength={1000}
-              className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 resize-none"
-            />
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">{annotation.length}/1000</span>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setAnnotation('')}
-                  className="px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg hover:bg-gray-100"
-                >
-                  清空
-                </button>
-                <button 
-                  onClick={handleSubmitAnnotation}
-                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-                >
-                  提交
-                </button>
+          {/* 批注输入 - 仅在审片模式下显示 */}
+          {mode === 'review' && (
+            <div className="space-y-2">
+              <textarea
+                value={annotation}
+                onChange={(e) => setAnnotation(e.target.value)}
+                placeholder="请输入批注内容..."
+                rows={3}
+                maxLength={1000}
+                className="w-full px-3 sm:px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 resize-none text-sm sm:text-base"
+              />
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs sm:text-sm text-gray-600">{annotation.length}/1000</span>
+                <div className="flex gap-1.5 sm:gap-2">
+                  <button
+                    onClick={() => setAnnotation('')}
+                    className="px-3 sm:px-4 py-1.5 sm:py-2 bg-gray-50 border border-gray-300 rounded-lg active:bg-gray-100 sm:hover:bg-gray-100 touch-manipulation text-xs sm:text-sm"
+                  >
+                    清空
+                  </button>
+                  <button 
+                    onClick={handleSubmitAnnotation}
+                    className="px-3 sm:px-4 py-1.5 sm:py-2 bg-purple-600 text-white rounded-lg active:bg-purple-700 sm:hover:bg-purple-700 touch-manipulation text-xs sm:text-sm"
+                  >
+                    提交
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
-        {/* 右侧批注列表 */}
-        <div className="w-80 border-l border-gray-200 p-6 overflow-y-auto">
-          <h3 className="text-lg font-semibold mb-4">批注列表</h3>
-          <div className="space-y-4">
-            {filteredAnnotations.map((item) => (
-              <div key={item.id} className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                <div className="flex items-start gap-3 mb-2">
-                  <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-white text-sm">
+        {/* 右侧：预览模式下显示视频列表，审片模式下显示批注列表 */}
+        <div className="w-full lg:w-80 border-t lg:border-t-0 lg:border-l border-gray-200 p-3 sm:p-6 overflow-y-auto order-1 lg:order-2 max-h-[40vh] lg:max-h-none">
+          {mode === 'preview' ? (
+            <>
+              <h3 className="text-sm sm:text-lg font-semibold mb-3 sm:mb-4">视频列表</h3>
+              <div className="space-y-2 sm:space-y-3">
+                {fragments.map((fragment, index) => (
+                  <div
+                    key={fragment.id}
+                    onClick={() => {
+                      setCurrentFragmentIndex(index)
+                      if (fragment.videoUrls && fragment.videoUrls.length > 0) {
+                        const latestVideoUrl = fragment.videoUrls[0]
+                        setVideoUrl(latestVideoUrl)
+                        setCosVideoUrl(latestVideoUrl)
+                        navigate(`/project/${projectId}/fragments/${fragment.id}/review`, { replace: true })
+                      }
+                    }}
+                    className={`p-2 sm:p-3 rounded-lg cursor-pointer transition-colors touch-manipulation ${
+                      index === currentFragmentIndex
+                        ? 'bg-purple-50 border-2 border-purple-600'
+                        : 'bg-gray-50 border border-gray-200 active:bg-gray-100 sm:hover:bg-gray-100'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <div className="relative w-20 h-14 sm:w-24 sm:h-16 bg-gray-200 rounded overflow-hidden flex-shrink-0">
+                        {fragment.videoUrls && fragment.videoUrls.length > 0 ? (
+                          <video
+                            src={fragment.videoUrls[0]}
+                            className="w-full h-full object-cover"
+                            muted
+                            preload="metadata"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Play className="w-5 h-5 sm:w-6 sm:h-6 text-gray-400" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">{fragment.name}</p>
+                        <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5 sm:mt-1">
+                          {fragment.videoUrls?.length || 0} 个视频
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {fragments.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <p className="text-sm">暂无视频</p>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <h3 className="text-sm sm:text-lg font-semibold mb-3 sm:mb-4">批注列表</h3>
+              <div className="space-y-3 sm:space-y-4">
+                {filteredAnnotations.map((item) => (
+              <div key={item.id} className="bg-gray-50 border border-gray-200 rounded-lg p-3 sm:p-4">
+                <div className="flex items-start gap-2 sm:gap-3 mb-2">
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-purple-600 flex items-center justify-center text-white text-xs sm:text-sm flex-shrink-0">
                     {item.avatar}
                   </div>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium">{item.user}</span>
-                      <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500">{item.time}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1 gap-2">
+                      <span className="text-xs sm:text-sm font-medium truncate">{item.user}</span>
+                      <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+                      <span className="text-[10px] sm:text-xs text-gray-500 whitespace-nowrap">{item.time}</span>
                         {canDeleteAnnotation(item) && (
                           <button
                             onClick={() => handleDeleteAnnotation(item.id)}
-                            className="text-red-500 hover:text-red-600 transition-colors p-1 rounded hover:bg-red-50"
+                            className="text-red-500 active:text-red-600 sm:hover:text-red-600 transition-colors p-1 rounded active:bg-red-50 sm:hover:bg-red-50 touch-manipulation"
                             title="删除批注"
                           >
-                            <Trash2 size={14} />
+                            <Trash2 size={12} className="sm:w-3.5 sm:h-3.5" />
                           </button>
                         )}
                       </div>
                     </div>
-                    <p className="text-sm text-gray-700 mb-2">{item.content}</p>
+                    <p className="text-xs sm:text-sm text-gray-700 mb-1.5 sm:mb-2 break-words">{item.content}</p>
                     {item.timestamp && (
-                      <div className="flex items-center gap-2 text-xs text-gray-600 mb-2">
+                      <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs text-gray-600 mb-1.5 sm:mb-2">
                         <span>{item.timestamp}</span>
                         {item.replies > 0 && (
                           <span>{item.replies}条回复</span>
                         )}
                       </div>
                     )}
-                    <button className="text-xs text-purple-400 hover:text-purple-300">
+                    <button className="text-[10px] sm:text-xs text-purple-400 active:text-purple-300 sm:hover:text-purple-300 touch-manipulation">
                       回复
                     </button>
                   </div>
                 </div>
+                </div>
+              ))}
               </div>
-            ))}
-          </div>
+            </>
+          )}
         </div>
       </div>
     </div>

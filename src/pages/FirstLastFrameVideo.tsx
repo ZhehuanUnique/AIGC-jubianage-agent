@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Upload, Loader2 } from 'lucide-react'
 import { alertSuccess, alertError } from '../utils/alert'
-import { generateFirstLastFrameVideo, getFirstLastFrameVideoStatus, getFirstLastFrameVideos, createShot } from '../services/api'
+import { generateFirstLastFrameVideo, getFirstLastFrameVideoStatus, getFirstLastFrameVideos } from '../services/api'
 import { calculateVideoGenerationCredit } from '../utils/creditCalculator'
 
 interface VideoTask {
@@ -207,7 +207,23 @@ function FirstLastFrameVideo() {
         const localOnlyTasks = currentLocalTasks.filter(t => !dbTaskIds.has(t.id))
         
         // 合并：本地独有的任务 + 数据库任务（按创建时间排序）
-        const mergedTasks = [...localOnlyTasks, ...dbVideoTasks].sort((a, b) => {
+        // 使用Map去重，确保每个taskId只出现一次（优先使用数据库中的数据）
+        const taskMap = new Map<string, VideoTask>()
+        
+        // 先添加数据库任务
+        dbVideoTasks.forEach(task => {
+          taskMap.set(task.id, task)
+        })
+        
+        // 再添加本地独有的任务
+        localOnlyTasks.forEach(task => {
+          if (!taskMap.has(task.id)) {
+            taskMap.set(task.id, task)
+          }
+        })
+        
+        // 转换为数组并按时间排序
+        const mergedTasks = Array.from(taskMap.values()).sort((a, b) => {
           const timeA = new Date(a.createdAt).getTime()
           const timeB = new Date(b.createdAt).getTime()
           return timeB - timeA // 最新的在前
@@ -573,26 +589,17 @@ function FirstLastFrameVideo() {
               // 刷新历史记录（静默模式）
               loadHistory(true)
               
-              // 视频生成成功后，创建shot并关联视频到片段管理页面
-              if (projectId && task.videoUrl) {
+              // 注意：shot的创建和视频保存已经在后端处理，这里不需要重复创建
+              // 只需要通知片段管理页面刷新
+              if (projectId) {
                 try {
                   const numericProjectId = parseInt(projectId, 10)
                   if (!isNaN(numericProjectId)) {
-                    // 创建新的shot（分镜）
-                    const shotData = await createShot(numericProjectId, {
-                      description: prompt || '首尾帧生成的视频',
-                      prompt: prompt || '首尾帧生成的视频',
-                      segment: prompt || '首尾帧生成的视频',
-                    })
-                    
-                    console.log(`✅ 已创建分镜 ${shotData.id}，视频将自动关联到片段管理页面`)
-                    
                     // 通知片段管理页面刷新
                     window.dispatchEvent(new CustomEvent('fragment-updated', { detail: { projectId: numericProjectId } }))
                   }
                 } catch (error) {
-                  console.error('创建分镜失败（视频已生成，但不影响主流程）:', error)
-                  // 不显示错误提示，避免打断用户体验
+                  console.error('通知片段管理页面刷新失败（不影响主流程）:', error)
                 }
               }
             } else if (task) {
@@ -1186,14 +1193,26 @@ function FirstLastFrameVideo() {
                 {/* 横向双箭头连接符 - 只在支持首尾帧时显示 */}
                 {currentModelSupportsFirstLastFrame && (
                   <div className="flex items-center justify-center px-2">
-                    <svg className="w-8 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 16" strokeWidth="2">
-                      {/* 上箭头：左指向右 */}
-                      <path d="M2 4l4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
-                      <path d="M6 8h12" strokeLinecap="round" />
-                      {/* 下箭头：右指向左 */}
-                      <path d="M22 12l-4-4 4-4" strokeLinecap="round" strokeLinejoin="round" />
-                      <path d="M18 8H6" strokeLinecap="round" />
-                    </svg>
+                    <img 
+                      src="/bidirectional arrow.png" 
+                      alt="双向箭头" 
+                      className="w-8 h-6 object-contain"
+                      onError={(e) => {
+                        // 如果图片加载失败，使用备用SVG
+                        const target = e.target as HTMLImageElement
+                        target.style.display = 'none'
+                        const fallback = document.createElement('div')
+                        fallback.innerHTML = `
+                          <svg class="w-8 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 16" stroke-width="2">
+                            <path d="M2 4l4 4-4 4" stroke-linecap="round" stroke-linejoin="round" />
+                            <path d="M6 8h12" stroke-linecap="round" />
+                            <path d="M22 12l-4-4 4-4" stroke-linecap="round" stroke-linejoin="round" />
+                            <path d="M18 8H6" stroke-linecap="round" />
+                          </svg>
+                        `
+                        target.parentElement?.appendChild(fallback.firstChild as Node)
+                      }}
+                    />
                   </div>
                 )}
 

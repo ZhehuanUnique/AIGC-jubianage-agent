@@ -17,6 +17,96 @@ interface Fragment {
   videoUrls?: string[]
 }
 
+// 片段卡片组件（支持悬停播放）
+function FragmentCard({ 
+  fragment, 
+  projectId, 
+  onNavigate, 
+  onDelete 
+}: { 
+  fragment: Fragment
+  projectId: string
+  onNavigate: (id: string) => void
+  onDelete: (id: string) => void
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+
+  return (
+    <div
+      className="w-full sm:w-64 h-40 sm:h-48 bg-gray-50 border border-gray-200 rounded-lg overflow-hidden cursor-pointer sm:hover:scale-105 transition-transform relative group touch-manipulation"
+      onMouseEnter={() => {
+        // 桌面端悬停播放
+        if (window.innerWidth >= 640 && videoRef.current && fragment.videoUrls && fragment.videoUrls.length > 0) {
+          videoRef.current.play().catch(() => {})
+        }
+      }}
+      onMouseLeave={() => {
+        // 桌面端离开暂停
+        if (window.innerWidth >= 640 && videoRef.current) {
+          videoRef.current.pause()
+          videoRef.current.currentTime = 0
+        }
+      }}
+      onTouchStart={() => {
+        // 移动端触摸时播放预览
+        if (videoRef.current && fragment.videoUrls && fragment.videoUrls.length > 0) {
+          videoRef.current.play().catch(() => {})
+        }
+      }}
+      onTouchEnd={() => {
+        // 移动端触摸结束时暂停
+        setTimeout(() => {
+          if (videoRef.current) {
+            videoRef.current.pause()
+            videoRef.current.currentTime = 0
+          }
+        }, 500)
+      }}
+    >
+      <div
+        onClick={() => onNavigate(fragment.id)}
+        className="w-full h-full bg-gray-700 flex items-center justify-center"
+      >
+        {fragment.videoUrls && fragment.videoUrls.length > 0 ? (
+          <video
+            ref={videoRef}
+            src={fragment.videoUrls[0]}
+            className="w-full h-full object-cover"
+            muted
+            loop
+            preload="metadata"
+            playsInline
+          />
+        ) : fragment.imageUrl && fragment.imageUrl.startsWith('http') ? (
+          <img
+            src={fragment.imageUrl}
+            alt={fragment.name}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-20 h-20 rounded-lg bg-purple-600 flex items-center justify-center text-white text-xs text-center p-2">
+            {fragment.name}
+          </div>
+        )}
+      </div>
+      <div className="absolute bottom-0 left-0 right-0 p-1.5 sm:p-2 text-center text-xs sm:text-sm text-white bg-black bg-opacity-50">
+        {fragment.name}
+      </div>
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          e.preventDefault()
+          onDelete(fragment.id)
+        }}
+        className="absolute top-1.5 sm:top-2 right-1.5 sm:right-2 w-6 h-6 sm:w-7 sm:h-7 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 sm:group-hover:opacity-100 active:opacity-100 transition-opacity active:bg-red-600 sm:hover:bg-red-600 z-10 touch-manipulation"
+        title="删除片段"
+      >
+        <Trash2 size={12} className="sm:w-3.5 sm:h-3.5" />
+      </button>
+    </div>
+  )
+}
+
 function FragmentManagement() {
   const { projectId } = useParams()
   const navigate = useNavigate()
@@ -249,101 +339,66 @@ function FragmentManagement() {
     <div className="min-h-screen bg-white text-gray-900 flex">
       <SidebarNavigation activeTab="fragments" />
       <div className="flex-1 flex flex-col">
-        <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="border-b border-gray-200 px-3 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+          <div className="flex items-center gap-2 sm:gap-4">
             <button
               onClick={() => navigate('/project-management')}
-              className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
+              className="px-2.5 sm:px-3 py-1.5 sm:py-2 bg-purple-600 text-white rounded-lg active:bg-purple-700 sm:hover:bg-purple-700 flex items-center gap-1.5 sm:gap-2 touch-manipulation text-sm sm:text-base"
             >
-              <ArrowLeft size={18} />
+              <ArrowLeft size={16} className="sm:w-[18px] sm:h-[18px]" />
               返回
             </button>
-            <h2 className="text-xl font-semibold">片段管理</h2>
+            <h2 className="text-lg sm:text-xl font-semibold">片段管理</h2>
           </div>
           <button
             onClick={loadFragments}
             disabled={isLoading}
-            className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-2.5 sm:px-3 py-1.5 sm:py-2 bg-purple-600 text-white rounded-lg active:bg-purple-700 sm:hover:bg-purple-700 flex items-center gap-1.5 sm:gap-2 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation text-sm sm:text-base"
             title="刷新片段列表"
           >
-            <RefreshCw size={18} className={isLoading ? 'animate-spin' : ''} />
+            <RefreshCw size={16} className={`sm:w-[18px] sm:h-[18px] ${isLoading ? 'animate-spin' : ''}`} />
             刷新
           </button>
         </div>
 
-        <div className="flex-1 p-6">
+        <div className="flex-1 p-3 sm:p-6">
         {/* 片段列表 */}
-        <div className="flex gap-4 flex-wrap">
+        <div className="flex gap-3 sm:gap-4 flex-wrap">
           {/* 新建片段卡片 */}
           <div
             onClick={() => setShowCreateModal(true)}
-            className="w-64 h-48 bg-gray-50 border-2 border-dashed border-pink-500 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-pink-400 transition-all"
+            className="w-full sm:w-64 h-40 sm:h-48 bg-gray-50 border-2 border-dashed border-pink-500 rounded-lg flex flex-col items-center justify-center cursor-pointer active:border-pink-400 sm:hover:border-pink-400 transition-all touch-manipulation"
           >
-            <div className="w-16 h-16 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 flex items-center justify-center mb-4">
-              <Plus size={32} className="text-white" />
+            <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 flex items-center justify-center mb-3 sm:mb-4">
+              <Plus size={24} className="sm:w-8 sm:h-8 text-white" />
             </div>
-            <span className="text-pink-600 font-medium">新建片段</span>
+            <span className="text-pink-600 font-medium text-sm sm:text-base">新建片段</span>
           </div>
 
           {/* 首尾帧生视频卡片 */}
           {projectId && (
             <div
               onClick={() => navigate(`/project/${projectId}/first-last-frame-video`)}
-              className="w-64 h-48 bg-gray-50 border-2 border-dashed border-blue-500 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-blue-400 transition-all"
+              className="w-full sm:w-64 h-40 sm:h-48 bg-gray-50 border-2 border-dashed border-blue-500 rounded-lg flex flex-col items-center justify-center cursor-pointer active:border-blue-400 sm:hover:border-blue-400 transition-all touch-manipulation"
             >
-              <div className="w-16 h-16 rounded-full bg-gradient-to-r from-blue-500 to-cyan-600 flex items-center justify-center mb-4">
-                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gradient-to-r from-blue-500 to-cyan-600 flex items-center justify-center mb-3 sm:mb-4">
+                <svg className="w-6 h-6 sm:w-8 sm:h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                 </svg>
               </div>
-              <span className="text-blue-600 font-medium">首尾帧生视频</span>
+              <span className="text-blue-600 font-medium text-sm sm:text-base">首尾帧生视频</span>
             </div>
           )}
 
           {/* 片段卡片 */}
           {fragments.map((fragment) => (
-            <div
+            <FragmentCard
               key={fragment.id}
-              className="w-64 h-48 bg-gray-50 border border-gray-200 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-transform relative group"
-            >
-              <div
-                onClick={() => navigate(`/project/${projectId}/fragments/${fragment.id}/review`)}
-                className="w-full h-full bg-gray-700 flex items-center justify-center"
-              >
-                {fragment.videoUrls && fragment.videoUrls.length > 0 ? (
-                  <video
-                    src={fragment.videoUrls[0]}
-                    className="w-full h-full object-cover"
-                    controls
-                    muted
-                  />
-                ) : fragment.imageUrl && fragment.imageUrl.startsWith('http') ? (
-                  <img
-                    src={fragment.imageUrl}
-                    alt={fragment.name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-20 h-20 rounded-lg bg-purple-600 flex items-center justify-center text-white text-xs text-center p-2">
-                    {fragment.name}
-                  </div>
-                )}
-              </div>
-              <div className="absolute bottom-0 left-0 right-0 p-2 text-center text-sm text-white bg-black bg-opacity-50">
-                {fragment.name}
-              </div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  e.preventDefault()
-                  handleDeleteFragment(fragment.id)
-                }}
-                className="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 z-10"
-                title="删除片段"
-              >
-                <Trash2 size={14} />
-              </button>
-            </div>
+              fragment={fragment}
+              projectId={projectId || ''}
+              onNavigate={(id) => navigate(`/project/${projectId}/fragments/${id}/review`)}
+              onDelete={handleDeleteFragment}
+            />
           ))}
         </div>
 
