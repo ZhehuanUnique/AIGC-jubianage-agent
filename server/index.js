@@ -763,6 +763,95 @@ app.post('/api/first-last-frame-video/generate', authenticateToken, uploadImage.
         movementAmplitude: 'auto',
         bgm: false,
       })
+    } else if (model === 'minimax-hailuo-02' || model === 'minimax-hailuo-2.3' || model === 'minimax-hailuo-2.3-fast') {
+      // 使用 MiniMax Hailuo 服务（支持首尾帧）
+      if (hasLastFrame) {
+        // 模式1: 首帧 + 尾帧 + 提示词
+        console.log('📹 收到 Hailuo 首尾帧生视频请求（保存到项目文件夹）:', {
+          projectId,
+          projectName: project.name,
+          firstFrameUrl: firstFrameUrl.substring(0, 100) + '...',
+          lastFrameUrl: lastFrameUrl.substring(0, 100) + '...',
+          model,
+          resolution,
+          duration,
+          hasText: !!text,
+          mode: 'first_last_frame',
+        })
+
+        const { generateVideoWithHailuo } = await import('./services/hailuoService.js')
+        // 将分辨率转换为 Hailuo 需要的格式
+        let hailuoResolution = '768P'
+        if (resolution === '480p' || resolution === '512P') {
+          hailuoResolution = '512P'
+        } else if (resolution === '720p' || resolution === '768P') {
+          hailuoResolution = '768P'
+        } else if (resolution === '1080p' || resolution === '1080P') {
+          hailuoResolution = '1080P'
+        }
+        
+        // Hailuo 的时长限制：1080P 只支持 6 秒，其他支持 6 或 10 秒
+        let hailuoDuration = parseInt(duration)
+        if (hailuoResolution === '1080P' && hailuoDuration > 6) {
+          hailuoDuration = 6
+          console.warn('⚠️ 1080P 分辨率只支持 6 秒，已自动调整为 6 秒')
+        } else if (hailuoResolution !== '1080P' && hailuoDuration !== 6 && hailuoDuration !== 10) {
+          // 如果不是6或10秒，调整为最接近的值
+          hailuoDuration = hailuoDuration <= 8 ? 6 : 10
+          console.warn(`⚠️ ${hailuoResolution} 分辨率只支持 6 或 10 秒，已自动调整为 ${hailuoDuration} 秒`)
+        }
+        
+        result = await generateVideoWithHailuo(firstFrameUrl, {
+          model,
+          resolution: hailuoResolution,
+          duration: hailuoDuration,
+          prompt: text || '',
+          lastFrameImage: lastFrameUrl,
+          promptOptimizer: true,
+        })
+      } else {
+        // 模式2: 单首帧 + 提示词
+        console.log('📹 收到 Hailuo 单首帧生视频请求（保存到项目文件夹）:', {
+          projectId,
+          projectName: project.name,
+          firstFrameUrl: firstFrameUrl.substring(0, 100) + '...',
+          model,
+          resolution,
+          duration,
+          hasText: !!text,
+          mode: 'single_frame',
+        })
+
+        const { generateVideoWithHailuo } = await import('./services/hailuoService.js')
+        // 将分辨率转换为 Hailuo 需要的格式
+        let hailuoResolution = '768P'
+        if (resolution === '480p' || resolution === '512P') {
+          hailuoResolution = '512P'
+        } else if (resolution === '720p' || resolution === '768P') {
+          hailuoResolution = '768P'
+        } else if (resolution === '1080p' || resolution === '1080P') {
+          hailuoResolution = '1080P'
+        }
+        
+        // Hailuo 的时长限制：1080P 只支持 6 秒，其他支持 6 或 10 秒
+        let hailuoDuration = parseInt(duration)
+        if (hailuoResolution === '1080P' && hailuoDuration > 6) {
+          hailuoDuration = 6
+          console.warn('⚠️ 1080P 分辨率只支持 6 秒，已自动调整为 6 秒')
+        } else if (hailuoResolution !== '1080P' && hailuoDuration !== 6 && hailuoDuration !== 10) {
+          // 如果不是6或10秒，调整为最接近的值
+          hailuoDuration = hailuoDuration <= 8 ? 6 : 10
+          console.warn(`⚠️ ${hailuoResolution} 分辨率只支持 6 或 10 秒，已自动调整为 ${hailuoDuration} 秒`)
+        }
+        
+        result = await generateVideoWithHailuo(firstFrameUrl, {
+          model,
+          resolution: hailuoResolution,
+          duration: hailuoDuration,
+          prompt: text || '',
+          promptOptimizer: true,
+        })
+      }
     } else {
       // 使用豆包 Seedance 服务（3.5 Pro等）
       if (hasLastFrame) {

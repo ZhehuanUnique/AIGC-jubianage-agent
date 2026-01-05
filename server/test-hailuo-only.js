@@ -1,0 +1,223 @@
+/**
+ * 测试海螺（Hailuo）的两个图生视频模型
+ */
+
+import dotenv from 'dotenv'
+import { fileURLToPath } from 'url'
+import { dirname, join } from 'path'
+import { existsSync, readFileSync } from 'fs'
+import { generateVideoFromImage } from './services/imageToVideoService.js'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+const envPath = join(__dirname, '../.env')
+if (existsSync(envPath)) {
+  dotenv.config({ path: envPath })
+}
+
+// 只测试海螺的两个模型
+const MODELS_TO_TEST = [
+  { name: 'minimax-hailuo-02', label: 'MiniMax Hailuo-02', requiredEnv: ['HAILUO_02_API_KEY'] },
+  { name: 'minimax-hailuo-2.3', label: 'MiniMax Hailuo-2.3', requiredEnv: ['HAILUO_23_API_KEY'] },
+]
+
+// 测试结果
+const results = {
+  available: [],
+  missing_config: [],
+  error: [],
+}
+
+// 检查环境变量
+function checkEnvVars(requiredEnv) {
+  const missing = []
+  const present = []
+  
+  for (const envVar of requiredEnv) {
+    if (process.env[envVar]) {
+      present.push(envVar)
+    } else {
+      missing.push(envVar)
+    }
+  }
+  
+  return { missing, present, allPresent: missing.length === 0 }
+}
+
+// 读取图片文件
+async function loadImageFile() {
+  const desktopPath = join(process.env.USERPROFILE || process.env.HOME || '', 'Desktop', '杨齐.png')
+  
+  if (!existsSync(desktopPath)) {
+    throw new Error(`找不到图片文件: ${desktopPath}`)
+  }
+  
+  const imageBuffer = readFileSync(desktopPath)
+  const imageBase64 = imageBuffer.toString('base64')
+  const imageDataUrl = `data:image/png;base64,${imageBase64}`
+  
+  console.log(`✅ 已加载图片: ${desktopPath}`)
+  console.log(`   图片大小: ${(imageBuffer.length / 1024).toFixed(2)} KB\n`)
+  
+  return imageDataUrl
+}
+
+// 测试单个模型
+async function testModel(modelConfig, imageUrl) {
+  const { name, label, requiredEnv } = modelConfig
+  
+  console.log(`\n${'='.repeat(70)}`)
+  console.log(`测试模型: ${label} (${name})`)
+  console.log(`${'='.repeat(70)}`)
+  
+  // 1. 检查环境变量
+  const envCheck = checkEnvVars(requiredEnv)
+  console.log(`📋 环境变量检查:`)
+  if (envCheck.present.length > 0) {
+    console.log(`   ✅ 已配置: ${envCheck.present.join(', ')}`)
+    console.log(`   Key值: ${process.env[envCheck.present[0]].substring(0, 20)}...`)
+  }
+  if (envCheck.missing.length > 0) {
+    console.log(`   ❌ 缺失: ${envCheck.missing.join(', ')}`)
+    results.missing_config.push({
+      model: name,
+      label,
+      missing: envCheck.missing,
+    })
+    return
+  }
+  
+  // 2. 尝试调用API
+  try {
+    console.log(`\n🧪 测试API调用...`)
+    console.log(`   提示词: "人物跳起来"`)
+    console.log(`   分辨率: 720p`)
+    console.log(`   时长: 6秒`)
+    
+    const result = await generateVideoFromImage(imageUrl, {
+      model: name,
+      resolution: '720p',
+      duration: 6, // Hailuo在720p下只支持6秒或10秒
+      text: '人物跳起来',
+    })
+    
+    if (result && result.taskId) {
+      console.log(`   ✅ API调用成功!`)
+      console.log(`   任务ID: ${result.taskId}`)
+      console.log(`   状态: ${result.status || 'pending'}`)
+      
+      results.available.push({
+        model: name,
+        label,
+        taskId: result.taskId,
+        status: result.status,
+      })
+    } else {
+      console.log(`   ⚠️  API调用返回异常:`)
+      console.log(`   ${JSON.stringify(result, null, 2)}`)
+      
+      results.error.push({
+        model: name,
+        label,
+        error: 'API调用返回异常',
+        result,
+      })
+    }
+  } catch (error) {
+    console.log(`   ❌ API调用失败:`)
+    console.log(`   ${error.message}`)
+    if (error.stack) {
+      console.log(`   堆栈: ${error.stack.split('\n').slice(0, 3).join('\n')}`)
+    }
+    
+    results.error.push({
+      model: name,
+      label,
+      error: error.message,
+      errorType: error.constructor.name,
+    })
+  }
+}
+
+// 主函数
+async function main() {
+  console.log('🚀 测试海螺（Hailuo）图生视频模型...\n')
+  console.log('📝 测试参数:')
+  console.log('   - 图片: 桌面/杨齐.png')
+  console.log('   - 提示词: "人物跳起来"')
+  console.log('   - 分辨率: 720p')
+  console.log('   - 时长: 6秒（Hailuo在720p下只支持6秒或10秒）\n')
+  
+  // 加载图片
+  let imageUrl
+  try {
+    imageUrl = await loadImageFile()
+  } catch (error) {
+    console.error(`❌ 加载图片失败: ${error.message}`)
+    console.error(`\n请确保桌面上有"杨齐.png"文件`)
+    process.exit(1)
+  }
+  
+  // 测试所有模型
+  for (const model of MODELS_TO_TEST) {
+    await testModel(model, imageUrl)
+    
+    // 延迟1秒，避免API限流
+    if (model !== MODELS_TO_TEST[MODELS_TO_TEST.length - 1]) {
+      await new Promise(resolve => setTimeout(resolve, 1000))
+    }
+  }
+  
+  // 输出总结
+  console.log(`\n${'='.repeat(70)}`)
+  console.log('📊 测试总结')
+  console.log(`${'='.repeat(70)}`)
+  
+  console.log(`\n✅ 可用模型 (${results.available.length}):`)
+  if (results.available.length > 0) {
+    results.available.forEach(r => {
+      console.log(`   ✓ ${r.label} (${r.model})`)
+      console.log(`     任务ID: ${r.taskId}`)
+    })
+  } else {
+    console.log(`   无`)
+  }
+  
+  console.log(`\n❌ 配置缺失 (${results.missing_config.length}):`)
+  if (results.missing_config.length > 0) {
+    results.missing_config.forEach(r => {
+      console.log(`   ✗ ${r.label} (${r.model})`)
+      console.log(`     缺失环境变量: ${r.missing.join(', ')}`)
+    })
+  } else {
+    console.log(`   无`)
+  }
+  
+  console.log(`\n⚠️  调用失败 (${results.error.length}):`)
+  if (results.error.length > 0) {
+    results.error.forEach(r => {
+      console.log(`   ⚠ ${r.label} (${r.model})`)
+      console.log(`     错误: ${r.error}`)
+      if (r.errorType) {
+        console.log(`     错误类型: ${r.errorType}`)
+      }
+    })
+  } else {
+    console.log(`   无`)
+  }
+  
+  console.log(`\n${'='.repeat(70)}`)
+  console.log(`总计: ${MODELS_TO_TEST.length} 个模型`)
+  console.log(`✅ 可用: ${results.available.length} 个`)
+  console.log(`❌ 配置缺失: ${results.missing_config.length} 个`)
+  console.log(`⚠️  调用失败: ${results.error.length} 个`)
+  console.log(`${'='.repeat(70)}\n`)
+}
+
+// 运行测试
+main().catch(error => {
+  console.error('\n❌ 测试过程出错:', error)
+  console.error(error.stack)
+  process.exit(1)
+})
+

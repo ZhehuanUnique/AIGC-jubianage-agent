@@ -53,9 +53,9 @@ export async function generateVideoFromImage(imageUrl, options = {}) {
         const ext = mimeType === 'jpeg' || mimeType === 'jpg' ? 'jpg' : 'png'
         const key = generateCosKey('images', ext)
         
-        const cosUrl = await uploadBuffer(buffer, key, `image/${mimeType}`)
-        finalImageUrl = cosUrl
-        console.log('✅ 图片已上传到COS:', cosUrl.substring(0, 100) + '...')
+        const cosResult = await uploadBuffer(buffer, key, `image/${mimeType}`)
+        finalImageUrl = cosResult.url
+        console.log('✅ 图片已上传到COS:', cosResult.url.substring(0, 100) + '...')
       } catch (error) {
         console.error('❌ 上传图片到COS失败:', error)
         throw new Error('上传图片到COS失败，火山引擎需要可访问的HTTP URL')
@@ -119,6 +119,7 @@ export async function generateVideoFromImage(imageUrl, options = {}) {
       resolution: hailuoResolution,
       duration: hailuoDuration,
       prompt: text,
+      lastFrameImage: options.lastFrameImage || null,
       promptOptimizer: true,
     })
   }

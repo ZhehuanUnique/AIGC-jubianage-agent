@@ -560,7 +560,6 @@ function VoiceCreation() {
               
               {!generatedAudioUrl ? (
                 <div className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center">
-                  <Music className="w-12 h-12 mx-auto mb-3 text-gray-400" />
                   <Music className="w-12 h-12 mx-auto text-gray-400" />
                 </div>
               ) : (

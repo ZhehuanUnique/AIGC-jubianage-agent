@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, RefreshCw, Play, Pause, Volume2, VolumeX, Maximize, X, ChevronsRight, Upload, Trash2 } from 'lucide-react'
 import { getProject } from '../services/projectStorage'
 import { alertError, alertInfo, alertSuccess, alertWarning } from '../utils/alert'
-import { uploadVideo, importVideosToJianying, getProjectFragments } from '../services/api'
+import { uploadVideo, importVideosToJianying, getProjectFragments, deleteAnnotation, getAnnotations } from '../services/api'
 import { AuthService } from '../services/auth'
 import { getUserSettings } from '../services/settingsService'
 
@@ -94,7 +94,7 @@ function VideoReview() {
   }
 
   // 删除批注
-  const handleDeleteAnnotation = (annotationId: string) => {
+  const handleDeleteAnnotation = async (annotationId: string) => {
     const annotation = annotations.find(a => a.id === annotationId)
     if (!annotation) return
 
@@ -109,28 +109,65 @@ function VideoReview() {
       return
     }
 
-    // 删除批注
-    setAnnotations(prev => prev.filter(a => a.id !== annotationId))
+    // 调用后端API删除批注
+    if (projectId) {
+      try {
+        await deleteAnnotation(parseInt(projectId, 10), annotationId)
+        
+        // 删除成功，更新前端状态
+        setAnnotations(prev => prev.filter(a => a.id !== annotationId))
 
-    // 删除对应的弹幕（优先通过ID匹配，如果ID不匹配则通过时间戳匹配）
-    setDanmakus(prev => prev.filter(d => {
-      // 如果弹幕ID与批注ID相同，直接删除
-      if (d.id === annotationId) {
-        return false
-      }
-      
-      // 如果时间戳存在，通过时间戳匹配（允许1秒误差）
-      if (annotation.timestamp) {
-        const annotationTime = timestampToSeconds(annotation.timestamp)
-        if (annotationTime >= 0 && Math.abs(d.time - annotationTime) <= 1) {
-          return false
+        // 删除对应的弹幕（优先通过ID匹配，如果ID不匹配则通过时间戳匹配）
+        setDanmakus(prev => prev.filter(d => {
+          // 如果弹幕ID与批注ID相同，直接删除
+          if (d.id === annotationId) {
+            return false
+          }
+          
+          // 如果时间戳存在，通过时间戳匹配（允许1秒误差）
+          if (annotation.timestamp) {
+            const annotationTime = timestampToSeconds(annotation.timestamp)
+            if (annotationTime >= 0 && Math.abs(d.time - annotationTime) <= 1) {
+              return false
+            }
+          }
+          
+          return true
+        }))
+
+        alertSuccess('批注已删除', '删除成功')
+        
+        // 重新加载批注列表，确保数据同步
+        if (fragmentId) {
+          try {
+            const annotationsData = await getAnnotations(parseInt(projectId, 10), fragmentId)
+            if (annotationsData) {
+              setAnnotations(annotationsData)
+              
+              // 同时更新弹幕列表
+              const danmakusData = annotationsData
+                .filter(a => a.timestampSeconds !== null && a.timestampSeconds !== undefined)
+                .map(a => ({
+                  id: a.id,
+                  content: a.content,
+                  time: a.timestampSeconds || 0,
+                }))
+              setDanmakus(danmakusData)
+            }
+          } catch (error) {
+            console.error('重新加载批注列表失败:', error)
+          }
         }
+      } catch (error) {
+        console.error('删除批注失败:', error)
+        alertError(error instanceof Error ? error.message : '删除批注失败，请稍后重试', '删除失败')
       }
-      
-      return true
-    }))
-
-    alertSuccess('批注已删除', '删除成功')
+    } else {
+      // 如果没有projectId，只在前端删除（兼容旧数据）
+      setAnnotations(prev => prev.filter(a => a.id !== annotationId))
+      setDanmakus(prev => prev.filter(d => d.id !== annotationId))
+      alertSuccess('批注已删除', '删除成功')
+    }
   }
 
   // 加载项目名称、片段列表和当前片段的视频
@@ -172,6 +209,27 @@ function VideoReview() {
                 setVideoUrl(latestVideoUrl)
                 setCosVideoUrl(latestVideoUrl)
                 console.log('✅ 已加载片段视频:', latestVideoUrl)
+              }
+              
+              // 加载批注列表
+              try {
+                const annotationsData = await getAnnotations(parseInt(projectId, 10), fragmentId)
+                if (annotationsData && annotationsData.length > 0) {
+                  setAnnotations(annotationsData)
+                  
+                  // 同时加载弹幕
+                  const danmakusData = annotationsData
+                    .filter(a => a.timestampSeconds !== null && a.timestampSeconds !== undefined)
+                    .map(a => ({
+                      id: a.id,
+                      content: a.content,
+                      time: a.timestampSeconds || 0,
+                    }))
+                  setDanmakus(danmakusData)
+                }
+              } catch (error) {
+                console.error('加载批注列表失败:', error)
+                // 如果加载失败，保持默认的批注列表（兼容旧数据）
               }
             }
           }

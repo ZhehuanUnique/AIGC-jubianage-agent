@@ -2050,3 +2050,77 @@ export async function getFirstLastFrameVideos(projectId: number): Promise<Array<
     throw error
   }
 }
+
+/**
+ * 获取视频批注列表
+ */
+export async function getAnnotations(projectId: number, fragmentId: string): Promise<Array<{
+  id: string
+  user: string
+  avatar: string
+  time: string
+  content: string
+  timestamp: string
+  replies: number
+  type: '待批注' | '已批注'
+  timestampSeconds?: number | null
+  parentId?: string | null
+}>> {
+  try {
+    const token = AuthService.getToken()
+    if (!token) {
+      throw new Error('未登录，请先登录')
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/fragments/${fragmentId}/annotations`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || '获取批注列表失败')
+    }
+
+    const result = await response.json()
+    if (result.success && result.data) {
+      return result.data
+    }
+    return []
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('网络错误，请检查服务器连接')
+  }
+}
+
+/**
+ * 删除视频批注
+ */
+export async function deleteAnnotation(projectId: number, annotationId: string): Promise<void> {
+  try {
+    const token = AuthService.getToken()
+    if (!token) {
+      throw new Error('未登录，请先登录')
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/annotations/${annotationId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || '删除批注失败')
+    }
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('网络错误，请检查服务器连接')
+  }
+}

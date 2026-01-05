@@ -31,17 +31,19 @@ function FirstLastFrameVideo() {
   const [frameAspectRatio, setFrameAspectRatio] = useState<'16:9' | '9:16' | 'other' | null>(null) // 图片宽高比（用于判断标准比例）
   const [frameImageInfo, setFrameImageInfo] = useState<{ width: number; height: number } | null>(null) // 图片尺寸信息（用于动态计算容器尺寸）
   
-  // 支持的模型列表（暂时只显示支持单首帧的模型）
+  // 支持的模型列表（所有图生视频模型）
   const supportedModels = [
     { value: 'veo3.1', label: 'Veo3.1', supportsFirstLastFrame: false },
     { value: 'veo3.1-pro', label: 'Veo3.1 Pro', supportsFirstLastFrame: false },
     { value: 'viduq2-turbo', label: 'Vidu Q2 Turbo', supportsFirstLastFrame: false },
     { value: 'viduq2-pro', label: 'Vidu Q2 Pro', supportsFirstLastFrame: false },
-    // 暂时隐藏支持首尾帧的模型（演示用）
-    // { value: 'volcengine-video-3.0-pro', label: '即梦3.0 Pro', supportsFirstLastFrame: false },
-    // { value: 'doubao-seedance-1-5-pro-251215', label: '豆包Seedance 1.5 Pro', supportsFirstLastFrame: true },
-    // { value: 'minimax-hailuo-02', label: 'Hailuo 02', supportsFirstLastFrame: true },
-    // { value: 'minimax-hailuo-2.3', label: 'Hailuo 2.3', supportsFirstLastFrame: true },
+    { value: 'volcengine-video-3.0-pro', label: '即梦AI-视频生成3.0 Pro', supportsFirstLastFrame: false },
+    { value: 'doubao-seedance-1-5-pro-251215', label: '豆包Seedance 1.5 Pro', supportsFirstLastFrame: true },
+    { value: 'minimax-hailuo-02', label: 'MiniMax Hailuo-02', supportsFirstLastFrame: true },
+    { value: 'minimax-hailuo-2.3', label: 'MiniMax Hailuo-2.3', supportsFirstLastFrame: true },
+    { value: 'minimax-hailuo-2.3-fast', label: 'MiniMax Hailuo-2.3-fast', supportsFirstLastFrame: true },
+    { value: 'kling-2.6', label: 'Kling-2.6', supportsFirstLastFrame: true },
+    { value: 'kling-o1', label: 'Kling-O1', supportsFirstLastFrame: true },
   ]
   const [selectedModel, setSelectedModel] = useState<string>('veo3.1')
   const [videoVersion, setVideoVersion] = useState<'3.0pro'>('3.0pro') // 保留用于显示
@@ -74,6 +76,14 @@ function FirstLastFrameVideo() {
   const allTasksRef = useRef<VideoTask[]>([]) // 用于在异步函数中获取最新的任务列表
   const [isLoading, setIsLoading] = useState(false)
   const [isInitialLoad, setIsInitialLoad] = useState(true) // 标记是否为首次加载
+  const [isTestingAll, setIsTestingAll] = useState(false)
+  const [testResults, setTestResults] = useState<Array<{
+    model: string
+    label: string
+    status: 'success' | 'failed' | 'testing' | 'pending'
+    error?: string
+    taskId?: string
+  }>>([])
   const [hoveredFrame, setHoveredFrame] = useState<'first' | 'last' | null>(null)
   const [isInputFocused, setIsInputFocused] = useState(false)
   const [isBottomBarCollapsed, setIsBottomBarCollapsed] = useState(false) // 默认展开，不收缩
@@ -89,13 +99,14 @@ function FirstLastFrameVideo() {
   const [showTimeDropdown, setShowTimeDropdown] = useState(false)
   const [showVideoDropdown, setShowVideoDropdown] = useState(false)
   const [showOperationDropdown, setShowOperationDropdown] = useState(false)
+  const [showModelDropdown, setShowModelDropdown] = useState(false)
   
   const firstFrameInputRef = useRef<HTMLInputElement>(null)
   const lastFrameInputRef = useRef<HTMLInputElement>(null)
-  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
-  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const bottomBarHoverTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const bottomEdgeHoverTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const bottomBarHoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const bottomEdgeHoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // 应用筛选逻辑
   const applyFilters = (allTasksList: VideoTask[]) => {
@@ -305,6 +316,7 @@ function FirstLastFrameVideo() {
         setShowTimeDropdown(false)
         setShowVideoDropdown(false)
         setShowOperationDropdown(false)
+        setShowModelDropdown(false)
       }
     }
     
@@ -442,6 +454,86 @@ function FirstLastFrameVideo() {
     if (lastFrameInputRef.current) {
       lastFrameInputRef.current.value = ''
     }
+  }
+
+  // 测试所有模型
+  const testAllModels = async () => {
+    if (!firstFrameFile) {
+      alertError('请先上传首帧图片', '缺少文件')
+      return
+    }
+
+    if (!projectId) {
+      alertError('项目ID不存在', '错误')
+      return
+    }
+
+    setIsTestingAll(true)
+    const results: Array<{
+      model: string
+      label: string
+      status: 'success' | 'failed' | 'testing' | 'pending'
+      error?: string
+      taskId?: string
+    }> = supportedModels.map(m => ({
+      model: m.value,
+      label: m.label,
+      status: 'pending' as const,
+    }))
+    setTestResults(results)
+
+    // 依次测试每个模型
+    for (let i = 0; i < supportedModels.length; i++) {
+      const model = supportedModels[i]
+      results[i].status = 'testing'
+      setTestResults([...results])
+
+      try {
+        const formData = new FormData()
+        formData.append('firstFrame', firstFrameFile)
+        // 尾帧是可选的，只有在模型支持首尾帧时才添加
+        if (lastFrameFile && model.supportsFirstLastFrame) {
+          formData.append('lastFrame', lastFrameFile)
+        }
+        formData.append('projectId', projectId)
+        formData.append('model', model.value)
+        formData.append('resolution', resolution)
+        formData.append('ratio', '16:9')
+        formData.append('duration', duration.toString())
+        formData.append('text', prompt.trim() || '人物跳起来')
+
+        const result = await generateFirstLastFrameVideo(formData)
+
+        if (result.success && result.data?.taskId) {
+          results[i].status = 'success'
+          results[i].taskId = result.data.taskId
+        } else {
+          results[i].status = 'failed'
+          results[i].error = result.error || '生成失败'
+        }
+      } catch (error) {
+        results[i].status = 'failed'
+        results[i].error = error instanceof Error ? error.message : '生成失败，请稍后重试'
+      }
+
+      setTestResults([...results])
+      
+      // 每个模型之间延迟500ms，避免请求过快
+      if (i < supportedModels.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 500))
+      }
+    }
+
+    setIsTestingAll(false)
+    
+    // 统计结果
+    const successCount = results.filter(r => r.status === 'success').length
+    const failedCount = results.filter(r => r.status === 'failed').length
+    
+    alertSuccess(
+      `测试完成！\n成功: ${successCount} 个\n失败: ${failedCount} 个\n\n请查看下方测试结果详情`,
+      '测试完成'
+    )
   }
 
   // 生成视频
@@ -1144,7 +1236,7 @@ function FirstLastFrameVideo() {
                     }`}
                     style={frameImageInfo && frameAspectRatio === 'other' ? {
                       width: `${Math.min(128, Math.max(64, frameImageInfo.width * 0.1))}px`,
-                      aspectRatio: `${frameImageInfo.width} / ${frameImageInfo.height}`
+                      aspectRatio: `${frameImageInfo.width}/${frameImageInfo.height}`
                     } : undefined}
                   >
                     {firstFramePreview ? (
@@ -1221,7 +1313,7 @@ function FirstLastFrameVideo() {
                       }`}
                       style={frameImageInfo && frameAspectRatio === 'other' ? {
                         width: `${Math.min(128, Math.max(64, frameImageInfo.width * 0.1))}px`,
-                        aspectRatio: `${frameImageInfo.width} / ${frameImageInfo.height}`
+                        aspectRatio: `${frameImageInfo.width}/${frameImageInfo.height}`
                       } : undefined}
                     >
                       {lastFramePreview ? (
@@ -1289,22 +1381,58 @@ function FirstLastFrameVideo() {
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-600 font-medium">模型:</span>
                   <div className="relative">
-                    <select
-                      value={selectedModel}
-                      onChange={(e) => setSelectedModel(e.target.value)}
-                      className="px-3 py-1.5 pr-8 rounded-lg text-sm font-medium bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm cursor-pointer border-none outline-none appearance-none min-w-[140px]"
-                      style={{
-                        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='white' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
-                        backgroundRepeat: 'no-repeat',
-                        backgroundPosition: 'right 8px center',
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setShowModelDropdown(!showModelDropdown)
                       }}
+                      className="px-3 py-1.5 pr-8 rounded-lg text-sm font-medium bg-white border border-gray-300 text-gray-700 shadow-sm cursor-pointer outline-none hover:border-purple-500 min-w-[180px] text-left flex items-center justify-between"
                     >
-                      {supportedModels.map((model) => (
-                        <option key={model.value} value={model.value} className="bg-white text-gray-900">
-                          {model.label}
-                        </option>
-                      ))}
-                    </select>
+                      <span>{supportedModels.find(m => m.value === selectedModel)?.label || '选择模型'}</span>
+                      <svg 
+                        className={`w-4 h-4 transition-transform ${showModelDropdown ? 'rotate-180' : ''}`} 
+                        fill="none" 
+                        stroke="currentColor" 
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    {showModelDropdown && (
+                      <>
+                        <div 
+                          className="fixed inset-0 z-10" 
+                          onClick={() => setShowModelDropdown(false)}
+                        />
+                        <div className="absolute top-full left-0 mt-1 w-full bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-60 overflow-y-auto">
+                          {supportedModels.map((model) => (
+                            <button
+                              key={model.value}
+                              type="button"
+                              onClick={() => {
+                                setSelectedModel(model.value)
+                                setShowModelDropdown(false)
+                              }}
+                              className={`w-full text-left px-3 py-2 text-sm transition-colors ${
+                                selectedModel === model.value
+                                  ? 'bg-blue-50 text-blue-600 font-medium'
+                                  : 'text-gray-700 hover:bg-gray-50'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span>{model.label}</span>
+                                {selectedModel === model.value && (
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                  </svg>
+                                )}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
                 
@@ -1366,12 +1494,37 @@ function FirstLastFrameVideo() {
                   <span>积分</span>
                 </div>
                 
+                {/* 测试所有模型按钮 */}
+                <button
+                  type="button"
+                  onClick={testAllModels}
+                  disabled={!firstFrameFile || isTestingAll || isGenerating}
+                  className={`px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg text-sm font-medium shadow-lg hover:shadow-xl hover:from-purple-600 hover:to-purple-700 active:scale-95 transition-all flex items-center gap-2 ${
+                    (!firstFrameFile || isTestingAll || isGenerating) && 'opacity-50 cursor-not-allowed'
+                  }`}
+                  title="测试所有图生视频模型"
+                >
+                  {isTestingAll ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      测试中...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                      </svg>
+                      测试所有模型
+                    </>
+                  )}
+                </button>
+                
                 <button
                   type="button"
                   onClick={generateVideo}
-                  disabled={!prompt.trim() || isGenerating || !firstFrameFile}
+                  disabled={!prompt.trim() || isGenerating || !firstFrameFile || isTestingAll}
                   className={`px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg font-medium shadow-lg hover:shadow-xl hover:from-blue-600 hover:to-blue-700 active:scale-95 transition-all flex items-center gap-2 ${
-                    (!prompt.trim() || isGenerating || !firstFrameFile) && 'opacity-50 cursor-not-allowed'
+                    (!prompt.trim() || isGenerating || !firstFrameFile || isTestingAll) && 'opacity-50 cursor-not-allowed'
                   }`}
                 >
                   {isGenerating ? (
@@ -1393,6 +1546,67 @@ function FirstLastFrameVideo() {
           </div>
         </div>
       </div>
+
+      {/* 测试结果面板 */}
+      {testResults.length > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 shadow-2xl max-h-[50vh] overflow-y-auto">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">模型测试结果</h3>
+              <button
+                onClick={() => setTestResults([])}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {testResults.map((result, index) => (
+                <div
+                  key={index}
+                  className={`p-3 rounded-lg border-2 ${
+                    result.status === 'success'
+                      ? 'border-green-500 bg-green-50'
+                      : result.status === 'failed'
+                      ? 'border-red-500 bg-red-50'
+                      : result.status === 'testing'
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-gray-300 bg-gray-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium text-sm">{result.label}</span>
+                    {result.status === 'success' && (
+                      <span className="text-green-600 text-xs">✓ 成功</span>
+                    )}
+                    {result.status === 'failed' && (
+                      <span className="text-red-600 text-xs">✗ 失败</span>
+                    )}
+                    {result.status === 'testing' && (
+                      <span className="text-blue-600 text-xs flex items-center gap-1">
+                        <Loader2 className="w-3 h-3 animate-spin" /> 测试中
+                      </span>
+                    )}
+                    {result.status === 'pending' && (
+                      <span className="text-gray-500 text-xs">等待中</span>
+                    )}
+                  </div>
+                  {result.error && (
+                    <div className="text-xs text-red-600 mt-1 line-clamp-2">
+                      {result.error}
+                    </div>
+                  )}
+                  {result.taskId && (
+                    <div className="text-xs text-gray-500 mt-1">
+                      任务ID: {result.taskId.substring(0, 8)}...
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
