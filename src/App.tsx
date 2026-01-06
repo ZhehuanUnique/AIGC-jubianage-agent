@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import Home from './pages/Home'
-import Login from './pages/Login'
 import TaskList from './pages/TaskList'
 import { AuthService } from './services/auth'
 import ScriptInput from './pages/ScriptInput'
