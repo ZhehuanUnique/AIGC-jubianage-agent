@@ -129,7 +129,7 @@ function VideoEditingDrawer({
     return model === 'kling-2.6' || model === 'kling-o1'
   }
 
-  // 辅助函数：判断是否是火山引擎即梦AI模型
+  // 辅助函数：判断是否是火山引擎即梦模型
   const isVolcengineModel = (model: string): boolean => {
     return model === 'volcengine-video-3.0-pro' || model === 'doubao-seedance-3.0-pro'
   }
@@ -148,7 +148,7 @@ function VideoEditingDrawer({
       // Kling 模型：支持 720p(768p) 和 1080p
       return ['720p', '1080p']
     } else if (isVolcengineModel(model)) {
-      // 火山引擎即梦AI-3.0 Pro：支持 480p, 720p, 1080p
+      // 火山引擎即梦-3.0Pro：支持 480p, 720p, 1080p
       return ['480p', '720p', '1080p']
     }
     return ['480p', '720p', '1080p']
@@ -177,7 +177,7 @@ function VideoEditingDrawer({
         return [5, 10, 15, 20]
       }
     } else if (isVolcengineModel(model)) {
-      // 火山引擎即梦AI-3.0 Pro：支持 2~12 秒
+      // 火山引擎即梦-3.0Pro：支持 2~12 秒
       return [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     }
     return [5, 10]
@@ -441,7 +441,7 @@ function VideoEditingDrawer({
                   }}
                   className="w-full px-3 py-2 bg-white border border-gray-300 rounded text-sm focus:outline-none focus:border-purple-500"
                 >
-                  <option value="volcengine-video-3.0-pro">即梦AI-视频生成3.0pro</option>
+                  <option value="volcengine-video-3.0-pro">即梦-3.0Pro</option>
                   <option value="viduq2-turbo">ViduQ2-Turbo</option>
                   <option value="veo3.1">Google Veo3.1</option>
                   <option value="veo3.1-pro">Google Veo3.1-Pro</option>

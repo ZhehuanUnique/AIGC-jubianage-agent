@@ -39,3 +39,4 @@ COMMENT ON TABLE community_videos IS '社区视频表，存储用户上传到社
 COMMENT ON COLUMN community_videos.is_published IS '是否已发布到社区，只有is_published=true的视频才会在作品展示页面显示';
 COMMENT ON COLUMN community_videos.published_at IS '发布时间，用于排序';
 
+

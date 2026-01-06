@@ -333,7 +333,7 @@ function VideoEditDrawer({
                       onChange={(e) => setVideoModel(e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-purple-500"
                     >
-                      <option value="volcengine-video-3.0-pro">即梦AI-视频生成3.0pro</option>
+                      <option value="volcengine-video-3.0-pro">即梦-3.0Pro</option>
                       <option value="viduq2-turbo">ViduQ2-Turbo</option>
                       <option value="veo3.1">Google Veo3.1</option>
                       <option value="veo3.1-pro">Google Veo3.1-Pro</option>

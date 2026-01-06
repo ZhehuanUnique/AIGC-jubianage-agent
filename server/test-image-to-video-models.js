@@ -23,13 +23,13 @@ const TEST_IMAGE_URL = 'https://picsum.photos/512/512'
 const MODELS = [
   {
     name: 'volcengine-video-3.0-pro',
-    label: '即梦AI-视频生成3.0 Pro',
+    label: '即梦-3.0Pro',
     requiredEnv: ['VOLCENGINE_AK', 'VOLCENGINE_SK'],
     service: 'volcengine',
   },
   {
     name: 'doubao-seedance-1-5-pro-251215',
-    label: '豆包Seedance 1.5 Pro',
+    label: '即梦-3.5Pro',
     requiredEnv: ['DOUBAO_SEEDANCE_API_KEY'],
     service: 'seedance',
   },

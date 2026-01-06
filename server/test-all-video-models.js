@@ -24,8 +24,8 @@ const MODELS_TO_TEST = [
   { name: 'veo3.1-pro', label: 'Veo3.1 Pro', requiredEnv: ['VEO3_PRO_API_KEY'] },
   { name: 'viduq2-turbo', label: 'Vidu Q2 Turbo', requiredEnv: ['VIDU_V2_API_KEY'] },
   { name: 'viduq2-pro', label: 'Vidu Q2 Pro', requiredEnv: ['VIDU_V2_API_KEY'] },
-  { name: 'volcengine-video-3.0-pro', label: '即梦AI-视频生成3.0 Pro', requiredEnv: ['VOLCENGINE_AK', 'VOLCENGINE_SK'] },
-  { name: 'doubao-seedance-1-5-pro-251215', label: '豆包Seedance 1.5 Pro', requiredEnv: ['DOUBAO_SEEDANCE_API_KEY'] },
+  { name: 'volcengine-video-3.0-pro', label: '即梦-3.0Pro', requiredEnv: ['VOLCENGINE_AK', 'VOLCENGINE_SK'] },
+  { name: 'doubao-seedance-1-5-pro-251215', label: '即梦-3.5Pro', requiredEnv: ['DOUBAO_SEEDANCE_API_KEY'] },
   { name: 'minimax-hailuo-02', label: 'MiniMax Hailuo-02', requiredEnv: ['HAILUO_02_API_KEY'] },
   { name: 'minimax-hailuo-2.3', label: 'MiniMax Hailuo-2.3', requiredEnv: ['HAILUO_23_API_KEY'] },
   { name: 'minimax-hailuo-2.3-fast', label: 'MiniMax Hailuo-2.3-fast', requiredEnv: ['HAILUO_23_API_KEY'] },
@@ -245,4 +245,5 @@ main().catch(error => {
   console.error(error.stack)
   process.exit(1)
 })
+
 

@@ -47,8 +47,8 @@ function FirstLastFrameVideo() {
     { value: 'veo3.1-pro', label: 'Veo3.1 Pro', supportsFirstLastFrame: false },
     { value: 'viduq2-turbo', label: 'Vidu Q2 Turbo', supportsFirstLastFrame: false },
     { value: 'viduq2-pro', label: 'Vidu Q2 Pro', supportsFirstLastFrame: false },
-    { value: 'volcengine-video-3.0-pro', label: '即梦AI-视频生成3.0 Pro', supportsFirstLastFrame: false },
-    { value: 'doubao-seedance-1-5-pro-251215', label: '豆包Seedance 1.5 Pro', supportsFirstLastFrame: true },
+    { value: 'volcengine-video-3.0-pro', label: '即梦-3.0Pro', supportsFirstLastFrame: false },
+    { value: 'doubao-seedance-1-5-pro-251215', label: '即梦-3.5Pro', supportsFirstLastFrame: true },
     { value: 'minimax-hailuo-02', label: 'MiniMax Hailuo-02', supportsFirstLastFrame: true },
     { value: 'minimax-hailuo-2.3', label: 'MiniMax Hailuo-2.3', supportsFirstLastFrame: true },
     { value: 'minimax-hailuo-2.3-fast', label: 'MiniMax Hailuo-2.3-fast', supportsFirstLastFrame: true },
@@ -386,7 +386,7 @@ function FirstLastFrameVideo() {
     }
   }, []) // 移除依赖项，避免频繁重新绑定
 
-  // 使用即梦AI-视频生成3.0pro（火山引擎）
+  // 使用即梦-3.0Pro（火山引擎）
 
   // 处理首帧上传
   const triggerFirstFrameUpload = () => {

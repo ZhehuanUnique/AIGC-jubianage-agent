@@ -673,8 +673,8 @@ app.post('/api/first-last-frame-video/generate', authenticateToken, uploadImage.
     // 根据模型选择不同的服务
     let result
     if (model === 'volcengine-video-3.0-pro' || model === 'doubao-seedance-3.0-pro') {
-      // 使用火山引擎即梦AI-3.0 Pro
-      console.log('📹 收到即梦AI-3.0 Pro生视频请求（保存到项目文件夹）:', {
+      // 使用火山引擎即梦-3.0Pro
+      console.log('📹 收到即梦-3.0Pro生视频请求（保存到项目文件夹）:', {
         projectId,
         projectName: project.name,
         firstFrameUrl: firstFrameUrl.substring(0, 100) + '...',
@@ -687,10 +687,10 @@ app.post('/api/first-last-frame-video/generate', authenticateToken, uploadImage.
         mode: hasLastFrame ? 'first_last_frame' : 'single_frame',
       })
 
-      // 火山引擎即梦AI-3.0 Pro目前只支持单首帧+提示词模式
+      // 火山引擎即梦-3.0Pro目前只支持单首帧+提示词模式
       // 如果有尾帧，暂时忽略尾帧，只使用首帧
       if (hasLastFrame) {
-        console.log('⚠️  火山引擎即梦AI-3.0 Pro暂不支持首尾帧模式，将使用首帧+提示词模式')
+        console.log('⚠️  火山引擎即梦-3.0Pro暂不支持首尾帧模式，将使用首帧+提示词模式')
       }
 
       const { generateVideoWithVolcengine } = await import('./services/volcengineVideoService.js')
@@ -983,7 +983,7 @@ app.get('/api/first-last-frame-video/status/:taskId', authenticateToken, async (
     // 根据模型选择不同的状态查询服务
     let result
     if (model === 'volcengine-video-3.0-pro' || model === 'doubao-seedance-3.0-pro') {
-      // 使用火山引擎即梦AI-3.0 Pro状态查询
+      // 使用火山引擎即梦-3.0Pro状态查询
       const { getVolcengineTaskStatus } = await import('./services/volcengineVideoService.js')
       result = await getVolcengineTaskStatus(taskId, 'volcengine-video-3.0-pro')
     } else if (model === 'veo3.1' || model === 'veo3.1-pro') {
@@ -1067,7 +1067,7 @@ app.get('/api/first-last-frame-video/status/:taskId', authenticateToken, async (
             let shotId = null
             let isFirstVideo = true
             
-            // 对于豆包Seedance 1.5 Pro，如果返回多个视频，只保存第一个到主显示区域（关联shot和files表）
+            // 对于即梦-3.5Pro，如果返回多个视频，只保存第一个到主显示区域（关联shot和files表）
             // 其他视频只保存到历史记录（first_last_frame_videos表），不关联shot，也不保存到files表
             const isDoubaoSeedance15Pro = model === 'doubao-seedance-1-5-pro-251215'
             const shouldSaveToMainDisplay = isFirstVideo || !isDoubaoSeedance15Pro
@@ -1090,7 +1090,7 @@ app.get('/api/first-last-frame-video/status/:taskId', authenticateToken, async (
 
               console.log(`✅ 视频已保存到项目文件夹: ${uploadResult.url} (${shouldSaveToMainDisplay ? '主显示区域，将创建shot' : '仅历史记录'})`)
 
-              // 只为第一个视频创建shot（或非豆包Seedance 1.5 Pro的所有视频）
+              // 只为第一个视频创建shot（或非即梦-3.5Pro的所有视频）
               if (shouldSaveToMainDisplay && isFirstVideo) {
                 try {
                   // 获取下一个shot_number
@@ -1124,7 +1124,7 @@ app.get('/api/first-last-frame-video/status/:taskId', authenticateToken, async (
                 }
               }
               
-              // 只保存到 files 表（主显示区域）：第一个视频，或非豆包Seedance 1.5 Pro的所有视频
+              // 只保存到 files 表（主显示区域）：第一个视频，或非即梦-3.5Pro的所有视频
               if (shouldSaveToMainDisplay) {
                 const metadata = {
                   task_id: taskId,
@@ -1168,7 +1168,7 @@ app.get('/api/first-last-frame-video/status/:taskId', authenticateToken, async (
               const estimatedCredit = calcCredit(model, resolution, duration)
               
               // 保存到 first_last_frame_videos 表（每个视频一条记录）
-              // 对于豆包Seedance 1.5 Pro的额外视频，不关联shot_id
+              // 对于即梦-3.5Pro的额外视频，不关联shot_id
               await db.query(
                 `INSERT INTO first_last_frame_videos 
                  (user_id, project_id, task_id, video_url, cos_key, first_frame_url, last_frame_url, 

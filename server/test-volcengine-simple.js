@@ -1,5 +1,5 @@
 /**
- * 简单测试即梦AI-视频生成3.0 Pro API
+ * 简单测试即梦-3.0Pro API
  * 直接读取 .env 文件并测试
  */
 
@@ -68,7 +68,7 @@ if (!process.env.VOLCENGINE_AK || !process.env.VOLCENGINE_SK) {
 import { generateVideoWithVolcengine } from './services/volcengineVideoService.js'
 
 async function testAPI() {
-  console.log('\n🧪 开始测试即梦AI-视频生成3.0 Pro API...\n')
+  console.log('\n🧪 开始测试即梦-3.0Pro API...\n')
 
   try {
     // 使用一个测试图片URL
@@ -92,7 +92,7 @@ async function testAPI() {
 
     console.log('✅ API调用成功!')
     console.log('返回结果:', JSON.stringify(result, null, 2))
-    console.log('\n✅ 测试通过! 即梦AI-视频生成3.0 Pro API 工作正常')
+    console.log('\n✅ 测试通过! 即梦-3.0Pro API 工作正常')
     process.exit(0)
   } catch (error) {
     console.error('\n❌ 测试失败:')

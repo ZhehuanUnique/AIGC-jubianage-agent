@@ -47,7 +47,7 @@ function ShotManagement() {
           style: '三维动漫�?,
           sceneDescription: '清净峰山�?云海翻腾,几只优雅的仙鹤从画面中飞�?远处的宫殿若隐若�?阳光透过云层洒下金色光辉�?,
           visualFocus: '观众视线聚焦于飞过的仙鹤和云海的壮丽景象,通过引导线构图突出仙境的飘渺感。整体呈现明亮、圣洁的白色与金色调�?,
-          model: '即梦AI-视频生成3.0pro',
+          model: 'volcengine-video-3.0-pro',
           aspectRatio: '16:9',
           quantity: 1,
           isExpanded: false,
@@ -313,7 +313,7 @@ function ShotManagement() {
                           }
                           className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500"
                         >
-                          <option>即梦AI-视频生成3.0pro</option>
+                          <option>即梦-3.0Pro</option>
                         </select>
                       </div>
                       <div>

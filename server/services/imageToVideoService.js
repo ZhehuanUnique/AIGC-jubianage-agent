@@ -38,7 +38,7 @@ export async function generateVideoFromImage(imageUrl, options = {}) {
     ratio = 'adaptive',
   } = options
 
-  // 如果是火山引擎即梦AI-3.0 Pro模型，使用专门的服务
+  // 如果是火山引擎即梦-3.0Pro模型，使用专门的服务
   if (model === 'volcengine-video-3.0-pro' || model === 'doubao-seedance-3.0-pro') {
     // 火山引擎需要图片URL，如果是base64，需要先上传到COS
     let finalImageUrl = imageUrl
@@ -514,7 +514,7 @@ export async function generateVideoFromImage(imageUrl, options = {}) {
  * @returns {Promise<Object>} 返回任务状态和视频信息
  */
 export async function getVideoTaskStatus(taskId, model = 'doubao-seedance-1-5-pro-251215') {
-  // 如果是火山引擎即梦AI-3.0 Pro模型，使用专门的状态查询
+  // 如果是火山引擎即梦-3.0Pro模型，使用专门的状态查询
   if (model === 'volcengine-video-3.0-pro' || model === 'doubao-seedance-3.0-pro') {
     return await getVolcengineTaskStatus(taskId, 'volcengine-video-3.0-pro')
   }

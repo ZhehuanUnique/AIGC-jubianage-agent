@@ -408,7 +408,7 @@ export async function analyzeScriptText(request: AnalyzeScriptRequest): Promise<
     if (!response.ok) {
       try {
         const error = JSON.parse(text)
-        throw new Error(error.error || '分析剧本失败')
+      throw new Error(error.error || '分析剧本失败')
       } catch (parseError) {
         throw new Error(`分析剧本失败: ${response.status} ${response.statusText}`)
       }
@@ -467,7 +467,7 @@ export async function analyzeScriptFile(
     if (!response.ok) {
       try {
         const error = JSON.parse(text)
-        throw new Error(error.error || '分析文件失败')
+      throw new Error(error.error || '分析文件失败')
       } catch (parseError) {
         throw new Error(`分析文件失败: ${response.status} ${response.statusText}`)
       }
@@ -525,7 +525,7 @@ export async function segmentScript(request: {
     if (!response.ok) {
       try {
         const error = JSON.parse(text)
-        throw new Error(error.error || '切分剧本失败')
+      throw new Error(error.error || '切分剧本失败')
       } catch (parseError) {
         throw new Error(`切分剧本失败: ${response.status} ${response.statusText}`)
       }

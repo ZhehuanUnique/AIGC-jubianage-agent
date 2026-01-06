@@ -1,5 +1,5 @@
 /**
- * 测试即梦AI-视频生成3.0 Pro API
+ * 测试即梦-3.0Pro API
  * 用于验证环境变量配置和API调用是否正常
  */
 
@@ -68,7 +68,7 @@ if (!VOLCENGINE_AK || !VOLCENGINE_SK) {
 import { generateVideoWithVolcengine, getVolcengineTaskStatus } from './services/volcengineVideoService.js'
 
 async function testVolcengineAPI() {
-  console.log('\n🧪 开始测试即梦AI-视频生成3.0 Pro API...\n')
+  console.log('\n🧪 开始测试即梦-3.0Pro API...\n')
 
   try {
     // 使用一个测试图片URL（这里使用一个公开的测试图片）
@@ -107,7 +107,7 @@ async function testVolcengineAPI() {
       console.log('任务状态:', JSON.stringify(statusResult, null, 2))
     }
 
-    console.log('\n✅ 所有测试通过! 即梦AI-视频生成3.0 Pro API 工作正常')
+    console.log('\n✅ 所有测试通过! 即梦-3.0Pro API 工作正常')
     process.exit(0)
   } catch (error) {
     console.error('\n❌ 测试失败:')
@@ -119,7 +119,7 @@ async function testVolcengineAPI() {
     } else if (error.message.includes('API调用失败')) {
       console.error('\n💡 提示: 请检查:')
       console.error('1. Access Key 和 Secret Key 是否正确')
-      console.error('2. 是否已开通即梦AI-视频生成3.0 Pro服务')
+      console.error('2. 是否已开通即梦-3.0Pro服务')
       console.error('3. API权限是否足够')
       console.error('4. 账户余额是否充足')
     }

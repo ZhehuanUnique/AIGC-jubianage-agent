@@ -93,7 +93,7 @@ NANO_BANANA_API_HOST=https://grsai.dakka.com.cn
 MIDJOURNEY_API_KEY=your_midjourney_api_key_here
 MIDJOURNEY_API_HOST=https://api.302.ai
 
-# ==================== 火山引擎即梦AI-视频生成3.0 Pro配置 ===================
+# ==================== 火山引擎即梦-3.0Pro配置 ===================
 # 火山引擎 Access Key ID（从火山引擎控制台获取）
 VOLCENGINE_AK=your_volcengine_access_key_id_here
 # 火山引擎 Secret Access Key（从火山引擎控制台获取）
@@ -276,13 +276,13 @@ WHERE table_name = 'projects'
 
 支持多种图生视频模型：
 
-#### 即梦AI系列
-- **即梦AI-视频生成3.5 Pro** (`doubao-seedance-1-5-pro-251215`)
+#### 即梦系列
+- **即梦-3.5Pro** (`doubao-seedance-1-5-pro-251215`)
   - 分辨率：480p, 720p, 1080p
   - 时长：2~12秒
   - 宽高比：16:9, 4:3, 1:1, 3:4, 9:16, 21:9, adaptive
   - 支持音频生成
-- **即梦AI-视频生成3.0 Pro** (`volcengine-video-3.0-pro`) ⭐ 新增
+- **即梦-3.0Pro** (`volcengine-video-3.0-pro`) ⭐ 新增
   - 分辨率：480p, 720p, 1080p
   - 时长：2~12秒
   - 宽高比：16:9, 4:3, 1:1, 3:4, 9:16, 21:9, adaptive
@@ -562,8 +562,8 @@ QWEN_MODEL=qwen-max  # 或 qwen-plus
 
 | 模型 | 分辨率 | 时长 | 价格/秒 | 推荐场景 |
 |------|--------|------|---------|----------|
-| **即梦AI-3.0 Pro** | 480p/720p/1080p | 2~12秒 | - | **推荐：火山引擎官方API** |
-| **即梦AI-3.5 Pro** | 480p/720p/1080p | 2~12秒 | 约0.11~0.54 PTC/5秒 | **推荐：302.ai平台** |
+| **即梦-3.0Pro** | 480p/720p/1080p | 2~12秒 | - | **推荐：火山引擎官方API** |
+| **即梦-3.5Pro** | 480p/720p/1080p | 2~12秒 | 约0.11~0.54 PTC/5秒 | **推荐：302.ai平台** |
 | **Kling-2.6-5秒** | 自动适配 | 固定5秒 | - | 固定时长，自动分辨率 |
 | **Kling-2.6-10秒** | 自动适配 | 固定10秒 | - | 固定时长，自动分辨率 |
 | **Kling-O1** | 自动适配 | 5/10/15/20秒 | - | 自定义时长，多种模式 |
@@ -1325,7 +1325,7 @@ docker-compose down
 
 ## 🎬 图生视频模型配置
 
-### 即梦AI-视频生成3.0 Pro（火山引擎）⭐ 新增
+### 即梦-3.0Pro（火山引擎）⭐ 新增
 
 **特点：**
 - 使用火山引擎官方API，需要 Access Key ID 和 Secret Access Key
@@ -1339,7 +1339,7 @@ docker-compose down
 在 `server/.env` 文件中添加：
 
 ```env
-# ==================== 火山引擎即梦AI-视频生成3.0 Pro配置 ===================
+# ==================== 火山引擎即梦-3.0Pro配置 ===================
 # 火山引擎 Access Key ID（从火山引擎控制台获取）
 VOLCENGINE_AK=your_volcengine_access_key_id_here
 # 火山引擎 Secret Access Key（从火山引擎控制台获取）
@@ -1355,14 +1355,14 @@ VOLCENGINE_API_HOST=https://visual.volcengineapi.com
 4. 创建或查看 Access Key ID 和 Secret Access Key
 
 **接口文档：**
-- 即梦AI-视频生成3.0 Pro: https://www.volcengine.com/docs/85621/1777001?lang=zh
+- 即梦-3.0Pro: https://www.volcengine.com/docs/85621/1777001?lang=zh
 - SDK文档: https://www.volcengine.com/docs/6444/1340578?lang=zh#0f05efc9
 
 **在线推理 vs 离线推理：**
 - **在线推理** (`service_tier: 'default'`)：实时生成，响应快但可能排队
 - **离线推理** (`service_tier: 'offline'`)：异步生成，更稳定且通常更快，推荐生产环境使用
 
-### 即梦AI-视频生成3.5 Pro（豆包 Seedance）
+### 即梦-3.5Pro（豆包 Seedance）
 
 **特点：**
 - 通过302.ai平台接入
@@ -2019,7 +2019,7 @@ sudo systemctl reload nginx
 
 ### 火山引擎API配置
 
-如果使用即梦AI-视频生成3.0 Pro，需要配置火山引擎API密钥：
+如果使用即梦-3.0Pro，需要配置火山引擎API密钥：
 
 1. **获取密钥**：
    - 登录火山引擎控制台：https://console.volcengine.com/

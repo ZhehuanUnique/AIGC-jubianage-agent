@@ -69,6 +69,6 @@ console.log('\n✅ 配置检查通过')
 console.log('\n提示: 如果仍然遇到认证错误，请检查:')
 console.log('1. AK/SK 是否正确（没有多余的空格或换行）')
 console.log('2. AK/SK 是否已激活')
-console.log('3. 账户是否有使用即梦AI-视频生成3.0 Pro的权限')
+console.log('3. 账户是否有使用即梦-3.0Pro的权限')
 console.log('4. 账户余额是否充足')
 

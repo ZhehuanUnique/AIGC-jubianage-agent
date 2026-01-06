@@ -69,7 +69,7 @@ export function calculateCreditFromCost(costInYuan: number): number {
 }
 
 /**
- * 计算即梦AI-视频生成3.0 Pro的实际成本
+ * 计算即梦-3.0Pro的实际成本
  * @param resolution - 分辨率：'480p', '720p', '1080p'
  * @param duration - 视频时长（秒）
  * @returns 实际成本（元）

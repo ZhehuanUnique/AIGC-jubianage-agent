@@ -1,10 +1,10 @@
 /**
- * 火山引擎即梦AI-视频生成服务
+ * 火山引擎即梦-视频生成服务
  * 支持模型：
- * - 即梦AI-视频生成3.0 Pro
+ * - 即梦-3.0Pro
  * 
  * 接口文档：
- * - 即梦AI-视频生成3.0 Pro: https://www.volcengine.com/docs/85621/1777001?lang=zh
+ * - 即梦-3.0Pro: https://www.volcengine.com/docs/85621/1777001?lang=zh
  * - SDK文档: https://www.volcengine.com/docs/6444/1340578?lang=zh#0f05efc9
  * - Python SDK: https://github.com/volcengine/volc-sdk-python
  * 
@@ -32,7 +32,7 @@ if (existsSync(envPath)) {
 // 支持多种环境变量名称（兼容火山引擎 SDK 标准和自定义名称）
 const VOLCENGINE_AK = process.env.VOLCENGINE_AK || process.env.VOLCENGINE_ACCESS_KEY || process.env.VOLC_ACCESSKEY
 const VOLCENGINE_SK = process.env.VOLCENGINE_SK || process.env.VOLCENGINE_SECRET_KEY || process.env.VOLC_SECRETKEY
-// 根据即梦AI-视频生成3.0 Pro接口文档：https://www.volcengine.com/docs/85621/1777001?lang=zh
+// 根据即梦-3.0Pro接口文档：https://www.volcengine.com/docs/85621/1777001?lang=zh
 // 接口地址：https://visual.volcengineapi.com
 const VOLCENGINE_API_HOST = process.env.VOLCENGINE_API_HOST || 'https://visual.volcengineapi.com'
 
@@ -181,7 +181,7 @@ function generateVolcengineSignature(method, uri, queryParams, host, contentType
 }
 
 /**
- * 使用火山引擎即梦AI生成视频（图生视频）
+ * 使用火山引擎即梦生成视频（图生视频）
  * @param {string} imageUrl - 图片URL（必须是可访问的HTTP/HTTPS URL）
  * @param {Object} options - 生成选项
  * @param {string} options.model - 模型名称：'volcengine-video-3.0-pro'
@@ -211,7 +211,7 @@ export async function generateVideoWithVolcengine(imageUrl, options = {}) {
   const modelId = getModelId(model)
 
   try {
-    console.log(`🎬 调用火山引擎即梦AI ${model} 图生视频API:`, {
+    console.log(`🎬 调用火山引擎即梦 ${model} 图生视频API:`, {
       imageUrl: imageUrl.substring(0, 100) + (imageUrl.length > 100 ? '...' : ''),
       model: modelId,
       resolution,
@@ -222,7 +222,7 @@ export async function generateVideoWithVolcengine(imageUrl, options = {}) {
       generateAudio,
     })
 
-    // 构建请求体（根据即梦AI-视频生成3.0 Pro接口文档格式）
+    // 构建请求体（根据即梦-3.0Pro接口文档格式）
     // 根据文档：https://www.volcengine.com/docs/85621/1777001?lang=zh
     // req_key固定值为 "jimeng_ti2v_v30_pro"
     // 使用 image_urls 数组格式，或 binary_data_base64
@@ -245,7 +245,7 @@ export async function generateVideoWithVolcengine(imageUrl, options = {}) {
     }
 
     const requestBodyJson = JSON.stringify(requestBody)
-    // 根据即梦AI-视频生成3.0 Pro接口文档：https://www.volcengine.com/docs/85621/1777001?lang=zh
+    // 根据即梦-3.0Pro接口文档：https://www.volcengine.com/docs/85621/1777001?lang=zh
     // 接口地址：https://visual.volcengineapi.com
     // 请求方式：POST
     // 根据Visual API的调用方式，直接POST到根路径
@@ -388,7 +388,7 @@ export async function getVolcengineTaskStatus(taskId, model = 'volcengine-video-
   try {
     console.log(`🔍 查询火山引擎任务状态: ${taskId} (模型: ${model})`)
 
-    // 根据即梦AI-视频生成3.0 Pro接口文档：https://www.volcengine.com/docs/85621/1777001?lang=zh
+    // 根据即梦-3.0Pro接口文档：https://www.volcengine.com/docs/85621/1777001?lang=zh
     // 接口地址：https://visual.volcengineapi.com
     // 查询任务状态：使用POST方法，在Body中传递req_key和task_id
     const uri = '/'

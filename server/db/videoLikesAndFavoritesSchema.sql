@@ -54,3 +54,4 @@ COMMENT ON TABLE video_processing_tasks IS '视频处理任务表，存储补帧
 COMMENT ON COLUMN video_processing_tasks.processing_type IS '处理类型：frame_interpolation-补帧, super_resolution-超分辨率';
 COMMENT ON COLUMN video_processing_tasks.status IS '任务状态：pending-待处理, processing-处理中, completed-已完成, failed-失败';
 
+
