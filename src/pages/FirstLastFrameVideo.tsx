@@ -1947,7 +1947,17 @@ function FirstLastFrameVideo() {
               </div>
 
               {/* 右侧：提示词输入框 */}
-              <div className="flex-1">
+              <div className="flex-1 flex flex-col">
+                {/* 当前配置显示（黄色框） */}
+                <div className="mb-3 px-3 py-2 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <div className="flex items-center gap-2 text-sm text-gray-700">
+                    <span className="font-medium">当前配置:</span>
+                    <span className="text-gray-600">
+                      {supportedModels.find(m => m.value === selectedModel)?.label || selectedModel} | {duration}秒 | {resolution}
+                    </span>
+                  </div>
+                </div>
+                
                 <textarea
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
