@@ -125,6 +125,7 @@ function FirstLastFrameVideo() {
   const videoRefs = useRef<Map<string, HTMLVideoElement>>(new Map())
   const [deleteConfirmState, setDeleteConfirmState] = useState<{ isOpen: boolean; taskId: string | null }>({ isOpen: false, taskId: null })
   const [previewImage, setPreviewImage] = useState<{ url: string; type: 'first' | 'last' } | null>(null)
+  const [generatingTask, setGeneratingTask] = useState<{ taskId: string; progress: number; status: 'accelerating' | 'generating' } | null>(null)
   
   // 筛选状态
   const [timeFilter, setTimeFilter] = useState<'all' | 'week' | 'month' | 'quarter' | 'custom'>('all')
@@ -576,36 +577,12 @@ function FirstLastFrameVideo() {
           activeElement.blur()
         }
         
-        // 立即创建新任务并添加到本地状态（不等待数据库查询）
-        const newTask: VideoTask = {
-          id: result.data.taskId,
-          status: 'pending',
-          firstFrameUrl: firstFramePreview || '',
-          lastFrameUrl: lastFramePreview || undefined,
-          model: selectedModel,
-          resolution,
-          ratio: '16:9',
-          duration,
-          text: prompt.trim() || undefined,
-          createdAt: new Date().toISOString(),
-        }
-        
-        // 立即添加到本地状态，让用户立即看到
-        setAllTasks(prev => {
-          const updated = [newTask, ...prev]
-          allTasksRef.current = updated // 同步更新ref
-          // 同时更新筛选后的列表
-          applyFilters(updated)
-          return updated
+        // 立即显示生成进度模态框（显示"加速中"）
+        setGeneratingTask({
+          taskId: result.data.taskId,
+          progress: 0,
+          status: 'accelerating'
         })
-        
-        // 立即滚动到历史记录区域（优化用户体验）
-        setTimeout(() => {
-          const historySection = document.querySelector('[class*="pb-[600px]"]') || document.querySelector('.max-w-7xl')
-          if (historySection) {
-            historySection.scrollIntoView({ behavior: 'smooth', block: 'start' })
-          }
-        }, 100)
         
         // 清空输入
         setPrompt('')
@@ -615,11 +592,6 @@ function FirstLastFrameVideo() {
         setLastFramePreview(null)
         setFrameAspectRatio(null)
         setFrameImageInfo(null)
-        
-        // 后台刷新历史记录（静默模式，不显示加载状态），确保数据同步
-        setTimeout(() => {
-          loadHistory(true)
-        }, 1000) // 延迟1秒，确保数据库已保存
         
         // 开始轮询任务状态
         pollTaskStatus(result.data.taskId)
@@ -688,6 +660,44 @@ function FirstLastFrameVideo() {
         if (result.success && result.data) {
           const task = result.data
           
+          // 更新生成进度模态框
+          if (generatingTask && generatingTask.taskId === taskId) {
+            // 从"加速中"切换到"生成中"
+            if (generatingTask.status === 'accelerating') {
+              setGeneratingTask({
+                taskId,
+                progress: 0,
+                status: 'generating'
+              })
+            }
+            
+            // 计算进度
+            let progress = 0
+            if (task.status === 'completed') {
+              progress = 100
+            } else if (task.status === 'processing' || task.status === 'pending') {
+              // 根据任务创建时间估算进度
+              const createdTime = new Date(task.createdAt || Date.now()).getTime()
+              const now = Date.now()
+              const elapsedMinutes = (now - createdTime) / 60000
+              
+              if (elapsedMinutes < 1) {
+                progress = Math.min(30, 10 + elapsedMinutes * 20)
+              } else if (elapsedMinutes < 2) {
+                progress = Math.min(70, 30 + (elapsedMinutes - 1) * 40)
+              } else if (elapsedMinutes < 5) {
+                progress = Math.min(95, 70 + (elapsedMinutes - 2) * 8.33)
+              } else {
+                progress = 95
+              }
+            }
+            
+            setGeneratingTask(prev => prev ? {
+              ...prev,
+              progress: Math.round(progress)
+            } : null)
+          }
+          
           setTasks(prev => prev.map(t => 
             t.id === taskId 
               ? { ...t, status: task.status as any, videoUrl: task.videoUrl, errorMessage: task.errorMessage }
@@ -698,6 +708,10 @@ function FirstLastFrameVideo() {
             clearInterval(pollIntervalRef.current!)
             pollIntervalRef.current = null
             polledTasksRef.current.delete(taskId)
+            
+            // 关闭生成进度模态框
+            setGeneratingTask(null)
+            
             if (task.status === 'completed') {
               // 刷新历史记录（静默模式）
               loadHistory(true)
@@ -724,14 +738,16 @@ function FirstLastFrameVideo() {
           clearInterval(pollIntervalRef.current!)
           pollIntervalRef.current = null
           polledTasksRef.current.delete(taskId)
+          setGeneratingTask(null)
         }
       } catch (error) {
         console.error('轮询任务状态异常:', error)
         clearInterval(pollIntervalRef.current!)
         pollIntervalRef.current = null
         polledTasksRef.current.delete(taskId)
+        setGeneratingTask(null)
       }
-    }, 5000) // 每5秒轮询一次
+    }, 2000) // 每2秒轮询一次，更频繁地更新进度
   }
 
   // 底部边缘悬停处理 - 参考Vue项目
