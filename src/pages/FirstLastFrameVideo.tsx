@@ -2011,6 +2011,52 @@ function FirstLastFrameVideo() {
           </div>
         </div>
       )}
+
+      {/* 生成进度模态框 */}
+      {generatingTask && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
+            {generatingTask.status === 'accelerating' ? (
+              // 加速中状态（图3样式）
+              <div className="text-center">
+                <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center mb-6 mx-auto animate-pulse">
+                  <Zap className="text-white" size={40} />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-800 mb-2">加速中</h3>
+                <p className="text-gray-600">正在为您加速生成视频...</p>
+              </div>
+            ) : (
+              // 生成中状态（图4样式 - 左上角进度显示）
+              <div className="relative">
+                {/* 左上角进度显示 */}
+                <div className="absolute -top-4 -left-4 bg-yellow-400 border-4 border-yellow-500 rounded-lg px-4 py-2 shadow-lg">
+                  <div className="text-2xl font-bold text-gray-800">
+                    {generatingTask.progress}%生成中
+                  </div>
+                </div>
+                
+                {/* 主内容区域 */}
+                <div className="pt-8 text-center">
+                  <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center mb-6 mx-auto">
+                    <Loader2 className="text-white animate-spin" size={40} />
+                  </div>
+                  <h3 className="text-2xl font-bold text-gray-800 mb-4">视频生成中</h3>
+                  
+                  {/* 进度条 */}
+                  <div className="w-full bg-gray-200 rounded-full h-3 mb-4 overflow-hidden">
+                    <div
+                      className="bg-gradient-to-r from-purple-500 to-blue-500 h-3 rounded-full transition-all duration-300"
+                      style={{ width: `${generatingTask.progress}%` }}
+                    ></div>
+                  </div>
+                  
+                  <p className="text-sm text-gray-600">预计还需要几分钟，请稍候...</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
