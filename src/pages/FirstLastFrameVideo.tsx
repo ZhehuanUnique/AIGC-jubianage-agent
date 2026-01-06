@@ -758,6 +758,11 @@ function FirstLastFrameVideo() {
             pollIntervalRef.current = null
             polledTasksRef.current.delete(taskId)
             
+            // 清除生成任务状态
+            if (generatingTask && generatingTask.taskId === taskId) {
+              setGeneratingTask(null)
+            }
+            
             // 关闭生成进度模态框
             setGeneratingTask(null)
             
