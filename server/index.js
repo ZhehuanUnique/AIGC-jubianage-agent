@@ -852,6 +852,53 @@ app.post('/api/first-last-frame-video/generate', authenticateToken, uploadImage.
           promptOptimizer: true,
         })
       }
+    } else if (model === 'kling-2.6' || model === 'kling-o1') {
+      // 使用 Kling 服务（支持首尾帧）
+      if (hasLastFrame) {
+        // 模式1: 首帧 + 尾帧 + 提示词
+        console.log('📹 收到 Kling 首尾帧生视频请求（保存到项目文件夹）:', {
+          projectId,
+          projectName: project.name,
+          firstFrameUrl: firstFrameUrl.substring(0, 100) + '...',
+          lastFrameUrl: lastFrameUrl.substring(0, 100) + '...',
+          model,
+          resolution,
+          duration,
+          hasText: !!text,
+          mode: 'first_last_frame',
+        })
+
+        const { generateVideoFromImage } = await import('./services/imageToVideoService.js')
+        result = await generateVideoFromImage(firstFrameUrl, {
+          model,
+          text: text || '',
+          lastFrameImage: lastFrameUrl,
+          duration: parseInt(duration),
+          resolution,
+          ratio,
+        })
+      } else {
+        // 模式2: 单首帧 + 提示词
+        console.log('📹 收到 Kling 单首帧生视频请求（保存到项目文件夹）:', {
+          projectId,
+          projectName: project.name,
+          firstFrameUrl: firstFrameUrl.substring(0, 100) + '...',
+          model,
+          resolution,
+          duration,
+          hasText: !!text,
+          mode: 'single_frame',
+        })
+
+        const { generateVideoFromImage } = await import('./services/imageToVideoService.js')
+        result = await generateVideoFromImage(firstFrameUrl, {
+          model,
+          text: text || '',
+          duration: parseInt(duration),
+          resolution,
+          ratio,
+        })
+      }
     } else {
       // 使用豆包 Seedance 服务（3.5 Pro等）
       if (hasLastFrame) {
