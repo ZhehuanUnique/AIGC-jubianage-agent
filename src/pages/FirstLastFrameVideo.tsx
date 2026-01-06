@@ -1248,7 +1248,7 @@ function FirstLastFrameVideo() {
                                             description: `使用${task.model}模型生成，分辨率${task.resolution}，时长${task.duration}秒`,
                                             projectId: projectId ? parseInt(projectId) : undefined,
                                           })
-                                          alertSuccess('视频已发布到社区', '上传成功')
+                                          // alertSuccess('视频已发布到社区', '上传成功') // 已移除成功提示框
                                         } catch (error) {
                                           console.error('上传到社区失败:', error)
                                           alertError(error instanceof Error ? error.message : '上传到社区失败，请稍后重试', '上传失败')

@@ -124,7 +124,7 @@ function FragmentCard({
       })
       
       console.log('✅ 视频上传成功:', result)
-      alertSuccess('视频已上传到社区', '上传成功')
+      // alertSuccess('视频已上传到社区', '上传成功') // 已移除成功提示框
       
       // 触发全局事件，通知其他页面刷新
       window.dispatchEvent(new CustomEvent('community-video-uploaded', { detail: result }))
