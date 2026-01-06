@@ -1684,22 +1684,20 @@ function FirstLastFrameVideo() {
             {/* 控制栏 */}
             <div className="flex items-center justify-between pt-4 border-t border-gray-200">
               <div className="flex items-center gap-4">
-                {/* 模型选择 - 使用 Uiverse 样式 */}
+                {/* 模型选择 */}
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-600 font-medium">模型:</span>
-                  <UiverseDropdown
-                    label={supportedModels.find(m => m.value === selectedModel)?.label || '选择模型'}
-                    options={supportedModels.map(model => ({
-                      value: model.value,
-                      label: model.label
-                    }))}
-                    selectedValue={selectedModel}
-                    onSelect={(value) => {
-                      setSelectedModel(value)
-                      setShowModelDropdown(false)
-                    }}
-                    isActive={false}
-                  />
+                  <select
+                    value={selectedModel}
+                    onChange={(e) => setSelectedModel(e.target.value)}
+                    className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer"
+                  >
+                    {supportedModels.map(model => (
+                      <option key={model.value} value={model.value}>
+                        {model.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 
                 {/* 分辨率选择 */}

@@ -942,11 +942,23 @@ function VideoReview() {
                   ref={videoRef}
                   src={videoUrl}
                   className="w-full h-full object-contain"
-                    onLoadStart={() => setIsVideoLoading(true)}
+                    onLoadStart={() => {
+                      setIsVideoLoading(true)
+                      // 设置超时，如果10秒内视频还没加载完成，停止加载状态
+                      setTimeout(() => {
+                        setIsVideoLoading(false)
+                      }, 10000)
+                    }}
                     onCanPlay={() => {
                       setIsVideoLoading(false)
                       // 视频加载完成后，可以清空缩略图（可选，保留也可以）
                       // setVideoThumbnail(null)
+                    }}
+                    onLoadedData={() => {
+                      setIsVideoLoading(false)
+                    }}
+                    onCanPlayThrough={() => {
+                      setIsVideoLoading(false)
                     }}
                   onTimeUpdate={(e) => {
                     try {
