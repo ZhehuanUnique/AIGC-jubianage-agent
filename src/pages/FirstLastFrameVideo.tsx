@@ -1638,7 +1638,8 @@ function FirstLastFrameVideo() {
                                     
                                     // 准备尾帧图片（如果有）
                                     let lastFrameFile: File | null = null
-                                    if (task.lastFrameUrl && currentModelSupportsFirstLastFrame) {
+                                    const taskModelSupportsFirstLastFrame = supportedModels.find(m => m.value === task.model)?.supportsFirstLastFrame || false
+                                    if (task.lastFrameUrl && taskModelSupportsFirstLastFrame) {
                                       try {
                                         if (task.lastFrameUrl.startsWith('data:image/')) {
                                           const response = await fetch(task.lastFrameUrl)
