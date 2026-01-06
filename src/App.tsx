@@ -27,6 +27,7 @@ import CreditRecharge from './pages/CreditRecharge'
 import PaymentServiceAgreement from './pages/PaymentServiceAgreement'
 import WorksShowcase from './pages/WorksShowcase'
 import CommunityVideoDetail from './pages/CommunityVideoDetail'
+import Community from './pages/Community'
 import UserAgreement from './pages/UserAgreement'
 import PrivacyPolicy from './pages/PrivacyPolicy'
 import { useAlert } from './hooks/useAlert.tsx'
@@ -262,6 +263,14 @@ function App() {
         <Route
           path="/works/:videoId"
           element={<CommunityVideoDetail />}
+        />
+        <Route
+          path="/community"
+          element={
+            <ProtectedRoute>
+              <Community />
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/user-agreement"

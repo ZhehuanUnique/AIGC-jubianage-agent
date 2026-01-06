@@ -5,7 +5,7 @@ import SettingsModal from './SettingsModal'
 import { AuthService } from '../services/auth'
 
 interface NavigationBarProps {
-  activeTab?: 'home' | 'project' | 'works' | 'guide' | 'recharge'
+  activeTab?: 'home' | 'project' | 'works' | 'community' | 'guide' | 'recharge'
 }
 
 function SettingsButton() {
@@ -296,6 +296,20 @@ function NavigationBar({ activeTab = 'home' }: NavigationBarProps) {
               onClick={() => navigate('/works')}
             >
               作品展示
+            </label>
+
+            <input 
+              type="radio" 
+              name="nav-plan" 
+              id="glass-community" 
+              checked={activeTab === 'community'}
+              readOnly
+            />
+            <label 
+              htmlFor="glass-community"
+              onClick={() => navigate('/community')}
+            >
+              社区
             </label>
 
             <input 
