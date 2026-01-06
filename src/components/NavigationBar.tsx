@@ -326,11 +326,8 @@ function NavigationBar({ activeTab = 'home' }: NavigationBarProps) {
               e.stopPropagation()
               navigate('/credit-recharge')
             }}
-            className="px-2.5 sm:px-4 py-1.5 sm:py-2 bg-purple-600 text-white rounded-lg active:bg-purple-700 sm:hover:bg-purple-700 flex items-center gap-1 sm:gap-2 transition-colors touch-manipulation text-xs sm:text-sm lg:text-base"
+            className="Btn"
           >
-            <span className="text-base sm:text-lg">¥</span>
-            <span className="hidden sm:inline">积分充值</span>
-            <span className="sm:hidden">充值</span>
           </button>
           <span className="text-xs sm:text-sm lg:text-base text-gray-700 hidden sm:inline">
             积分余额: {isLoadingBalance ? '加载中...' : balance}
