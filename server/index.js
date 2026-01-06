@@ -634,7 +634,7 @@ app.post('/api/first-last-frame-video/generate', authenticateToken, uploadImage.
 
     const project = projectResult.rows[0]
 
-    // 检查首帧图片
+    // 检查首帧图片（支持文件上传或URL）
     let firstFrameUrl
     if (req.files && req.files.firstFrame && req.files.firstFrame[0]) {
       const { uploadBuffer } = await import('./services/cosService.js')
@@ -647,14 +647,18 @@ app.post('/api/first-last-frame-video/generate', authenticateToken, uploadImage.
       const cosKey = `projects/${projectId}/images/first_frame_${Date.now()}.${ext}`
       const uploadResult = await uploadBuffer(imageBuffer, cosKey, mimeType)
       firstFrameUrl = uploadResult.url
+    } else if (req.body.firstFrameUrl) {
+      // 支持直接使用URL（用于"再次生成"功能）
+      firstFrameUrl = req.body.firstFrameUrl
+      console.log('📸 使用提供的首帧URL:', firstFrameUrl.substring(0, 100) + '...')
     } else {
       return res.status(400).json({ 
         success: false,
-        error: '请上传首帧图片' 
+        error: '请上传首帧图片或提供首帧图片URL' 
       })
     }
 
-    // 检查尾帧图片（可选）
+    // 检查尾帧图片（可选，支持文件上传或URL）
     let lastFrameUrl
     const hasLastFrame = req.files && req.files.lastFrame && req.files.lastFrame[0]
     if (hasLastFrame) {
@@ -668,6 +672,10 @@ app.post('/api/first-last-frame-video/generate', authenticateToken, uploadImage.
       const cosKey = `projects/${projectId}/images/last_frame_${Date.now()}.${ext}`
       const uploadResult = await uploadBuffer(imageBuffer, cosKey, mimeType)
       lastFrameUrl = uploadResult.url
+    } else if (req.body.lastFrameUrl) {
+      // 支持直接使用URL（用于"再次生成"功能）
+      lastFrameUrl = req.body.lastFrameUrl
+      console.log('📸 使用提供的尾帧URL:', lastFrameUrl.substring(0, 100) + '...')
     }
 
     // 根据模型选择不同的服务

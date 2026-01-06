@@ -1610,61 +1610,83 @@ function FirstLastFrameVideo() {
                                       return
                                     }
                                     
-                                    // 准备首帧图片
-                                    let firstFrameFile: File | null = null
-                                    try {
-                                      if (task.firstFrameUrl.startsWith('data:image/')) {
-                                        const response = await fetch(task.firstFrameUrl)
-                                        const blob = await response.blob()
-                                        firstFrameFile = new File([blob], 'first-frame.jpg', { type: blob.type || 'image/jpeg' })
-                                      } else {
-                                        // 尝试下载（可能遇到CORS问题）
-                                        const response = await fetch(task.firstFrameUrl, { mode: 'cors' })
-                                        if (response.ok) {
-                                          const blob = await response.blob()
-                                          firstFrameFile = new File([blob], 'first-frame.jpg', { type: blob.type || 'image/jpeg' })
-                                        } else {
-                                          // 如果无法下载，使用URL直接上传（后端需要支持）
-                                          // 这里我们尝试使用URL
-                                          alertError('无法下载首帧图片，请使用"重新编辑"功能重新上传', '错误')
-                                          return
-                                        }
-                                      }
-                                    } catch (err) {
-                                      console.error('加载首帧图片失败:', err)
-                                      alertError('无法加载首帧图片，请使用"重新编辑"功能重新上传', '错误')
-                                      return
-                                    }
-                                    
-                                    // 准备尾帧图片（如果有）
-                                    let lastFrameFile: File | null = null
-                                    const taskModelSupportsFirstLastFrame = supportedModels.find(m => m.value === task.model)?.supportsFirstLastFrame || false
-                                    if (task.lastFrameUrl && taskModelSupportsFirstLastFrame) {
-                                      try {
-                                        if (task.lastFrameUrl.startsWith('data:image/')) {
-                                          const response = await fetch(task.lastFrameUrl)
-                                          const blob = await response.blob()
-                                          lastFrameFile = new File([blob], 'last-frame.jpg', { type: blob.type || 'image/jpeg' })
-                                        } else {
-                                          const response = await fetch(task.lastFrameUrl, { mode: 'cors' })
-                                          if (response.ok) {
-                                            const blob = await response.blob()
-                                            lastFrameFile = new File([blob], 'last-frame.jpg', { type: blob.type || 'image/jpeg' })
-                                          }
-                                        }
-                                      } catch (err) {
-                                        console.warn('加载尾帧图片失败，将只使用首帧:', err)
-                                      }
-                                    }
-                                    
-                                    // 开始生成视频
+                                    // 开始生成视频（直接使用URL，避免CORS问题）
                                     setIsGenerating(true)
                                     try {
                                       const formData = new FormData()
-                                      formData.append('firstFrame', firstFrameFile)
-                                      if (lastFrameFile && currentModelSupportsFirstLastFrame) {
-                                        formData.append('lastFrame', lastFrameFile)
+                                      
+                                      // 尝试下载图片文件（如果失败，使用URL）
+                                      let useUrlForFirstFrame = false
+                                      let useUrlForLastFrame = false
+                                      
+                                      // 处理首帧图片
+                                      if (task.firstFrameUrl.startsWith('data:image/')) {
+                                        // data URL，直接转换
+                                        try {
+                                          const response = await fetch(task.firstFrameUrl)
+                                          const blob = await response.blob()
+                                          const file = new File([blob], 'first-frame.jpg', { type: blob.type || 'image/jpeg' })
+                                          formData.append('firstFrame', file)
+                                        } catch (err) {
+                                          console.warn('无法转换data URL，使用URL方式:', err)
+                                          useUrlForFirstFrame = true
+                                        }
+                                      } else {
+                                        // HTTP URL，尝试下载（可能遇到CORS问题）
+                                        try {
+                                          const response = await fetch(task.firstFrameUrl, { mode: 'cors' })
+                                          if (response.ok) {
+                                            const blob = await response.blob()
+                                            const file = new File([blob], 'first-frame.jpg', { type: blob.type || 'image/jpeg' })
+                                            formData.append('firstFrame', file)
+                                          } else {
+                                            useUrlForFirstFrame = true
+                                          }
+                                        } catch (err) {
+                                          console.warn('无法下载首帧图片（CORS限制），使用URL方式:', err)
+                                          useUrlForFirstFrame = true
+                                        }
                                       }
+                                      
+                                      // 如果无法下载，使用URL
+                                      if (useUrlForFirstFrame) {
+                                        formData.append('firstFrameUrl', task.firstFrameUrl)
+                                      }
+                                      
+                                      // 处理尾帧图片（如果有）
+                                      const taskModelSupportsFirstLastFrame = supportedModels.find(m => m.value === task.model)?.supportsFirstLastFrame || false
+                                      if (task.lastFrameUrl && taskModelSupportsFirstLastFrame) {
+                                        if (task.lastFrameUrl.startsWith('data:image/')) {
+                                          try {
+                                            const response = await fetch(task.lastFrameUrl)
+                                            const blob = await response.blob()
+                                            const file = new File([blob], 'last-frame.jpg', { type: blob.type || 'image/jpeg' })
+                                            formData.append('lastFrame', file)
+                                          } catch (err) {
+                                            console.warn('无法转换尾帧data URL，使用URL方式:', err)
+                                            useUrlForLastFrame = true
+                                          }
+                                        } else {
+                                          try {
+                                            const response = await fetch(task.lastFrameUrl, { mode: 'cors' })
+                                            if (response.ok) {
+                                              const blob = await response.blob()
+                                              const file = new File([blob], 'last-frame.jpg', { type: blob.type || 'image/jpeg' })
+                                              formData.append('lastFrame', file)
+                                            } else {
+                                              useUrlForLastFrame = true
+                                            }
+                                          } catch (err) {
+                                            console.warn('无法下载尾帧图片（CORS限制），使用URL方式:', err)
+                                            useUrlForLastFrame = true
+                                          }
+                                        }
+                                        
+                                        if (useUrlForLastFrame) {
+                                          formData.append('lastFrameUrl', task.lastFrameUrl)
+                                        }
+                                      }
+                                      
                                       formData.append('projectId', projectId)
                                       formData.append('model', task.model)
                                       formData.append('resolution', task.resolution)
