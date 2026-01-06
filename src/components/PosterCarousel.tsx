@@ -23,7 +23,7 @@ function PosterCarousel({ posterFolder }: PosterCarouselProps) {
   const animationRef = useRef<number>()
   const lastScrollTimeRef = useRef<number>(0)
   const [posters, setPosters] = useState<string[]>([])
-  const baseScrollSpeed = 0.8 // 基础滚动速度（像素/帧）
+  const baseScrollSpeed = 1.5 // 基础滚动速度（像素/帧）- 加快速度
 
   // 从配置文件或本地路径加载海报图片列表
   useEffect(() => {
@@ -144,25 +144,28 @@ function PosterCarousel({ posterFolder }: PosterCarouselProps) {
     // 使用 requestAnimationFrame 持续检查，确保无限循环
     let checkInterval: number
     const checkLoop = () => {
-      if (!container || isDragging) {
+      if (!container) {
         checkInterval = requestAnimationFrame(checkLoop)
         return
       }
 
-      const currentScroll = container.scrollLeft
-      
-      // 当滚动到第二组的末尾时，重置到第二组的开头（实现无缝循环）
-      if (scrollSpeed < 0) {
-        // 从右往左
-        if (currentScroll >= secondGroupEnd - container.clientWidth - 50) {
-          // 增加容差到50px，确保在接近边界时就能重置
-          container.scrollLeft = secondGroupStart
-        }
-      } else {
-        // 从左往右
-        if (currentScroll <= secondGroupStart + 50) {
-          // 增加容差到50px，确保在接近边界时就能重置
-          container.scrollLeft = secondGroupEnd - container.clientWidth
+      if (!isDragging) {
+        const currentScroll = container.scrollLeft
+        
+        // 当滚动到第二组的末尾时，重置到第二组的开头（实现无缝循环）
+        if (scrollSpeed < 0) {
+          // 从右往左
+          const threshold = secondGroupEnd - container.clientWidth
+          if (currentScroll >= threshold - 100) {
+            // 增加容差到100px，确保在接近边界时就能重置
+            container.scrollLeft = secondGroupStart + (currentScroll - threshold)
+          }
+        } else {
+          // 从左往右
+          if (currentScroll <= secondGroupStart + 100) {
+            // 增加容差到100px，确保在接近边界时就能重置
+            container.scrollLeft = secondGroupEnd - container.clientWidth - (secondGroupStart - currentScroll)
+          }
         }
       }
       

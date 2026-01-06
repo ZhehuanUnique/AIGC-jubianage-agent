@@ -82,7 +82,7 @@ body {
 
 .glitch-text {
   position: relative;
-  font-size: 3rem;
+  font-size: 2.5rem;
   font-weight: 700;
   line-height: 1.2;
   color: #fff;
@@ -90,12 +90,7 @@ body {
   z-index: 1;
   animation: shift 1s ease-in-out infinite alternate;
   text-align: center;
-}
-
-@media (min-width: 768px) {
-  .glitch-text {
-    font-size: 3.75rem;
-  }
+  white-space: nowrap;
 }
 
 .glitch-text:before,
@@ -196,7 +191,7 @@ body {
   color: rgb(255, 255, 255);
   font-family: "Poppins", sans-serif;
   font-weight: 600;
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   -webkit-box-sizing: content-box;
   box-sizing: content-box;
   height: 40px;

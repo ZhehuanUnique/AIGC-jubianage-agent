@@ -173,21 +173,21 @@ function Home() {
 
       {/* 内容层 */}
       <div className="relative z-10 flex flex-col h-full">
-        {/* 导航栏 */}
-        <NavigationBar activeTab="home" />
-        
-        {/* 主要内容 */}
+      {/* 导航栏 */}
+      <NavigationBar activeTab="home" />
+      
+      {/* 主要内容 */}
         <div className="flex-1 flex flex-col items-center justify-end gap-8 px-4 py-8 relative z-10 pb-32">
           {/* 中央标语和按钮区域 - 透明背景，能看到背后视频 */}
           <div className="flex flex-col items-center gap-4 bg-transparent">
-            {/* 标题和"做真人剧"按钮在同一行 */}
-            <div className="flex items-center gap-4 bg-transparent">
+            {/* 标题和"做真人剧"按钮在同一行 - 手机端垂直排列，电脑端水平排列 */}
+            <div className="flex flex-col md:flex-row items-center gap-4 bg-transparent">
               <div className="glitch-loader">
                 <div data-glitch="用剧变时代AI" className="glitch-text">用剧变时代AI</div>
               </div>
               <button
                 onClick={handleClick}
-                className="uiverse-button-card px-10 py-5 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xl md:text-2xl font-semibold rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-300 shadow-2xl hover:shadow-purple-500/50 relative z-20 transform hover:scale-105 overflow-hidden"
+                className="uiverse-button-card px-8 md:px-10 py-4 md:py-5 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-lg md:text-xl font-semibold rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-300 shadow-2xl hover:shadow-purple-500/50 relative z-20 transform hover:scale-105 overflow-hidden"
               >
                 <div className="uiverse-loader">
                   <div className="uiverse-words">
@@ -200,12 +200,12 @@ function Home() {
                 </div>
               </button>
             </div>
-            <button
-              onClick={handleClick}
+        <button
+          onClick={handleClick}
               className="px-6 py-3 bg-white/20 backdrop-blur-sm text-white text-base font-medium rounded-full hover:bg-white/30 transition-all duration-300 relative z-20"
-            >
+        >
               创建项目
-            </button>
+        </button>
           </div>
         </div>
 
