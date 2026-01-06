@@ -567,35 +567,84 @@ function FirstLastFrameVideo() {
         formData.append('text', prompt.trim())
       }
 
+      // 立即创建一个临时任务并添加到历史记录（显示"加速中"）
+      const tempTaskId = `temp_${Date.now()}`
+      const tempTask: VideoTask = {
+        id: tempTaskId,
+        status: 'pending',
+        firstFrameUrl: firstFramePreview || '',
+        lastFrameUrl: lastFramePreview || undefined,
+        model: selectedModel,
+        resolution: resolution,
+        ratio: '16:9',
+        duration: duration,
+        text: prompt.trim(),
+        createdAt: new Date().toISOString(),
+        isLiked: false,
+        isFavorited: false,
+        isUltraHd: false
+      }
+      
+      // 立即添加到任务列表（显示在历史记录中）
+      setAllTasks(prev => [tempTask, ...prev])
+      setTasks(prev => [tempTask, ...prev])
+      allTasksRef.current = [tempTask, ...allTasksRef.current]
+      
+      // 设置生成任务状态（用于显示"加速中"和进度）
+      setGeneratingTask({
+        taskId: tempTaskId,
+        progress: 0,
+        status: 'accelerating',
+        startTime: Date.now()
+      })
+      
+      // 移除输入框聚焦状态，恢复样式
+      setIsInputFocused(false)
+      const activeElement = document.activeElement as HTMLElement
+      if (activeElement && (activeElement.tagName === 'TEXTAREA' || activeElement.tagName === 'INPUT')) {
+        activeElement.blur()
+      }
+      
+      // 清空输入
+      setPrompt('')
+      setFirstFrameFile(null)
+      setLastFrameFile(null)
+      setFirstFramePreview(null)
+      setLastFramePreview(null)
+      setFrameAspectRatio(null)
+      setFrameImageInfo(null)
+      
+      // 滚动到历史记录区域
+      setTimeout(() => {
+        const historySection = document.querySelector('.history-section')
+        if (historySection) {
+          historySection.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+      }, 100)
+
       const result = await generateFirstLastFrameVideo(formData)
 
       if (result.success && result.data?.taskId) {
-        // 移除输入框聚焦状态，恢复样式
-        setIsInputFocused(false)
-        const activeElement = document.activeElement as HTMLElement
-        if (activeElement && (activeElement.tagName === 'TEXTAREA' || activeElement.tagName === 'INPUT')) {
-          activeElement.blur()
-        }
+        // 更新临时任务ID为真实任务ID
+        const realTaskId = result.data.taskId
+        setGeneratingTask(prev => prev ? {
+          ...prev,
+          taskId: realTaskId
+        } : null)
         
-        // 立即显示生成进度模态框（显示"加速中"）
-        setGeneratingTask({
-          taskId: result.data.taskId,
-          progress: 0,
-          status: 'accelerating',
-          startTime: Date.now()
-        })
-        
-        // 清空输入
-        setPrompt('')
-        setFirstFrameFile(null)
-        setLastFrameFile(null)
-        setFirstFramePreview(null)
-        setLastFramePreview(null)
-        setFrameAspectRatio(null)
-        setFrameImageInfo(null)
+        // 更新任务列表中的临时任务ID
+        setAllTasks(prev => prev.map(t => 
+          t.id === tempTaskId ? { ...t, id: realTaskId } : t
+        ))
+        setTasks(prev => prev.map(t => 
+          t.id === tempTaskId ? { ...t, id: realTaskId } : t
+        ))
+        allTasksRef.current = allTasksRef.current.map(t => 
+          t.id === tempTaskId ? { ...t, id: realTaskId } : t
+        )
         
         // 开始轮询任务状态
-        pollTaskStatus(result.data.taskId)
+        pollTaskStatus(realTaskId)
       } else {
         alertError(result.error || '生成失败', '错误')
       }
@@ -1107,7 +1156,7 @@ function FirstLastFrameVideo() {
       </nav>
 
       {/* 历史视频区域（全屏滚动，从导航栏下方开始） */}
-      <div className="pb-[600px] pt-24">
+      <div className="pb-[600px] pt-24 history-section">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* 历史视频网格 - 参考Vue项目，只在首次加载且没有视频时显示加载状态 */}
           {isLoading && isInitialLoad && tasks.length === 0 ? (
@@ -1313,24 +1362,62 @@ function FirstLastFrameVideo() {
                     {task.status !== 'completed' && (
                       <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
                         <div className="text-center text-white px-4 w-full">
-                          {(task.status === 'processing' || task.status === 'pending') && (
-                            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-2"></div>
-                          )}
-                          <p className="text-sm font-medium mb-2">{getStatusText(task.status)}</p>
-                          {/* 进度条 */}
-                          {(task.status === 'processing' || task.status === 'pending') && (
-                            <div className="w-full max-w-xs mx-auto mb-2">
-                              <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
-                                <div
-                                  className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                                  style={{ width: `${getEstimatedProgress(task)}%` }}
-                                ></div>
-                              </div>
-                              <p className="text-xs text-gray-300 mt-1">{Math.round(getEstimatedProgress(task))}%</p>
-                            </div>
-                          )}
-                          {task.status === 'failed' && task.errorMessage && (
-                            <p className="text-xs text-gray-300 mt-1">{task.errorMessage}</p>
+                          {/* 如果是正在生成的任务，显示"加速中"或进度 */}
+                          {generatingTask && generatingTask.taskId === task.id ? (
+                            generatingTask.status === 'accelerating' ? (
+                              // 加速中状态
+                              <>
+                                <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center mb-4 mx-auto animate-pulse">
+                                  <Zap className="text-white" size={32} />
+                                </div>
+                                <h3 className="text-lg font-bold mb-2">加速中</h3>
+                                <p className="text-xs text-gray-300">正在为您加速生成视频...</p>
+                              </>
+                            ) : (
+                              // 生成中状态（显示进度）
+                              <>
+                                <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center mb-4 mx-auto">
+                                  <Loader2 className="text-white animate-spin" size={32} />
+                                </div>
+                                <div className="bg-yellow-400 border-2 border-yellow-500 rounded-lg px-3 py-1 mb-3 inline-block">
+                                  <div className="text-lg font-bold text-gray-800">
+                                    {generatingTask.progress}%生成中
+                                  </div>
+                                </div>
+                                <div className="w-full max-w-xs mx-auto mb-2">
+                                  <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
+                                    <div
+                                      className="bg-gradient-to-r from-purple-500 to-blue-500 h-2 rounded-full transition-all duration-300"
+                                      style={{ width: `${generatingTask.progress}%` }}
+                                    ></div>
+                                  </div>
+                                </div>
+                                <p className="text-xs text-gray-300">预计还需要几分钟，请稍候...</p>
+                              </>
+                            )
+                          ) : (
+                            // 其他状态（pending/processing/failed）
+                            <>
+                              {(task.status === 'processing' || task.status === 'pending') && (
+                                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-2"></div>
+                              )}
+                              <p className="text-sm font-medium mb-2">{getStatusText(task.status)}</p>
+                              {/* 进度条 */}
+                              {(task.status === 'processing' || task.status === 'pending') && (
+                                <div className="w-full max-w-xs mx-auto mb-2">
+                                  <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
+                                    <div
+                                      className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                                      style={{ width: `${getEstimatedProgress(task)}%` }}
+                                    ></div>
+                                  </div>
+                                  <p className="text-xs text-gray-300 mt-1">{Math.round(getEstimatedProgress(task))}%</p>
+                                </div>
+                              )}
+                              {task.status === 'failed' && task.errorMessage && (
+                                <p className="text-xs text-gray-300 mt-1">{task.errorMessage}</p>
+                              )}
+                            </>
                           )}
                         </div>
                       </div>
@@ -2194,51 +2281,6 @@ function FirstLastFrameVideo() {
         </div>
       )}
 
-      {/* 生成进度模态框 */}
-      {generatingTask && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
-            {generatingTask.status === 'accelerating' ? (
-              // 加速中状态（图3样式）
-              <div className="text-center">
-                <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center mb-6 mx-auto animate-pulse">
-                  <Zap className="text-white" size={40} />
-                </div>
-                <h3 className="text-2xl font-bold text-gray-800 mb-2">加速中</h3>
-                <p className="text-gray-600">正在为您加速生成视频...</p>
-              </div>
-            ) : (
-              // 生成中状态（图4样式 - 左上角进度显示）
-              <div className="relative">
-                {/* 左上角进度显示 */}
-                <div className="absolute -top-4 -left-4 bg-yellow-400 border-4 border-yellow-500 rounded-lg px-4 py-2 shadow-lg">
-                  <div className="text-2xl font-bold text-gray-800">
-                    {generatingTask.progress}%生成中
-                  </div>
-                </div>
-                
-                {/* 主内容区域 */}
-                <div className="pt-8 text-center">
-                  <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center mb-6 mx-auto">
-                    <Loader2 className="text-white animate-spin" size={40} />
-                  </div>
-                  <h3 className="text-2xl font-bold text-gray-800 mb-4">视频生成中</h3>
-                  
-                  {/* 进度条 */}
-                  <div className="w-full bg-gray-200 rounded-full h-3 mb-4 overflow-hidden">
-                    <div
-                      className="bg-gradient-to-r from-purple-500 to-blue-500 h-3 rounded-full transition-all duration-300"
-                      style={{ width: `${generatingTask.progress}%` }}
-                    ></div>
-                  </div>
-                  
-                  <p className="text-sm text-gray-600">预计还需要几分钟，请稍候...</p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   )
 }
