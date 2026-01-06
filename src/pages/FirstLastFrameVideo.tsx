@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Upload, Loader2, Share2, Download, Heart, ThumbsUp, Edit, Sparkles, Zap, Trash2 } from 'lucide-react'
 import { alertSuccess, alertError } from '../utils/alert'
+import DeleteConfirmModal from '../components/DeleteConfirmModal'
 import { generateFirstLastFrameVideo, getFirstLastFrameVideoStatus, getFirstLastFrameVideos, createVideoProcessingTask } from '../services/api'
 import { calculateVideoGenerationCredit } from '../utils/creditCalculator'
 import { getUserSettings } from '../services/settingsService'
@@ -121,6 +122,7 @@ function FirstLastFrameVideo() {
   const [isBottomEdgeHovered, setIsBottomEdgeHovered] = useState(false)
   const [hoveredVideoId, setHoveredVideoId] = useState<string | null>(null)
   const videoRefs = useRef<Map<string, HTMLVideoElement>>(new Map())
+  const [deleteConfirmState, setDeleteConfirmState] = useState<{ isOpen: boolean; taskId: string | null }>({ isOpen: false, taskId: null })
   
   // 筛选状态
   const [timeFilter, setTimeFilter] = useState<'all' | 'week' | 'month' | 'quarter' | 'custom'>('all')
@@ -1392,40 +1394,10 @@ function FirstLastFrameVideo() {
                                   {/* 右上角删除按钮 */}
                                   <div className="absolute top-2 right-2 z-20">
                                     <button
-                                      onClick={async (e) => {
+                                      onClick={(e) => {
                                         e.stopPropagation()
-                                        // 确认删除
-                                        if (!window.confirm('确定要删除这个视频吗？')) {
-                                          return
-                                        }
-                                        try {
-                                          // 从列表中移除
-                                          setAllTasks(prev => prev.filter(t => t.id !== task.id))
-                                          setTasks(prev => prev.filter(t => t.id !== task.id))
-                                          allTasksRef.current = allTasksRef.current.filter(t => t.id !== task.id)
-                                          
-                                          // TODO: 调用后端API删除视频（如果后端有API）
-                                          // const { deleteFirstLastFrameVideo } = await import('../services/api')
-                                          // await deleteFirstLastFrameVideo(task.id)
-                                          
-                                          // 更新缓存
-                                          if (projectId) {
-                                            const storageKey = `first_last_frame_videos_${projectId}`
-                                            const cachedVideos = localStorage.getItem(storageKey)
-                                            if (cachedVideos) {
-                                              try {
-                                                const parsed = JSON.parse(cachedVideos)
-                                                const filtered = parsed.filter((v: any) => (v.taskId || v.id) !== task.id)
-                                                localStorage.setItem(storageKey, JSON.stringify(filtered))
-                                              } catch (e) {
-                                                console.warn('更新缓存失败:', e)
-                                              }
-                                            }
-                                          }
-                                        } catch (error) {
-                                          console.error('删除视频失败:', error)
-                                          alertError(error instanceof Error ? error.message : '删除视频失败，请稍后重试', '删除失败')
-                                        }
+                                        // 显示删除确认对话框
+                                        setDeleteConfirmState({ isOpen: true, taskId: task.id })
                                       }}
                                       className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all"
                                       title="删除"
@@ -1889,6 +1861,50 @@ function FirstLastFrameVideo() {
           </div>
         </div>
       </div>
+
+      {/* 删除确认模态框 */}
+      <DeleteConfirmModal
+        isOpen={deleteConfirmState.isOpen}
+        onClose={() => setDeleteConfirmState({ isOpen: false, taskId: null })}
+        onConfirm={async () => {
+          const taskId = deleteConfirmState.taskId
+          if (!taskId) return
+
+          try {
+            // 找到要删除的任务
+            const taskToDelete = allTasks.find(t => t.id === taskId)
+            if (!taskToDelete) return
+
+            // 从列表中移除
+            setAllTasks(prev => prev.filter(t => t.id !== taskId))
+            setTasks(prev => prev.filter(t => t.id !== taskId))
+            allTasksRef.current = allTasksRef.current.filter(t => t.id !== taskId)
+            
+            // TODO: 调用后端API删除视频（如果后端有API）
+            // const { deleteFirstLastFrameVideo } = await import('../services/api')
+            // await deleteFirstLastFrameVideo(taskId)
+            
+            // 更新缓存
+            if (projectId) {
+              const storageKey = `first_last_frame_videos_${projectId}`
+              const cachedVideos = localStorage.getItem(storageKey)
+              if (cachedVideos) {
+                try {
+                  const parsed = JSON.parse(cachedVideos)
+                  const filtered = parsed.filter((v: any) => (v.taskId || v.id) !== taskId)
+                  localStorage.setItem(storageKey, JSON.stringify(filtered))
+                } catch (e) {
+                  console.warn('更新缓存失败:', e)
+                }
+              }
+            }
+          } catch (error) {
+            console.error('删除视频失败:', error)
+            alertError(error instanceof Error ? error.message : '删除视频失败，请稍后重试', '删除失败')
+          }
+        }}
+        message="确定要删除这个视频吗？"
+      />
     </div>
   )
 }
