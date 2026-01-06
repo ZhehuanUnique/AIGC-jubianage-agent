@@ -339,24 +339,31 @@ export async function getViduV2TaskStatus(taskId) {
     //   - video: 视频信息对象（duration, fps, resolution）
     const state = data.state || data.status || 'pending'
     
-    // 根据官方API文档，视频URL在 creations[0].url 中
-    let videoUrl = ''
+    // 根据官方API文档，视频URL在 creations 数组中
+    // 处理所有视频（可能返回多个）
+    let videoUrls = []
     if (data.creations && Array.isArray(data.creations) && data.creations.length > 0) {
-      // 优先使用官方文档中的 url 字段
-      videoUrl = data.creations[0].url || 
-                 data.creations[0].video_url || 
-                 data.creations[0].videoUrl || ''
+      // 提取所有视频URL
+      videoUrls = data.creations.map(creation => 
+        creation.url || creation.video_url || creation.videoUrl || ''
+      ).filter(url => url) // 过滤空URL
     }
     
     // 如果creations中没有，尝试其他路径（兼容其他可能的响应格式）
-    if (!videoUrl) {
-      videoUrl = data.content?.video_url || 
-                 data.content?.videoUrl || 
-                 data.video_url || 
-                 data.videoUrl || 
-                 data.output?.video_url || 
-                 data.output?.videoUrl || ''
+    if (videoUrls.length === 0) {
+      const singleUrl = data.content?.video_url || 
+                       data.content?.videoUrl || 
+                       data.video_url || 
+                       data.videoUrl || 
+                       data.output?.video_url || 
+                       data.output?.videoUrl || ''
+      if (singleUrl) {
+        videoUrls = [singleUrl]
+      }
     }
+    
+    // 主视频URL（用于向后兼容，使用第一个视频）
+    const videoUrl = videoUrls.length > 0 ? videoUrls[0] : ''
     
     // 计算进度（根据状态）
     let progress = data.progress
@@ -385,7 +392,8 @@ export async function getViduV2TaskStatus(taskId) {
       status: state === 'succeeded' || state === 'completed' || state === 'success' || state === 'SUCCESS' ? 'completed' :
               state === 'failed' || state === 'FAILED' || state === 'error' || state === 'ERROR' ? 'failed' :
               state === 'processing' || state === 'running' || state === 'pending' || state === 'queued' || state === 'PROCESSING' ? 'processing' : 'pending',
-      videoUrl: videoUrl,
+      videoUrl: videoUrl, // 主视频URL（向后兼容）
+      videoUrls: videoUrls, // 所有视频URL数组（新增）
       progress: typeof progress === 'number' ? progress : parseInt(progress) || 10,
       message: data.message || data.description || (errCode ? `错误代码: ${errCode}` : '') || (state === 'success' ? '视频生成完成' : state === 'processing' ? '视频生成中...' : ''),
       // 额外信息：封面URL和视频信息

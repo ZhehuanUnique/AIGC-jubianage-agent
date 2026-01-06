@@ -1004,38 +1004,40 @@ app.get('/api/first-last-frame-video/status/:taskId', authenticateToken, async (
     }
 
     // 如果视频生成完成，下载并保存到项目文件夹
-    // 检查是否已经处理过（避免重复创建shot和保存文件）
-    if (result.status === 'completed' && result.videoUrl) {
+    // 处理多个视频的情况（如Vidu Q2 Turbo可能返回多个视频）
+    if (result.status === 'completed' && (result.videoUrl || (result.videoUrls && result.videoUrls.length > 0))) {
       try {
         const pool = await import('./db/connection.js')
         const db = pool.default
 
-        // 从任务ID中提取项目ID（需要从请求参数或任务元数据中获取）
-        // 这里我们通过查询最近的任务来获取项目ID
-        // 更好的方式是前端在轮询时传递 projectId
         const { projectId } = req.query
         
         if (projectId) {
-          // 检查是否已经处理过（通过查询first_last_frame_videos表的状态）
-          const existingRecord = await db.query(
-            'SELECT status, shot_id, video_url FROM first_last_frame_videos WHERE task_id = $1',
-            [taskId]
-          )
+          // 获取所有视频URL（支持单个或多个）
+          const allVideoUrls = result.videoUrls && result.videoUrls.length > 0 
+            ? result.videoUrls 
+            : (result.videoUrl ? [result.videoUrl] : [])
           
-          // 如果已经处理过（status为completed且有shot_id和video_url），则跳过
-          if (existingRecord.rows.length > 0 && 
-              existingRecord.rows[0].status === 'completed' && 
-              existingRecord.rows[0].shot_id &&
-              existingRecord.rows[0].video_url) {
-            console.log(`ℹ️ 任务 ${taskId} 已经处理过，跳过重复处理`)
-            // 直接返回已存在的视频URL，不重复处理
+          if (allVideoUrls.length === 0) {
+            console.warn(`⚠️ 任务 ${taskId} 完成但没有视频URL`)
             return res.json({
               success: true,
-              data: {
-                ...result,
-                videoUrl: existingRecord.rows[0].video_url,
-                status: 'completed',
-              },
+              data: result,
+            })
+          }
+          
+          // 检查是否已经处理过（通过查询first_last_frame_videos表，看是否有completed状态的记录）
+          const existingRecords = await db.query(
+            'SELECT COUNT(*) as count FROM first_last_frame_videos WHERE task_id = $1 AND status = $2',
+            [taskId, 'completed']
+          )
+          
+          // 如果已经有completed状态的记录，且数量匹配，则跳过
+          if (existingRecords.rows[0]?.count >= allVideoUrls.length) {
+            console.log(`ℹ️ 任务 ${taskId} 已经处理过（已有 ${existingRecords.rows[0].count} 条记录），跳过重复处理`)
+            return res.json({
+              success: true,
+              data: result,
             })
           }
           
@@ -1046,133 +1048,204 @@ app.get('/api/first-last-frame-video/status/:taskId', authenticateToken, async (
           )
 
           if (projectResult.rows.length > 0) {
-            // 下载视频
-            const videoResponse = await fetch(result.videoUrl)
-            if (!videoResponse.ok) {
-              throw new Error('下载视频失败')
-            }
-            const videoBuffer = Buffer.from(await videoResponse.arrayBuffer())
-
-            // 保存到 projects/{projectId}/videos/
-            const { uploadBuffer } = await import('./services/cosService.js')
-            const timestamp = Date.now()
-            const cosKey = `projects/${projectId}/videos/first_last_frame_${timestamp}.mp4`
-            const uploadResult = await uploadBuffer(videoBuffer, cosKey, 'video/mp4')
-
-            console.log(`✅ 视频已保存到项目文件夹: ${uploadResult.url}`)
-
-            // 自动创建shot（分镜）并关联视频
-            let shotId = null
-            try {
-              // 获取下一个shot_number
-              const maxShotResult = await db.query(
-                'SELECT MAX(shot_number) as max_shot FROM shots WHERE project_id = $1',
-                [projectId]
-              )
-              const nextShotNumber = (maxShotResult.rows[0]?.max_shot || 0) + 1
-              
-              // 创建shot
-              const shotResult = await db.query(
-                `INSERT INTO shots (project_id, shot_number, description, prompt, segment, style, created_at, updated_at)
-                 VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                 RETURNING id`,
-                [
-                  projectId,
-                  nextShotNumber,
-                  req.body.text || req.query.text || '首尾帧生成的视频',
-                  req.body.text || req.query.text || '首尾帧生成的视频',
-                  req.body.text || req.query.text || '首尾帧生成的视频',
-                  '三维动漫风'
-                ]
-              )
-              
-              if (shotResult.rows.length > 0) {
-                shotId = shotResult.rows[0].id
-                console.log(`✅ 已自动创建分镜 ${shotId} (分镜号: ${nextShotNumber})`)
-              }
-            } catch (shotError) {
-              console.warn('自动创建分镜失败（继续保存视频）:', shotError)
-            }
-            
-            // 从 first_last_frame_videos 表获取首帧和尾帧URL
+            // 从 first_last_frame_videos 表获取首帧和尾帧URL和任务信息
             const videoRecord = await db.query(
-              'SELECT first_frame_url, last_frame_url FROM first_last_frame_videos WHERE task_id = $1',
+              'SELECT first_frame_url, last_frame_url, model, resolution, ratio, duration, text FROM first_last_frame_videos WHERE task_id = $1 LIMIT 1',
               [taskId]
             )
             const firstFrameUrl = videoRecord.rows[0]?.first_frame_url || null
             const lastFrameUrl = videoRecord.rows[0]?.last_frame_url || null
+            const model = videoRecord.rows[0]?.model || req.query.model || req.body.model || 'volcengine-video-3.0-pro'
+            const resolution = videoRecord.rows[0]?.resolution || req.body.resolution || '720p'
+            const ratio = videoRecord.rows[0]?.ratio || req.body.ratio || '16:9'
+            const duration = videoRecord.rows[0]?.duration || parseInt(req.body.duration) || 5
+            const text = videoRecord.rows[0]?.text || req.body.text || ''
             
-            // 保存到 files 表，包含更多元数据
-            const metadata = {
-              task_id: taskId,
-              source: 'first_last_frame_video',
-              model: req.query.model || req.body.model || 'volcengine-video-3.0-pro',
-              resolution: req.body.resolution || '720p',
-              ratio: req.body.ratio || '16:9',
-              duration: parseInt(req.body.duration) || 5,
-              text: req.body.text || '',
-              prompt: req.body.text || '',
-              first_frame_url: firstFrameUrl,
-              last_frame_url: lastFrameUrl,
+            // 只创建一次shot（分镜），关联第一个视频
+            let shotId = null
+            let isFirstVideo = true
+            
+            // 处理所有视频
+            for (const videoUrl of allVideoUrls) {
+              // 下载视频
+              const videoResponse = await fetch(videoUrl)
+              if (!videoResponse.ok) {
+                console.warn(`⚠️ 下载视频失败: ${videoUrl}`)
+                continue
+              }
+              const videoBuffer = Buffer.from(await videoResponse.arrayBuffer())
+
+              // 保存到 projects/{projectId}/videos/
+              const { uploadBuffer } = await import('./services/cosService.js')
+              const timestamp = Date.now() + (isFirstVideo ? 0 : Math.random() * 1000) // 确保唯一性
+              const cosKey = `projects/${projectId}/videos/first_last_frame_${timestamp}.mp4`
+              const uploadResult = await uploadBuffer(videoBuffer, cosKey, 'video/mp4')
+
+              console.log(`✅ 视频已保存到项目文件夹: ${uploadResult.url} (${isFirstVideo ? '第一个视频，将创建shot' : '额外视频'})`)
+
+              // 只为第一个视频创建shot
+              if (isFirstVideo) {
+                try {
+                  // 获取下一个shot_number
+                  const maxShotResult = await db.query(
+                    'SELECT MAX(shot_number) as max_shot FROM shots WHERE project_id = $1',
+                    [projectId]
+                  )
+                  const nextShotNumber = (maxShotResult.rows[0]?.max_shot || 0) + 1
+                  
+                  // 创建shot
+                  const shotResult = await db.query(
+                    `INSERT INTO shots (project_id, shot_number, description, prompt, segment, style, created_at, updated_at)
+                     VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                     RETURNING id`,
+                    [
+                      projectId,
+                      nextShotNumber,
+                      text || '首尾帧生成的视频',
+                      text || '首尾帧生成的视频',
+                      text || '首尾帧生成的视频',
+                      '三维动漫风'
+                    ]
+                  )
+                  
+                  if (shotResult.rows.length > 0) {
+                    shotId = shotResult.rows[0].id
+                    console.log(`✅ 已自动创建分镜 ${shotId} (分镜号: ${nextShotNumber})`)
+                  }
+                } catch (shotError) {
+                  console.warn('自动创建分镜失败（继续保存视频）:', shotError)
+                }
+              }
+              
+              // 保存到 files 表（只有第一个视频关联shot）
+              const metadata = {
+                task_id: taskId,
+                source: 'first_last_frame_video',
+                model: model,
+                resolution: resolution,
+                ratio: ratio,
+                duration: duration,
+                text: text,
+                prompt: text,
+                first_frame_url: firstFrameUrl,
+                last_frame_url: lastFrameUrl,
+                video_index: isFirstVideo ? 0 : allVideoUrls.indexOf(videoUrl), // 记录视频索引
+              }
+              
+              // 只有第一个视频关联shot_id
+              if (shotId && isFirstVideo) {
+                metadata.shot_id = shotId.toString()
+              }
+              
+              await db.query(
+                `INSERT INTO files (project_id, file_type, file_name, cos_key, cos_url, metadata)
+                 VALUES ($1, 'video', $2, $3, $4, $5)
+                 ON CONFLICT DO NOTHING`,
+                [
+                  projectId,
+                  `first_last_frame_${timestamp}.mp4`,
+                  cosKey,
+                  uploadResult.url,
+                  JSON.stringify(metadata)
+                ]
+              )
+              
+              // 为每个视频创建独立的历史记录（使用唯一的task_id）
+              // 第一个视频使用原始task_id，其他视频使用 task_id + '_' + index
+              const uniqueTaskId = isFirstVideo ? taskId : `${taskId}_${allVideoUrls.indexOf(videoUrl)}`
+              
+              // 计算积分
+              const { calculateVideoGenerationCredit: calcCredit } = await import('./services/creditService.js')
+              const estimatedCredit = calcCredit(model, resolution, duration)
+              
+              // 保存到 first_last_frame_videos 表（每个视频一条记录）
+              await db.query(
+                `INSERT INTO first_last_frame_videos 
+                 (user_id, project_id, task_id, video_url, cos_key, first_frame_url, last_frame_url, 
+                  model, resolution, ratio, duration, prompt, text, status, shot_id, estimated_credit, actual_credit)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+                 ON CONFLICT (task_id) DO UPDATE SET
+                   video_url = EXCLUDED.video_url,
+                   cos_key = EXCLUDED.cos_key,
+                   status = EXCLUDED.status,
+                   shot_id = CASE WHEN EXCLUDED.shot_id IS NOT NULL THEN EXCLUDED.shot_id ELSE first_last_frame_videos.shot_id END,
+                   updated_at = CURRENT_TIMESTAMP`,
+                [
+                  userId,
+                  projectId,
+                  uniqueTaskId,
+                  uploadResult.url,
+                  cosKey,
+                  firstFrameUrl,
+                  lastFrameUrl,
+                  model,
+                  resolution,
+                  ratio,
+                  duration,
+                  text,
+                  text,
+                  'completed',
+                  isFirstVideo ? shotId : null, // 只有第一个视频关联shot
+                  estimatedCredit,
+                  null // actual_credit 稍后计算
+                ]
+              )
+              
+              isFirstVideo = false
             }
             
-            // 如果创建了shot，在metadata中关联shot_id
-            if (shotId) {
-              metadata.shot_id = shotId.toString()
+            // 计算并记录积分消耗（只计算一次，因为是一次生成任务）
+            let actualCredit = null
+            try {
+              const userResult = await db.query('SELECT username FROM users WHERE id = $1', [userId])
+              const username = userResult.rows[0]?.username || 'unknown'
+              const isSuperAdmin = username === 'Chiefavefan'
+              
+              if (!isSuperAdmin) {
+                const { calculateVideoGenerationCredit, calculateVolcengineCost } = await import('./services/creditService.js')
+                const { logOperation } = await import('./services/authService.js')
+              
+                // 计算实际成本（元）
+                let costInYuan = 0
+                if (model === 'volcengine-video-3.0-pro' || model === 'doubao-seedance-3.0-pro') {
+                  costInYuan = calculateVolcengineCost(resolution, duration)
+                }
+                
+                // 计算积分消耗（按视频数量计算）
+                actualCredit = calculateVideoGenerationCredit(model, resolution, duration, costInYuan > 0 ? costInYuan : null) * allVideoUrls.length
+                
+                if (actualCredit > 0) {
+                  // 记录积分消耗到操作日志
+                  await logOperation(
+                    userId,
+                    username,
+                    'video_generation',
+                    `首尾帧视频生成（${allVideoUrls.length}个视频）`,
+                    'video',
+                    taskId,
+                    actualCredit,
+                    'success',
+                    null,
+                    { model, resolution, duration, videoCount: allVideoUrls.length, creditConsumed: actualCredit, costInYuan: costInYuan > 0 ? costInYuan : null }
+                  )
+                  
+                  // 更新所有相关记录的 actual_credit（平均分配）
+                  const creditPerVideo = Math.ceil(actualCredit / allVideoUrls.length)
+                  await db.query(
+                    `UPDATE first_last_frame_videos 
+                     SET actual_credit = $1 
+                     WHERE task_id = $2 OR task_id LIKE $3`,
+                    [creditPerVideo, taskId, `${taskId}_%`]
+                  )
+                  
+                  console.log(`✅ 已记录积分消耗: ${actualCredit} 积分 (模型: ${model}, 分辨率: ${resolution}, 时长: ${duration}秒, 视频数: ${allVideoUrls.length}, 实际成本: ${costInYuan > 0 ? costInYuan.toFixed(4) + '元' : '未知'})`)
+                }
+              } else {
+                console.log(`ℹ️ 超级管理员 ${username} 使用模型，跳过积分和费用统计`)
+              }
+            } catch (creditError) {
+              console.error('记录积分消耗失败（不影响主流程）:', creditError)
             }
-            
-            await db.query(
-              `INSERT INTO files (project_id, file_type, file_name, cos_key, cos_url, metadata)
-               VALUES ($1, 'video', $2, $3, $4, $5)
-               ON CONFLICT DO NOTHING`,
-              [
-                projectId,
-                `first_last_frame_${timestamp}.mp4`,
-                cosKey,
-                uploadResult.url,
-                JSON.stringify(metadata)
-              ]
-            )
-            
-            // 同时保存到 first_last_frame_videos 表
-            const { calculateVideoGenerationCredit: calcCredit } = await import('./services/creditService.js')
-            const estimatedCredit = calcCredit(
-              req.query.model || req.body.model || 'volcengine-video-3.0-pro', 
-              req.body.resolution || '720p', 
-              parseInt(req.body.duration) || 5
-            )
-            
-            await db.query(
-              `INSERT INTO first_last_frame_videos 
-               (user_id, project_id, task_id, video_url, cos_key, first_frame_url, last_frame_url, 
-                model, resolution, ratio, duration, prompt, text, status, shot_id, estimated_credit, actual_credit)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
-               ON CONFLICT (task_id) DO UPDATE SET
-                 video_url = EXCLUDED.video_url,
-                 cos_key = EXCLUDED.cos_key,
-                 status = EXCLUDED.status,
-                 shot_id = EXCLUDED.shot_id,
-                 updated_at = CURRENT_TIMESTAMP`,
-              [
-                userId,
-                projectId,
-                taskId,
-                uploadResult.url,
-                cosKey,
-                firstFrameUrl,
-                lastFrameUrl,
-                req.query.model || req.body.model || 'volcengine-video-3.0-pro',
-                req.body.resolution || '720p',
-                req.body.ratio || '16:9',
-                parseInt(req.body.duration) || 5,
-                req.body.text || '',
-                req.body.text || '',
-                'completed',
-                shotId,
-                estimatedCredit,
-                actualCredit
-              ]
-            )
             
             // 计算并记录积分消耗（超级管理员不记录）
             let actualCredit = null
@@ -1279,15 +1352,15 @@ app.get('/api/projects/:projectId/first-last-frame-videos', authenticateToken, a
       })
     }
     
-    // 从 first_last_frame_videos 表获取所有首尾帧视频
+    // 从 first_last_frame_videos 表获取所有首尾帧视频（包括所有状态：pending, processing, completed, failed）
     const videosResult = await db.query(
       `SELECT id, task_id, video_url, first_frame_url, last_frame_url, 
               model, resolution, ratio, duration, prompt, text, status, 
-              shot_id, estimated_credit, actual_credit, created_at, updated_at
+              shot_id, estimated_credit, actual_credit, error_message, created_at, updated_at
        FROM first_last_frame_videos
        WHERE project_id = $1 AND user_id = $2
        ORDER BY created_at DESC
-       LIMIT 100`,
+       LIMIT 200`,
       [projectId, userId]
     )
     
@@ -1319,8 +1392,8 @@ app.get('/api/projects/:projectId/first-last-frame-videos', authenticateToken, a
       return {
         id: video.id.toString(),
         taskId: video.task_id,
-        videoUrl: video.video_url,
-        status: video.status || 'completed',
+        videoUrl: video.video_url || null, // 允许为空（pending/processing状态时可能还没有视频URL）
+        status: video.status || 'pending',
         firstFrameUrl: video.first_frame_url || null,
         lastFrameUrl: video.last_frame_url || null,
         model: video.model || 'volcengine-video-3.0-pro',
@@ -1331,6 +1404,7 @@ app.get('/api/projects/:projectId/first-last-frame-videos', authenticateToken, a
         estimatedCredit: video.estimated_credit || null,
         actualCredit: video.actual_credit || null,
         shotId: video.shot_id || null,
+        errorMessage: video.error_message || null,
         createdAt: video.created_at,
         updatedAt: video.updated_at,
         isLiked: likedTaskIds.has(video.task_id),
