@@ -432,7 +432,10 @@ function Community() {
                     </div>
                   ))}
                 </div>
-                <button className="w-full mt-4 text-sm text-orange-500 hover:text-orange-600 text-center">
+                <button
+                  onClick={() => navigate(`/community/ranking/${activeRankingType}`)}
+                  className="w-full mt-4 text-sm text-orange-500 hover:text-orange-600 text-center transition-colors"
+                >
                   查看完整热搜榜单 &gt;
                 </button>
               </div>

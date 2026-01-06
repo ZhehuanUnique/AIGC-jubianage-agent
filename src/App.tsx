@@ -28,6 +28,7 @@ import PaymentServiceAgreement from './pages/PaymentServiceAgreement'
 import WorksShowcase from './pages/WorksShowcase'
 import CommunityVideoDetail from './pages/CommunityVideoDetail'
 import Community from './pages/Community'
+import RankingDetail from './pages/RankingDetail'
 import UserAgreement from './pages/UserAgreement'
 import PrivacyPolicy from './pages/PrivacyPolicy'
 import { useAlert } from './hooks/useAlert.tsx'
@@ -269,6 +270,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Community />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/community/ranking/:type?"
+          element={
+            <ProtectedRoute>
+              <RankingDetail />
             </ProtectedRoute>
           }
         />
