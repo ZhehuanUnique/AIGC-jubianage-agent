@@ -355,7 +355,7 @@ body {
 .uiverse-words {
   overflow: hidden;
   position: relative;
-  height: 40px;
+  height: 72px;
   display: flex;
   flex-direction: column;
 }
