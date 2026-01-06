@@ -1,11 +1,10 @@
 import { useNavigate, useLocation } from 'react-router-dom'
-import { ArrowLeft, Settings } from 'lucide-react'
+import { Settings } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import SettingsModal from './SettingsModal'
 import { AuthService } from '../services/auth'
 
 interface NavigationBarProps {
-  showBackButton?: boolean
   activeTab?: 'home' | 'project' | 'works' | 'guide' | 'recharge'
 }
 
@@ -26,7 +25,7 @@ function SettingsButton() {
   )
 }
 
-function NavigationBar({ showBackButton = false, activeTab = 'home' }: NavigationBarProps) {
+function NavigationBar({ activeTab = 'home' }: NavigationBarProps) {
   const navigate = useNavigate()
   const location = useLocation()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -250,15 +249,6 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
     <div className={`w-full ${activeTab === 'home' ? 'bg-transparent border-transparent absolute top-0 left-0 z-20' : 'bg-white border-b border-gray-200'} px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between`}>
       {/* 左侧 */}
       <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
-        {showBackButton && (
-          <button
-            onClick={handleBack}
-            className="px-2.5 sm:px-3 py-1.5 sm:py-2 bg-purple-600 text-white rounded-lg active:bg-purple-700 sm:hover:bg-purple-700 flex items-center gap-1.5 sm:gap-2 touch-manipulation text-sm sm:text-base"
-          >
-            <ArrowLeft size={16} className="sm:w-[18px] sm:h-[18px]" />
-            <span className="hidden sm:inline">返回</span>
-          </button>
-        )}
         <img 
           src="/logo.png" 
           alt="Logo" 

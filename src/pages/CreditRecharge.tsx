@@ -31,7 +31,7 @@ function CreditRecharge() {
 
   return (
     <div className="min-h-screen bg-white text-gray-900">
-      <NavigationBar showBackButton={true} activeTab="recharge" />
+      <NavigationBar activeTab="recharge" />
       
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* 标题和副标题 */}
