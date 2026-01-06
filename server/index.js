@@ -910,9 +910,9 @@ app.post('/api/first-last-frame-video/generate', authenticateToken, uploadImage.
       
       await db.query(
         `INSERT INTO first_last_frame_videos 
-         (user_id, project_id, task_id, first_frame_url, last_frame_url, 
+         (user_id, project_id, task_id, video_url, cos_key, first_frame_url, last_frame_url, 
           model, resolution, ratio, duration, prompt, text, status, estimated_credit)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
          ON CONFLICT (task_id) DO UPDATE SET
            status = EXCLUDED.status,
            updated_at = CURRENT_TIMESTAMP`,
@@ -920,6 +920,8 @@ app.post('/api/first-last-frame-video/generate', authenticateToken, uploadImage.
           userId,
           projectId,
           result.taskId,
+          '', // video_url 初始为空字符串（pending状态时还没有视频）
+          '', // cos_key 初始为空字符串
           firstFrameUrl,
           lastFrameUrl || null,
           model,
@@ -1240,62 +1242,6 @@ app.get('/api/first-last-frame-video/status/:taskId', authenticateToken, async (
                   
                   console.log(`✅ 已记录积分消耗: ${actualCredit} 积分 (模型: ${model}, 分辨率: ${resolution}, 时长: ${duration}秒, 视频数: ${allVideoUrls.length}, 实际成本: ${costInYuan > 0 ? costInYuan.toFixed(4) + '元' : '未知'})`)
                 }
-              } else {
-                console.log(`ℹ️ 超级管理员 ${username} 使用模型，跳过积分和费用统计`)
-              }
-            } catch (creditError) {
-              console.error('记录积分消耗失败（不影响主流程）:', creditError)
-            }
-            
-            // 计算并记录积分消耗（超级管理员不记录）
-            let actualCredit = null
-            try {
-              // 检查是否为超级管理员
-              const userResult = await db.query('SELECT username FROM users WHERE id = $1', [userId])
-              const username = userResult.rows[0]?.username || 'unknown'
-              const isSuperAdmin = username === 'Chiefavefan'
-              
-              // 超级管理员不记录积分和费用
-              if (!isSuperAdmin) {
-                const { calculateVideoGenerationCredit, calculateVolcengineCost } = await import('./services/creditService.js')
-                const { logOperation } = await import('./services/authService.js')
-              
-              const model = req.query.model || req.body.model || 'volcengine-video-3.0-pro'
-              const resolution = req.body.resolution || metadata.resolution || '720p'
-              const duration = parseInt(req.body.duration) || metadata.duration || 5
-              
-              // 计算实际成本（元）
-              let costInYuan = 0
-              if (model === 'volcengine-video-3.0-pro' || model === 'doubao-seedance-3.0-pro') {
-                costInYuan = calculateVolcengineCost(resolution, duration)
-              }
-              
-              // 计算积分消耗
-              actualCredit = calculateVideoGenerationCredit(model, resolution, duration, costInYuan > 0 ? costInYuan : null)
-              
-              if (actualCredit > 0) {
-                // 记录积分消耗到操作日志，同时保存真实成本到metadata
-                await logOperation(
-                  userId,
-                  username,
-                  'video_generation',
-                  '首尾帧视频生成',
-                  'video',
-                  taskId,
-                  actualCredit,
-                  'success',
-                  null,
-                  { model, resolution, duration, creditConsumed: actualCredit, costInYuan: costInYuan > 0 ? costInYuan : null }
-                )
-                
-                // 更新 first_last_frame_videos 表的 actual_credit
-                await db.query(
-                  'UPDATE first_last_frame_videos SET actual_credit = $1 WHERE task_id = $2',
-                  [actualCredit, taskId]
-                )
-                
-                console.log(`✅ 已记录积分消耗: ${actualCredit} 积分 (模型: ${model}, 分辨率: ${resolution}, 时长: ${duration}秒, 实际成本: ${costInYuan > 0 ? costInYuan.toFixed(4) + '元' : '未知'})`)
-              }
               } else {
                 console.log(`ℹ️ 超级管理员 ${username} 使用模型，跳过积分和费用统计`)
               }
