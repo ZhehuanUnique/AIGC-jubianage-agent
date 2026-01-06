@@ -78,19 +78,23 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  min-height: 4.5rem;
+  overflow: visible;
 }
 
 .glitch-text {
   position: relative;
   font-size: 3rem;
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 1.4;
   color: #fff;
   letter-spacing: 5px;
   z-index: 1;
   animation: shift 1s ease-in-out infinite alternate;
   text-align: center;
   white-space: nowrap;
+  padding: 0.5rem 0;
+  overflow: visible;
 }
 
 .glitch-text:before,
@@ -98,11 +102,13 @@ body {
   display: block;
   content: attr(data-glitch);
   position: absolute;
-  top: 0;
+  top: 0.5rem;
   left: 0;
   opacity: 0.8;
   width: 100%;
   text-align: center;
+  line-height: 1.4;
+  padding: 0;
 }
 
 .glitch-text:before {
