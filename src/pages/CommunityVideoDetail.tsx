@@ -45,8 +45,12 @@ function CommunityVideoDetail() {
       
       // 为没有缩略图的相关视频尝试提取首帧（如果提取失败，会显示占位符）
       filteredRelated.forEach((relatedVideo) => {
-        // 优先使用数据库中的 thumbnailUrl，如果没有再尝试提取
-        if (!relatedVideo.thumbnailUrl && relatedVideo.videoUrl) {
+        // 优先使用数据库中的 thumbnailUrl，如果没有或为空字符串再尝试提取
+        const hasValidThumbnail = relatedVideo.thumbnailUrl && 
+          relatedVideo.thumbnailUrl.trim() !== '' && 
+          relatedVideo.thumbnailUrl !== 'null' &&
+          !relatedVideo.thumbnailUrl.startsWith('data:')
+        if (!hasValidThumbnail && relatedVideo.videoUrl) {
           extractVideoThumbnail(relatedVideo.id, relatedVideo.videoUrl)
         }
       })
@@ -472,21 +476,40 @@ function CommunityVideoDetail() {
                   className="flex gap-3 cursor-pointer hover:bg-gray-200 p-2 rounded-lg transition-colors"
                 >
                   <div className="relative w-24 h-32 bg-gray-300 rounded overflow-hidden flex-shrink-0">
-                    {relatedVideo.thumbnailUrl ? (
+                    {relatedVideo.thumbnailUrl && relatedVideo.thumbnailUrl.trim() !== '' ? (
                       <img
                         src={relatedVideo.thumbnailUrl}
                         alt={relatedVideo.title}
                         className="w-full h-full object-cover"
+                        onError={(e) => {
+                          // 如果数据库中的缩略图加载失败，尝试提取视频首帧
+                          const target = e.currentTarget
+                          target.style.display = 'none'
+                          if (relatedVideo.videoUrl && !relatedVideoThumbnails.get(relatedVideo.id)) {
+                            extractVideoThumbnail(relatedVideo.id, relatedVideo.videoUrl)
+                          }
+                        }}
                       />
                     ) : relatedVideoThumbnails.get(relatedVideo.id) ? (
                       <img
                         src={relatedVideoThumbnails.get(relatedVideo.id)!}
                         alt={relatedVideo.title}
                         className="w-full h-full object-cover"
+                        onError={(e) => {
+                          // 如果提取的缩略图也加载失败，显示占位符
+                          e.currentTarget.style.display = 'none'
+                        }}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
-                        <Play className="w-8 h-8 text-gray-400" />
+                        {relatedVideo.videoUrl && !relatedVideoThumbnails.get(relatedVideo.id) ? (
+                          // 如果还没有尝试提取，显示加载状态
+                          <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                            <div className="w-6 h-6 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                          </div>
+                        ) : (
+                          <Play className="w-8 h-8 text-gray-400" />
+                        )}
                       </div>
                     )}
                   </div>

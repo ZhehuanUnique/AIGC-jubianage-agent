@@ -247,7 +247,7 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
   }
 
   return (
-    <div className={`w-full ${activeTab === 'home' ? 'bg-transparent border-transparent' : 'bg-white border-b border-gray-200'} px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between`}>
+    <div className={`w-full ${activeTab === 'home' ? 'bg-transparent border-transparent absolute top-0 left-0 z-20' : 'bg-white border-b border-gray-200'} px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between`}>
       {/* 左侧 */}
       <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
         {showBackButton && (
@@ -264,39 +264,66 @@ function NavigationBar({ showBackButton = false, activeTab = 'home' }: Navigatio
           alt="Logo" 
           className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover flex-shrink-0"
         />
-        <nav className="hidden md:flex items-center gap-4 lg:gap-6">
-          <button
-            onClick={handleHomeClick}
-            className={`px-3 lg:px-4 py-2 rounded-lg transition-colors text-sm lg:text-base ${
-              (isMobile ? activeTab === 'works' : activeTab === 'home') ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            首页
-          </button>
-          <button
-            onClick={() => navigate('/project-management')}
-            className={`px-3 lg:px-4 py-2 rounded-lg transition-colors text-sm lg:text-base ${
-              activeTab === 'project' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            项目管理
-          </button>
-          <button
-            onClick={() => navigate('/works')}
-            className={`px-3 lg:px-4 py-2 rounded-lg transition-colors text-sm lg:text-base ${
-              activeTab === 'works' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            作品展示
-          </button>
-          <button
-            onClick={() => window.open('https://e60nf37yjb.feishu.cn/wiki/FRwpwbfB1inQbskzC7dcw4HxnuK', '_blank')}
-            className={`px-3 lg:px-4 py-2 rounded-lg transition-colors text-sm lg:text-base ${
-              activeTab === 'guide' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            创作指引
-          </button>
+        <nav className="hidden md:flex items-center">
+          <div className="glass-radio-group">
+            <input 
+              type="radio" 
+              name="nav-plan" 
+              id="glass-home" 
+              checked={(isMobile ? activeTab === 'works' : activeTab === 'home')}
+              readOnly
+            />
+            <label 
+              htmlFor="glass-home"
+              onClick={handleHomeClick}
+            >
+              首页
+            </label>
+
+            <input 
+              type="radio" 
+              name="nav-plan" 
+              id="glass-project" 
+              checked={activeTab === 'project'}
+              readOnly
+            />
+            <label 
+              htmlFor="glass-project"
+              onClick={() => navigate('/project-management')}
+            >
+              项目管理
+            </label>
+
+            <input 
+              type="radio" 
+              name="nav-plan" 
+              id="glass-works" 
+              checked={activeTab === 'works'}
+              readOnly
+            />
+            <label 
+              htmlFor="glass-works"
+              onClick={() => navigate('/works')}
+            >
+              作品展示
+            </label>
+
+            <input 
+              type="radio" 
+              name="nav-plan" 
+              id="glass-guide" 
+              checked={activeTab === 'guide'}
+              readOnly
+            />
+            <label 
+              htmlFor="glass-guide"
+              onClick={() => window.open('https://e60nf37yjb.feishu.cn/wiki/FRwpwbfB1inQbskzC7dcw4HxnuK', '_blank')}
+            >
+              创作指引
+            </label>
+
+            <div className="glass-glider"></div>
+          </div>
         </nav>
       </div>
 
