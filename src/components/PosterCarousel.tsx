@@ -88,7 +88,19 @@ function PosterCarousel({ posterFolder }: PosterCarouselProps) {
 
   // 自动滚动动画（流畅的连续滚动）
   useEffect(() => {
-    if (!containerRef.current || posters.length === 0) return
+    if (!containerRef.current || posters.length === 0) {
+      console.log('海报轮播：等待容器或海报加载', { 
+        hasContainer: !!containerRef.current, 
+        postersCount: posters.length 
+      })
+      return
+    }
+
+    console.log('海报轮播：启动自动滚动动画', { 
+      postersCount: posters.length,
+      scrollSpeed,
+      isDragging 
+    })
 
     const animate = (timestamp: number) => {
       if (containerRef.current && !isDragging) {
@@ -96,7 +108,8 @@ function PosterCarousel({ posterFolder }: PosterCarouselProps) {
         if (deltaTime >= 0) {
           // 使用时间差来计算滚动距离，确保流畅
           const scrollDelta = (scrollSpeed * baseScrollSpeed * deltaTime) / 16
-          containerRef.current.scrollLeft += scrollDelta
+          const currentScroll = containerRef.current.scrollLeft
+          containerRef.current.scrollLeft = currentScroll + scrollDelta
           lastScrollTimeRef.current = timestamp
         }
       }
@@ -203,11 +216,13 @@ function PosterCarousel({ posterFolder }: PosterCarouselProps) {
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
-        className="flex overflow-x-hidden gap-4 cursor-grab active:cursor-grabbing"
+        className="flex overflow-x-scroll gap-4 cursor-grab active:cursor-grabbing"
         style={{
           scrollBehavior: 'auto',
           WebkitOverflowScrolling: 'touch',
           willChange: 'scroll-position', // 优化滚动性能
+          overflowX: 'scroll', // 确保可以滚动
+          overflowY: 'hidden',
         }}
       >
       {/* 复制海报列表以实现无缝循环（3组） */}
