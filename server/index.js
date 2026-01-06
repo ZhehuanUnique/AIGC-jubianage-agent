@@ -1067,6 +1067,11 @@ app.get('/api/first-last-frame-video/status/:taskId', authenticateToken, async (
             let shotId = null
             let isFirstVideo = true
             
+            // 对于豆包Seedance 1.5 Pro，如果返回多个视频，只保存第一个到主显示区域（关联shot和files表）
+            // 其他视频只保存到历史记录（first_last_frame_videos表），不关联shot，也不保存到files表
+            const isDoubaoSeedance15Pro = model === 'doubao-seedance-1-5-pro-251215'
+            const shouldSaveToMainDisplay = isFirstVideo || !isDoubaoSeedance15Pro
+            
             // 处理所有视频
             for (const videoUrl of allVideoUrls) {
               // 下载视频
@@ -1083,10 +1088,10 @@ app.get('/api/first-last-frame-video/status/:taskId', authenticateToken, async (
               const cosKey = `projects/${projectId}/videos/first_last_frame_${timestamp}.mp4`
               const uploadResult = await uploadBuffer(videoBuffer, cosKey, 'video/mp4')
 
-              console.log(`✅ 视频已保存到项目文件夹: ${uploadResult.url} (${isFirstVideo ? '第一个视频，将创建shot' : '额外视频'})`)
+              console.log(`✅ 视频已保存到项目文件夹: ${uploadResult.url} (${shouldSaveToMainDisplay ? '主显示区域，将创建shot' : '仅历史记录'})`)
 
-              // 只为第一个视频创建shot
-              if (isFirstVideo) {
+              // 只为第一个视频创建shot（或非豆包Seedance 1.5 Pro的所有视频）
+              if (shouldSaveToMainDisplay && isFirstVideo) {
                 try {
                   // 获取下一个shot_number
                   const maxShotResult = await db.query(
@@ -1119,38 +1124,40 @@ app.get('/api/first-last-frame-video/status/:taskId', authenticateToken, async (
                 }
               }
               
-              // 保存到 files 表（只有第一个视频关联shot）
-              const metadata = {
-                task_id: taskId,
-                source: 'first_last_frame_video',
-                model: model,
-                resolution: resolution,
-                ratio: ratio,
-                duration: duration,
-                text: text,
-                prompt: text,
-                first_frame_url: firstFrameUrl,
-                last_frame_url: lastFrameUrl,
-                video_index: isFirstVideo ? 0 : allVideoUrls.indexOf(videoUrl), // 记录视频索引
+              // 只保存到 files 表（主显示区域）：第一个视频，或非豆包Seedance 1.5 Pro的所有视频
+              if (shouldSaveToMainDisplay) {
+                const metadata = {
+                  task_id: taskId,
+                  source: 'first_last_frame_video',
+                  model: model,
+                  resolution: resolution,
+                  ratio: ratio,
+                  duration: duration,
+                  text: text,
+                  prompt: text,
+                  first_frame_url: firstFrameUrl,
+                  last_frame_url: lastFrameUrl,
+                  video_index: isFirstVideo ? 0 : allVideoUrls.indexOf(videoUrl), // 记录视频索引
+                }
+                
+                // 只有第一个视频关联shot_id
+                if (shotId && isFirstVideo) {
+                  metadata.shot_id = shotId.toString()
+                }
+                
+                await db.query(
+                  `INSERT INTO files (project_id, file_type, file_name, cos_key, cos_url, metadata)
+                   VALUES ($1, 'video', $2, $3, $4, $5)
+                   ON CONFLICT DO NOTHING`,
+                  [
+                    projectId,
+                    `first_last_frame_${timestamp}.mp4`,
+                    cosKey,
+                    uploadResult.url,
+                    JSON.stringify(metadata)
+                  ]
+                )
               }
-              
-              // 只有第一个视频关联shot_id
-              if (shotId && isFirstVideo) {
-                metadata.shot_id = shotId.toString()
-              }
-              
-              await db.query(
-                `INSERT INTO files (project_id, file_type, file_name, cos_key, cos_url, metadata)
-                 VALUES ($1, 'video', $2, $3, $4, $5)
-                 ON CONFLICT DO NOTHING`,
-                [
-                  projectId,
-                  `first_last_frame_${timestamp}.mp4`,
-                  cosKey,
-                  uploadResult.url,
-                  JSON.stringify(metadata)
-                ]
-              )
               
               // 为每个视频创建独立的历史记录（使用唯一的task_id）
               // 第一个视频使用原始task_id，其他视频使用 task_id + '_' + index
@@ -1161,6 +1168,7 @@ app.get('/api/first-last-frame-video/status/:taskId', authenticateToken, async (
               const estimatedCredit = calcCredit(model, resolution, duration)
               
               // 保存到 first_last_frame_videos 表（每个视频一条记录）
+              // 对于豆包Seedance 1.5 Pro的额外视频，不关联shot_id
               await db.query(
                 `INSERT INTO first_last_frame_videos 
                  (user_id, project_id, task_id, video_url, cos_key, first_frame_url, last_frame_url, 
@@ -1187,7 +1195,7 @@ app.get('/api/first-last-frame-video/status/:taskId', authenticateToken, async (
                   text,
                   text,
                   'completed',
-                  isFirstVideo ? shotId : null, // 只有第一个视频关联shot
+                  shouldSaveToMainDisplay && isFirstVideo ? shotId : null, // 只有主显示区域的第一个视频关联shot
                   estimatedCredit,
                   null // actual_credit 稍后计算
                 ]

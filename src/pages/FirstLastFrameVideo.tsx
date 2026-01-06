@@ -576,6 +576,14 @@ function FirstLastFrameVideo() {
           return updated
         })
         
+        // 立即滚动到历史记录区域（优化用户体验）
+        setTimeout(() => {
+          const historySection = document.querySelector('[class*="pb-[600px]"]') || document.querySelector('.max-w-7xl')
+          if (historySection) {
+            historySection.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          }
+        }, 100)
+        
         // 清空输入
         setPrompt('')
         setFirstFrameFile(null)
@@ -1226,10 +1234,26 @@ function FirstLastFrameVideo() {
                                   {/* 顶部控制栏 */}
                                   <div className="absolute top-2 right-2 flex items-center gap-2 z-20">
                                     <button
-                                      onClick={(e) => {
+                                      onClick={async (e) => {
                                         e.stopPropagation()
                                         // 上传到社区
-                                        alertSuccess('上传到社区功能开发中', '提示')
+                                        if (!task.videoUrl) {
+                                          alertError('视频尚未生成完成', '无法上传')
+                                          return
+                                        }
+                                        try {
+                                          const { publishVideoToCommunity } = await import('../services/api')
+                                          await publishVideoToCommunity({
+                                            videoUrl: task.videoUrl,
+                                            title: task.text || `首尾帧视频 ${task.id}`,
+                                            description: `使用${task.model}模型生成，分辨率${task.resolution}，时长${task.duration}秒`,
+                                            projectId: projectId ? parseInt(projectId) : undefined,
+                                          })
+                                          alertSuccess('视频已发布到社区', '上传成功')
+                                        } catch (error) {
+                                          console.error('上传到社区失败:', error)
+                                          alertError(error instanceof Error ? error.message : '上传到社区失败，请稍后重试', '上传失败')
+                                        }
                                       }}
                                       className="p-2 bg-black bg-opacity-60 hover:bg-opacity-80 text-white rounded-lg transition-all"
                                       title="上传到社区"
@@ -1239,13 +1263,12 @@ function FirstLastFrameVideo() {
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation()
-                                        // 下载视频
+                                        // 下载视频（静默下载，不显示提示）
                                         if (task.videoUrl) {
                                           const link = document.createElement('a')
                                           link.href = task.videoUrl
                                           link.download = `video_${task.id}.mp4`
                                           link.click()
-                                          alertSuccess('视频下载已开始', '下载成功')
                                         }
                                       }}
                                       className="p-2 bg-black bg-opacity-60 hover:bg-opacity-80 text-white rounded-lg transition-all"
@@ -1267,22 +1290,17 @@ function FirstLastFrameVideo() {
                                       {showMenuForVideo === task.id && (
                                         <div className="absolute top-full right-0 mt-2 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-30">
                                           <button
-                                            onClick={async (e) => {
+                                            onClick={(e) => {
                                               e.stopPropagation()
-                                              try {
-                                                const result = await toggleFirstLastFrameVideoFavorite(task.id)
-                                                // 更新任务状态
-                                                setAllTasks(prev => prev.map(t => 
-                                                  t.id === task.id ? { ...t, isFavorited: result.isFavorited } : t
-                                                ))
-                                                setTasks(prev => prev.map(t => 
-                                                  t.id === task.id ? { ...t, isFavorited: result.isFavorited } : t
-                                                ))
-                                                setShowMenuForVideo(null)
-                                              } catch (error) {
-                                                console.error('收藏失败:', error)
-                                                alertError(error instanceof Error ? error.message : '收藏失败，请稍后重试', '操作失败')
-                                              }
+                                              // 仅前端状态切换，用于筛选（不调用API）
+                                              const newFavorited = !task.isFavorited
+                                              setAllTasks(prev => prev.map(t => 
+                                                t.id === task.id ? { ...t, isFavorited: newFavorited } : t
+                                              ))
+                                              setTasks(prev => prev.map(t => 
+                                                t.id === task.id ? { ...t, isFavorited: newFavorited } : t
+                                              ))
+                                              setShowMenuForVideo(null)
                                             }}
                                             className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                                           >
@@ -1293,21 +1311,16 @@ function FirstLastFrameVideo() {
                                       )}
                                     </div>
                                     <button
-                                      onClick={async (e) => {
+                                      onClick={(e) => {
                                         e.stopPropagation()
-                                        try {
-                                          const result = await toggleFirstLastFrameVideoLike(task.id)
-                                          // 更新任务状态
-                                          setAllTasks(prev => prev.map(t => 
-                                            t.id === task.id ? { ...t, isLiked: result.isLiked } : t
-                                          ))
-                                          setTasks(prev => prev.map(t => 
-                                            t.id === task.id ? { ...t, isLiked: result.isLiked } : t
-                                          ))
-                                        } catch (error) {
-                                          console.error('点赞失败:', error)
-                                          alertError(error instanceof Error ? error.message : '点赞失败，请稍后重试', '操作失败')
-                                        }
+                                        // 仅前端状态切换，用于筛选（不调用API）
+                                        const newLiked = !task.isLiked
+                                        setAllTasks(prev => prev.map(t => 
+                                          t.id === task.id ? { ...t, isLiked: newLiked } : t
+                                        ))
+                                        setTasks(prev => prev.map(t => 
+                                          t.id === task.id ? { ...t, isLiked: newLiked } : t
+                                        ))
                                       }}
                                       className={`p-2 bg-black bg-opacity-60 hover:bg-opacity-80 text-white rounded-lg transition-all ${
                                         task.isLiked ? 'bg-red-500 bg-opacity-80' : ''
