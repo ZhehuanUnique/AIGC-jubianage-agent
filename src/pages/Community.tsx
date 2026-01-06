@@ -13,13 +13,13 @@ const leftMenuItems = [
   { id: 'trending', label: '剧变热榜', icon: TrendingUp },
 ]
 
-// 热搜子分类
-const trendingSubCategories = [
-  { id: 'my', label: '我的' },
-  { id: 'hot', label: '热搜' },
-  { id: 'entertainment', label: '文娱' },
-  { id: 'life', label: '生活' },
-  { id: 'society', label: '社会' },
+// 榜单类型
+const rankingTypes = [
+  { id: 'anime', label: '动态漫榜' },
+  { id: 'ai-real', label: 'AI真人榜' },
+  { id: 'short-drama', label: '短剧榜' },
+  { id: 'trending', label: '热搜榜' },
+  { id: 'popular', label: '热门榜' },
 ]
 
 // 热搜榜单数据（示例）
@@ -47,7 +47,7 @@ function Community() {
   const limit = 20
   const [currentUser, setCurrentUser] = useState<{ username: string; displayName: string } | null>(null)
   const [activeLeftMenu, setActiveLeftMenu] = useState('hot')
-  const [activeTrendingSub, setActiveTrendingSub] = useState('my')
+  const [activeRankingType, setActiveRankingType] = useState('anime')
 
   useEffect(() => {
     const user = AuthService.getCurrentUser()
@@ -390,7 +390,7 @@ function Community() {
                         {item.rank}
                       </span>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-sm text-gray-900 truncate">{item.keyword}</span>
                           {item.tag && (
                             <span className={`text-xs px-1.5 py-0.5 rounded ${
@@ -398,6 +398,13 @@ function Community() {
                             }`}>
                               {item.tag}
                             </span>
+                          )}
+                          {/* 可以添加热度数据或时间戳 */}
+                          {index === 0 && (
+                            <span className="text-xs text-gray-500">60610</span>
+                          )}
+                          {index === 3 && (
+                            <span className="text-xs text-gray-500">287004</span>
                           )}
                         </div>
                       </div>
