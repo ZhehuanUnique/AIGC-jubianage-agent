@@ -1611,13 +1611,25 @@ function FirstLastFrameVideo() {
                     } : undefined}
                   >
                     {firstFramePreview ? (
-                      <img
-                        src={firstFramePreview}
-                        alt="首帧"
-                        className={`absolute inset-0 w-full h-full rounded-xl ${
-                          frameAspectRatio === 'other' ? 'object-cover object-top' : 'object-cover'
-                        }`}
-                      />
+                      <div className="relative w-full h-full group">
+                        <img
+                          src={firstFramePreview}
+                          alt="首帧"
+                          className={`absolute inset-0 w-full h-full rounded-xl ${
+                            frameAspectRatio === 'other' ? 'object-cover object-top' : 'object-cover'
+                          }`}
+                        />
+                        {/* 预览按钮 - 鼠标悬停时显示 */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setPreviewImage({ url: firstFramePreview, type: 'first' })
+                          }}
+                          className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 z-10 rounded-xl"
+                        >
+                          <Eye className="text-white" size={24} />
+                        </button>
+                      </div>
                     ) : (
                       <div className="flex flex-col items-center justify-center z-10">
                         <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center mb-1">
@@ -1700,13 +1712,25 @@ function FirstLastFrameVideo() {
                       } : undefined}
                     >
                       {lastFramePreview ? (
-                        <img
-                          src={lastFramePreview}
-                          alt="尾帧"
-                          className={`absolute inset-0 w-full h-full rounded-xl ${
-                            frameAspectRatio === 'other' ? 'object-cover object-top' : 'object-cover'
-                          }`}
-                        />
+                        <div className="relative w-full h-full group">
+                          <img
+                            src={lastFramePreview}
+                            alt="尾帧"
+                            className={`absolute inset-0 w-full h-full rounded-xl ${
+                              frameAspectRatio === 'other' ? 'object-cover object-top' : 'object-cover'
+                            }`}
+                          />
+                          {/* 预览按钮 - 鼠标悬停时显示 */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setPreviewImage({ url: lastFramePreview, type: 'last' })
+                            }}
+                            className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 z-10 rounded-xl"
+                          >
+                            <Eye className="text-white" size={24} />
+                          </button>
+                        </div>
                       ) : (
                         <div className="flex flex-col items-center justify-center z-10">
                           <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center mb-1">
@@ -1921,6 +1945,55 @@ function FirstLastFrameVideo() {
         }}
         message="确定要删除这个视频吗？"
       />
+
+      {/* 图片预览模态框 */}
+      {previewImage && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center" 
+          onClick={() => setPreviewImage(null)}
+        >
+          <div
+            className="relative flex items-center justify-center max-w-7xl max-h-[90vh] mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* 关闭按钮 - 左上角 */}
+            <button
+              onClick={() => setPreviewImage(null)}
+              className="absolute top-4 left-4 w-10 h-10 rounded-full bg-pink-500 text-white flex items-center justify-center hover:bg-pink-600 z-10"
+            >
+              <X size={20} />
+            </button>
+
+            {/* 图片容器 - 居中 */}
+            <div className="relative max-w-full max-h-[90vh] flex items-center justify-center">
+              <img
+                src={previewImage.url}
+                alt={previewImage.type === 'first' ? '首帧' : '尾帧'}
+                className="max-w-full max-h-[90vh] object-contain rounded-lg"
+              />
+              
+              {/* 删除按钮 - 右下角 */}
+              <div className="absolute bottom-0 right-0 flex gap-2 z-10 m-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    if (previewImage.type === 'first') {
+                      clearFirstFrame()
+                    } else {
+                      clearLastFrame()
+                    }
+                    setPreviewImage(null)
+                  }}
+                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 flex items-center gap-2 shadow-lg"
+                >
+                  <Trash2 size={16} />
+                  删除{previewImage.type === 'first' ? '首帧' : '尾帧'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
