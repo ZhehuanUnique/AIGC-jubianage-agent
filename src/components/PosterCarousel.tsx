@@ -103,7 +103,12 @@ function PosterCarousel({ posterFolder }: PosterCarouselProps) {
     })
 
     const animate = (timestamp: number) => {
-      if (containerRef.current && !isDragging) {
+      if (!containerRef.current) {
+        animationRef.current = requestAnimationFrame(animate)
+        return
+      }
+      
+      if (!isDragging) {
         const deltaTime = timestamp - lastScrollTimeRef.current
         if (deltaTime >= 0) {
           // 使用时间差来计算滚动距离，确保流畅
@@ -113,6 +118,7 @@ function PosterCarousel({ posterFolder }: PosterCarouselProps) {
           lastScrollTimeRef.current = timestamp
         }
       }
+      // 确保动画持续运行
       animationRef.current = requestAnimationFrame(animate)
     }
 
@@ -129,33 +135,46 @@ function PosterCarousel({ posterFolder }: PosterCarouselProps) {
   // 处理无限循环滚动
   useEffect(() => {
     const container = containerRef.current
-    if (!container) return
+    if (!container || posters.length === 0) return
 
     const handleScroll = () => {
       if (isDragging) return // 拖动时不处理循环
 
       const itemWidth = 200 + 16 // 卡片宽度 + gap（缩小后的尺寸）
-      const totalItems = posters.length * 3 // 3组重复
-      const totalWidth = itemWidth * totalItems
+      const secondGroupStart = itemWidth * posters.length
+      const secondGroupEnd = itemWidth * posters.length * 2
 
       // 当滚动到第二组的末尾时，重置到第二组的开头（实现无缝循环）
       if (scrollSpeed < 0) {
         // 从右往左
-        const secondGroupEnd = itemWidth * posters.length * 2
-        if (container.scrollLeft >= secondGroupEnd - container.clientWidth) {
-          container.scrollLeft = itemWidth * posters.length
+        if (container.scrollLeft >= secondGroupEnd - container.clientWidth - 10) {
+          // 添加10px的容差，确保在接近边界时就能重置
+          container.scrollLeft = secondGroupStart
         }
       } else {
         // 从左往右
-        const secondGroupStart = itemWidth * posters.length
-        if (container.scrollLeft <= secondGroupStart) {
-          container.scrollLeft = itemWidth * posters.length * 2 - container.clientWidth
+        if (container.scrollLeft <= secondGroupStart + 10) {
+          // 添加10px的容差，确保在接近边界时就能重置
+          container.scrollLeft = secondGroupEnd - container.clientWidth
         }
       }
     }
 
+    // 使用 requestAnimationFrame 定期检查，而不是依赖 scroll 事件
+    let checkInterval: number
+    const checkLoop = () => {
+      handleScroll()
+      checkInterval = requestAnimationFrame(checkLoop)
+    }
+    checkInterval = requestAnimationFrame(checkLoop)
+
     container.addEventListener('scroll', handleScroll)
-    return () => container.removeEventListener('scroll', handleScroll)
+    return () => {
+      container.removeEventListener('scroll', handleScroll)
+      if (checkInterval) {
+        cancelAnimationFrame(checkInterval)
+      }
+    }
   }, [scrollSpeed, isDragging, posters.length])
 
   // 初始化滚动位置到第二组（中间组）
@@ -269,4 +288,5 @@ function PosterCarousel({ posterFolder }: PosterCarouselProps) {
 }
 
 export default PosterCarousel
+
 

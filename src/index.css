@@ -244,6 +244,7 @@ body {
 /* 6个文本的动画关键帧（5个原始文本 + 1个重复的第一个文本，实现无缝循环） */
 /* 每个文本占 16.66% 的时间（100% / 6），确保无缝过渡 */
 /* 使用 linear 缓动函数确保匀速播放 */
+/* 注意：我们有6个文本（索引0-5），所以最后一个位置是-500%（第6个文本，即重复的第一个） */
 @keyframes spin_words {
   0% {
     -webkit-transform: translateY(0%);
@@ -289,13 +290,10 @@ body {
     -webkit-transform: translateY(-500%);
     transform: translateY(-500%);
   }
-  88.33% {
-    -webkit-transform: translateY(-602%);
-    transform: translateY(-602%);
-  }
   100% {
-    -webkit-transform: translateY(-600%);
-    transform: translateY(-600%);
+    /* 在100%时保持在-500%（显示重复的第一个文本），然后动画重新开始时会无缝跳回0% */
+    -webkit-transform: translateY(-500%);
+    transform: translateY(-500%);
   }
 }
 
