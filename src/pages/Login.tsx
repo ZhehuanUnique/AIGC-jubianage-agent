@@ -106,6 +106,9 @@ function Login({ onLoginSuccess, onClose, isModal = false }: LoginProps) {
                 </div>
               )}
               
+              <a href="#" className="text-blue-400 text-sm transition hover:underline">
+                忘记密码？
+              </a>
               <button
                 type="submit"
                 disabled={loading}
@@ -124,6 +127,30 @@ function Login({ onLoginSuccess, onClose, isModal = false }: LoginProps) {
                 )}
               </button>
             </form>
+            <div className="flex flex-col mt-4 text-sm text-center dark:text-gray-300 text-gray-600">
+              <p>
+                还没有账户？
+                <a href="#" className="text-blue-400 transition hover:underline ml-1">
+                  点击注册
+                </a>
+              </p>
+            </div>
+            <div id="third-party-auth" className="flex justify-center gap-4 mt-5">
+              {/* 第三方登录按钮占位，后续实现 */}
+            </div>
+            <div className="mt-4 text-center text-sm text-gray-500">
+              <p>
+                点击登录，即代表同意
+                <a href="/user-agreement" target="_blank" className="text-blue-400 transition hover:underline mx-1">
+                  《用户协议》
+                </a>
+                和
+                <a href="/privacy-policy" target="_blank" className="text-blue-400 transition hover:underline ml-1">
+                  《隐私政策》
+                </a>
+                。
+              </p>
+            </div>
           </div>
         </section>
       </div>

@@ -27,6 +27,8 @@ import CreditRecharge from './pages/CreditRecharge'
 import PaymentServiceAgreement from './pages/PaymentServiceAgreement'
 import WorksShowcase from './pages/WorksShowcase'
 import CommunityVideoDetail from './pages/CommunityVideoDetail'
+import UserAgreement from './pages/UserAgreement'
+import PrivacyPolicy from './pages/PrivacyPolicy'
 import { useAlert } from './hooks/useAlert.tsx'
 
 // 受保护的路由组件
@@ -260,6 +262,14 @@ function App() {
         <Route
           path="/works/:videoId"
           element={<CommunityVideoDetail />}
+        />
+        <Route
+          path="/user-agreement"
+          element={<UserAgreement />}
+        />
+        <Route
+          path="/privacy-policy"
+          element={<PrivacyPolicy />}
         />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
