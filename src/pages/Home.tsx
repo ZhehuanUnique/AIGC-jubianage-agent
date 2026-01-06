@@ -174,11 +174,11 @@ function Home() {
         
         {/* 主要内容 */}
         <div className="flex-1 flex flex-col items-center justify-end gap-8 px-4 py-8 relative z-10 pb-32">
-          {/* 中央标语和按钮区域 */}
-          <div className="flex flex-col items-center gap-4">
+          {/* 中央标语和按钮区域 - 透明背景，能看到背后视频 */}
+          <div className="flex flex-col items-center gap-4 bg-transparent">
             {/* 标题和"做真人剧"按钮在同一行 */}
-            <div className="flex items-center gap-4">
-              <h1 className="text-5xl md:text-6xl font-bold text-white text-center drop-shadow-lg">
+            <div className="flex items-center gap-4 bg-transparent">
+              <h1 className="text-5xl md:text-6xl font-bold text-white text-center drop-shadow-lg bg-transparent">
                 用剧变时代AI
               </h1>
               <button
@@ -197,8 +197,8 @@ function Home() {
           </div>
         </div>
 
-        {/* 横向滚动海报带容器 - 固定在页面最底部 */}
-        <div className="w-full relative z-10 pb-0">
+        {/* 横向滚动海报带容器 - 固定在页面最底部，再往下移一点 */}
+        <div className="w-full relative z-10 pb-0 -mb-2">
           {/* 横向滚动海报带 - 7:10 */}
           <div className="w-full">
             <PosterCarousel posterFolder="7：10" />
