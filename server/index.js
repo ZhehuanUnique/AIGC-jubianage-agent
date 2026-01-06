@@ -1310,6 +1310,35 @@ app.get('/api/first-last-frame-video/status/:taskId', authenticateToken, async (
       }
     }
 
+    // 更新数据库中的状态（包括pending和processing状态）
+    try {
+      const pool = await import('./db/connection.js')
+      const db = pool.default
+      const { projectId } = req.query
+      
+      if (projectId && taskId) {
+        // 更新状态（不覆盖已完成的记录）
+        await db.query(
+          `UPDATE first_last_frame_videos 
+           SET status = $1, updated_at = CURRENT_TIMESTAMP
+           WHERE task_id = $2 AND status != 'completed'`,
+          [result.status, taskId]
+        )
+        
+        // 如果有错误信息，也更新
+        if (result.errorMessage || (result.status === 'failed' && result.message)) {
+          await db.query(
+            `UPDATE first_last_frame_videos 
+             SET error_message = $1
+             WHERE task_id = $2`,
+            [result.errorMessage || result.message, taskId]
+          )
+        }
+      }
+    } catch (updateError) {
+      console.warn('更新任务状态到数据库失败（不影响主流程）:', updateError)
+    }
+
     res.json({
       success: true,
       data: result,
