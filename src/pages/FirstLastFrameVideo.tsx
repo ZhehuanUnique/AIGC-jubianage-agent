@@ -1495,43 +1495,97 @@ function FirstLastFrameVideo() {
                               {/* 操作按钮 */}
                               <div className="flex items-center gap-2">
                                 <button
-                                  onClick={(e) => {
+                                  onClick={async (e) => {
                                     e.stopPropagation()
                                     // 重新编辑：填充提示词、首帧和尾帧
                                     setPrompt(task.text || '')
-                                    // 如果有首帧URL，需要转换为File对象或直接使用URL
+                                    
+                                    // 如果有首帧URL，加载图片
                                     if (task.firstFrameUrl) {
-                                      // 从URL加载图片并转换为File
-                                      fetch(task.firstFrameUrl)
-                                        .then(res => res.blob())
-                                        .then(blob => {
-                                          const file = new File([blob], 'first-frame.jpg', { type: 'image/jpeg' })
+                                      // 先设置预览，让用户立即看到
+                                      setFirstFramePreview(task.firstFrameUrl)
+                                      
+                                      // 尝试从URL加载图片并转换为File对象
+                                      try {
+                                        // 如果是data URL，直接转换
+                                        if (task.firstFrameUrl.startsWith('data:image/')) {
+                                          const response = await fetch(task.firstFrameUrl)
+                                          const blob = await response.blob()
+                                          const file = new File([blob], 'first-frame.jpg', { type: blob.type || 'image/jpeg' })
                                           setFirstFrameFile(file)
-                                          setFirstFramePreview(task.firstFrameUrl)
-                                        })
-                                        .catch(err => {
-                                          console.error('加载首帧失败:', err)
-                                          setFirstFramePreview(task.firstFrameUrl)
-                                        })
+                                          
+                                          // 检测宽高比
+                                          const aspectRatio = await detectImageAspectRatio(task.firstFrameUrl)
+                                          setFrameAspectRatio(aspectRatio)
+                                          
+                                          // 获取图片尺寸信息
+                                          const img = new Image()
+                                          img.onload = () => {
+                                            setFrameImageInfo({ width: img.width, height: img.height })
+                                          }
+                                          img.src = task.firstFrameUrl
+                                        } else {
+                                          // 如果是HTTP URL，尝试下载（可能遇到CORS问题）
+                                          const response = await fetch(task.firstFrameUrl, { mode: 'cors' })
+                                          if (response.ok) {
+                                            const blob = await response.blob()
+                                            const file = new File([blob], 'first-frame.jpg', { type: blob.type || 'image/jpeg' })
+                                            setFirstFrameFile(file)
+                                            
+                                            // 检测宽高比
+                                            const aspectRatio = await detectImageAspectRatio(task.firstFrameUrl)
+                                            setFrameAspectRatio(aspectRatio)
+                                            
+                                            // 获取图片尺寸信息
+                                            const img = new Image()
+                                            img.onload = () => {
+                                              setFrameImageInfo({ width: img.width, height: img.height })
+                                            }
+                                            img.src = task.firstFrameUrl
+                                          } else {
+                                            console.warn('无法下载首帧图片（可能CORS限制），将使用URL预览')
+                                            // 即使无法下载，也至少显示预览
+                                            // 用户需要重新上传图片才能生成
+                                          }
+                                        }
+                                      } catch (err) {
+                                        console.error('加载首帧失败:', err)
+                                        // 即使失败，也显示预览，用户可以看到图片
+                                        // 但需要重新上传才能生成
+                                      }
                                     }
+                                    
                                     // 如果有尾帧URL
                                     if (task.lastFrameUrl) {
-                                      fetch(task.lastFrameUrl)
-                                        .then(res => res.blob())
-                                        .then(blob => {
-                                          const file = new File([blob], 'last-frame.jpg', { type: 'image/jpeg' })
+                                      // 先设置预览
+                                      setLastFramePreview(task.lastFrameUrl)
+                                      
+                                      try {
+                                        if (task.lastFrameUrl.startsWith('data:image/')) {
+                                          const response = await fetch(task.lastFrameUrl)
+                                          const blob = await response.blob()
+                                          const file = new File([blob], 'last-frame.jpg', { type: blob.type || 'image/jpeg' })
                                           setLastFrameFile(file)
-                                          setLastFramePreview(task.lastFrameUrl!)
-                                        })
-                                        .catch(err => {
-                                          console.error('加载尾帧失败:', err)
-                                          setLastFramePreview(task.lastFrameUrl!)
-                                        })
+                                        } else {
+                                          const response = await fetch(task.lastFrameUrl, { mode: 'cors' })
+                                          if (response.ok) {
+                                            const blob = await response.blob()
+                                            const file = new File([blob], 'last-frame.jpg', { type: blob.type || 'image/jpeg' })
+                                            setLastFrameFile(file)
+                                          } else {
+                                            console.warn('无法下载尾帧图片（可能CORS限制），将使用URL预览')
+                                          }
+                                        }
+                                      } catch (err) {
+                                        console.error('加载尾帧失败:', err)
+                                      }
                                     }
+                                    
                                     // 设置模型和分辨率
                                     setSelectedModel(task.model)
                                     setResolution(task.resolution as '720p' | '1080p')
                                     setDuration(task.duration)
+                                    
                                     // 滚动到底部输入区域
                                     setTimeout(() => {
                                       window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
@@ -1543,9 +1597,104 @@ function FirstLastFrameVideo() {
                                   <span>重新编辑</span>
                                 </button>
                                 <button
-                                  onClick={(e) => {
+                                  onClick={async (e) => {
                                     e.stopPropagation()
-                                    alertSuccess('再次生成功能开发中', '提示')
+                                    // 再次生成：直接使用当前任务的首帧图和提示词生成新视频
+                                    if (!task.firstFrameUrl) {
+                                      alertError('首帧图片不存在，无法再次生成', '错误')
+                                      return
+                                    }
+                                    
+                                    if (!projectId) {
+                                      alertError('项目ID不存在', '错误')
+                                      return
+                                    }
+                                    
+                                    // 准备首帧图片
+                                    let firstFrameFile: File | null = null
+                                    try {
+                                      if (task.firstFrameUrl.startsWith('data:image/')) {
+                                        const response = await fetch(task.firstFrameUrl)
+                                        const blob = await response.blob()
+                                        firstFrameFile = new File([blob], 'first-frame.jpg', { type: blob.type || 'image/jpeg' })
+                                      } else {
+                                        // 尝试下载（可能遇到CORS问题）
+                                        const response = await fetch(task.firstFrameUrl, { mode: 'cors' })
+                                        if (response.ok) {
+                                          const blob = await response.blob()
+                                          firstFrameFile = new File([blob], 'first-frame.jpg', { type: blob.type || 'image/jpeg' })
+                                        } else {
+                                          // 如果无法下载，使用URL直接上传（后端需要支持）
+                                          // 这里我们尝试使用URL
+                                          alertError('无法下载首帧图片，请使用"重新编辑"功能重新上传', '错误')
+                                          return
+                                        }
+                                      }
+                                    } catch (err) {
+                                      console.error('加载首帧图片失败:', err)
+                                      alertError('无法加载首帧图片，请使用"重新编辑"功能重新上传', '错误')
+                                      return
+                                    }
+                                    
+                                    // 准备尾帧图片（如果有）
+                                    let lastFrameFile: File | null = null
+                                    if (task.lastFrameUrl && currentModelSupportsFirstLastFrame) {
+                                      try {
+                                        if (task.lastFrameUrl.startsWith('data:image/')) {
+                                          const response = await fetch(task.lastFrameUrl)
+                                          const blob = await response.blob()
+                                          lastFrameFile = new File([blob], 'last-frame.jpg', { type: blob.type || 'image/jpeg' })
+                                        } else {
+                                          const response = await fetch(task.lastFrameUrl, { mode: 'cors' })
+                                          if (response.ok) {
+                                            const blob = await response.blob()
+                                            lastFrameFile = new File([blob], 'last-frame.jpg', { type: blob.type || 'image/jpeg' })
+                                          }
+                                        }
+                                      } catch (err) {
+                                        console.warn('加载尾帧图片失败，将只使用首帧:', err)
+                                      }
+                                    }
+                                    
+                                    // 开始生成视频
+                                    setIsGenerating(true)
+                                    try {
+                                      const formData = new FormData()
+                                      formData.append('firstFrame', firstFrameFile)
+                                      if (lastFrameFile && currentModelSupportsFirstLastFrame) {
+                                        formData.append('lastFrame', lastFrameFile)
+                                      }
+                                      formData.append('projectId', projectId)
+                                      formData.append('model', task.model)
+                                      formData.append('resolution', task.resolution)
+                                      formData.append('ratio', '16:9')
+                                      formData.append('duration', task.duration.toString())
+                                      if (task.text && task.text.trim()) {
+                                        formData.append('text', task.text.trim())
+                                      }
+                                      
+                                      const result = await generateFirstLastFrameVideo(formData)
+                                      
+                                      if (result.success && result.data?.taskId) {
+                                        // 立即显示生成进度模态框（显示"加速中"）
+                                        setGeneratingTask({
+                                          taskId: result.data.taskId,
+                                          progress: 0,
+                                          status: 'accelerating',
+                                          startTime: Date.now()
+                                        })
+                                        
+                                        // 开始轮询任务状态
+                                        pollTaskStatus(result.data.taskId)
+                                      } else {
+                                        alertError(result.error || '生成视频失败', '错误')
+                                        setIsGenerating(false)
+                                      }
+                                    } catch (error) {
+                                      console.error('再次生成视频失败:', error)
+                                      alertError(error instanceof Error ? error.message : '再次生成视频失败，请稍后重试', '错误')
+                                      setIsGenerating(false)
+                                    }
                                   }}
                                   className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200 transition-colors"
                                 >
