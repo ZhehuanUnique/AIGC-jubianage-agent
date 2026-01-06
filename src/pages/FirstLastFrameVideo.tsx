@@ -841,60 +841,225 @@ function FirstLastFrameVideo() {
                 </span>
               </div>
               {/* 时间筛选 */}
-              <UiverseDropdown
-                label="时间"
-                options={[
-                  { value: 'all', label: '全部' },
-                  { value: 'week', label: '最近一周' },
-                  { value: 'month', label: '最近一个月' },
-                  { value: 'quarter', label: '最近三个月' },
-                ]}
-                selectedValue={timeFilter}
-                onSelect={(value) => {
-                  setTimeFilter(value as 'all' | 'week' | 'month' | 'quarter')
-                  setShowTimeDropdown(false)
-                  setShowVideoDropdown(false)
-                  setShowOperationDropdown(false)
-                }}
-                isActive={timeFilter !== 'all'}
-              />
+              <div className="relative">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setShowTimeDropdown(!showTimeDropdown)
+                    setShowVideoDropdown(false)
+                    setShowOperationDropdown(false)
+                  }}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
+                    timeFilter !== 'all' 
+                      ? 'bg-blue-50 text-blue-600' 
+                      : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  时间
+                  <svg className={`w-4 h-4 transition-transform ${showTimeDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={showTimeDropdown ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7"} />
+                  </svg>
+                </button>
+                {showTimeDropdown && (
+                  <div 
+                    className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50 p-2"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="space-y-2">
+                      <button
+                        onClick={() => {
+                          setTimeFilter('all')
+                          setShowTimeDropdown(false)
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all flex items-center justify-between ${
+                          timeFilter === 'all' ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        全部
+                        {timeFilter === 'all' && (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setTimeFilter('week')
+                          setShowTimeDropdown(false)
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
+                          timeFilter === 'week' ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        最近一周
+                      </button>
+                      <button
+                        onClick={() => {
+                          setTimeFilter('month')
+                          setShowTimeDropdown(false)
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
+                          timeFilter === 'month' ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        最近一个月
+                      </button>
+                      <button
+                        onClick={() => {
+                          setTimeFilter('quarter')
+                          setShowTimeDropdown(false)
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
+                          timeFilter === 'quarter' ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        最近三个月
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
               
               {/* 视频筛选 */}
-              <UiverseDropdown
-                label="视频"
-                options={[
-                  { value: 'all', label: '全部' },
-                  { value: 'group', label: '小组' },
-                  { value: 'personal', label: '个人' },
-                ]}
-                selectedValue={videoFilter}
-                onSelect={(value) => {
-                  setVideoFilter(value as 'all' | 'personal' | 'group')
-                  setShowTimeDropdown(false)
-                  setShowVideoDropdown(false)
-                  setShowOperationDropdown(false)
-                }}
-                isActive={videoFilter !== 'all'}
-              />
+              <div className="relative">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setShowVideoDropdown(!showVideoDropdown)
+                    setShowTimeDropdown(false)
+                    setShowOperationDropdown(false)
+                  }}
+                  className="px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 bg-gray-50 text-gray-700 hover:bg-gray-100"
+                >
+                  视频
+                  <svg className={`w-4 h-4 transition-transform ${showVideoDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {showVideoDropdown && (
+                  <div 
+                    className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50 p-2"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="space-y-2">
+                      <button
+                        onClick={() => {
+                          setVideoFilter('all')
+                          setShowVideoDropdown(false)
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all flex items-center justify-between ${
+                          videoFilter === 'all' ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        全部
+                        {videoFilter === 'all' && (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setVideoFilter('group')
+                          setShowVideoDropdown(false)
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
+                          videoFilter === 'group' ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        小组
+                      </button>
+                      <button
+                        onClick={() => {
+                          setVideoFilter('personal')
+                          setShowVideoDropdown(false)
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
+                          videoFilter === 'personal' ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        个人
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
               
               {/* 操作类型筛选 */}
-              <UiverseDropdown
-                label="操作类型"
-                options={[
-                  { value: 'all', label: '全部' },
-                  { value: 'ultra_hd', label: '已超清' },
-                  { value: 'favorite', label: '已收藏' },
-                  { value: 'liked', label: '已点赞' },
-                ]}
-                selectedValue={operationFilter}
-                onSelect={(value) => {
-                  setOperationFilter(value as 'all' | 'ultra_hd' | 'favorite' | 'liked')
-                  setShowTimeDropdown(false)
-                  setShowVideoDropdown(false)
-                  setShowOperationDropdown(false)
-                }}
-                isActive={operationFilter !== 'all'}
-              />
+              <div className="relative">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setShowOperationDropdown(!showOperationDropdown)
+                    setShowTimeDropdown(false)
+                    setShowVideoDropdown(false)
+                  }}
+                  className="px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 bg-gray-50 text-gray-700 hover:bg-gray-100"
+                >
+                  操作类型
+                  <svg className={`w-4 h-4 transition-transform ${showOperationDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {showOperationDropdown && (
+                  <div 
+                    className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50 p-2"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="space-y-2">
+                      <button
+                        onClick={() => {
+                          setOperationFilter('all')
+                          setShowOperationDropdown(false)
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all flex items-center justify-between ${
+                          operationFilter === 'all' ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        全部
+                        {operationFilter === 'all' && (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setOperationFilter('ultra_hd')
+                          setShowOperationDropdown(false)
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
+                          operationFilter === 'ultra_hd' ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        已超清
+                      </button>
+                      <button
+                        onClick={() => {
+                          setOperationFilter('favorite')
+                          setShowOperationDropdown(false)
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
+                          operationFilter === 'favorite' ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        已收藏
+                      </button>
+                      <button
+                        onClick={() => {
+                          setOperationFilter('liked')
+                          setShowOperationDropdown(false)
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
+                          operationFilter === 'liked' ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        已点赞
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -1508,63 +1673,22 @@ function FirstLastFrameVideo() {
             {/* 控制栏 */}
             <div className="flex items-center justify-between pt-4 border-t border-gray-200">
               <div className="flex items-center gap-4">
-                {/* 模型选择 */}
+                {/* 模型选择 - 使用 Uiverse 样式 */}
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-600 font-medium">模型:</span>
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setShowModelDropdown(!showModelDropdown)
-                      }}
-                      className="px-3 py-1.5 pr-8 rounded-lg text-sm font-medium bg-white border border-gray-300 text-gray-700 shadow-sm cursor-pointer outline-none hover:border-purple-500 min-w-[180px] text-left flex items-center justify-between"
-                    >
-                      <span>{supportedModels.find(m => m.value === selectedModel)?.label || '选择模型'}</span>
-                      <svg 
-                        className={`w-4 h-4 transition-transform ${showModelDropdown ? 'rotate-180' : ''}`} 
-                        fill="none" 
-                        stroke="currentColor" 
-                        viewBox="0 0 24 24"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-                    {showModelDropdown && (
-                      <>
-                        <div 
-                          className="fixed inset-0 z-10" 
-                          onClick={() => setShowModelDropdown(false)}
-                        />
-                        <div className="absolute bottom-full left-0 mb-1 w-full bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-60 overflow-y-auto">
-                      {supportedModels.map((model) => (
-                            <button
-                              key={model.value}
-                              type="button"
-                              onClick={() => {
-                                setSelectedModel(model.value)
-                                setShowModelDropdown(false)
-                              }}
-                              className={`w-full text-left px-3 py-2 text-sm transition-colors ${
-                                selectedModel === model.value
-                                  ? 'bg-blue-50 text-blue-600 font-medium'
-                                  : 'text-gray-700 hover:bg-gray-50'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between">
-                                <span>{model.label}</span>
-                                {selectedModel === model.value && (
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                                  </svg>
-                                )}
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      </>
-                    )}
-                  </div>
+                  <UiverseDropdown
+                    label={supportedModels.find(m => m.value === selectedModel)?.label || '选择模型'}
+                    options={supportedModels.map(model => ({
+                      value: model.value,
+                      label: model.label
+                    }))}
+                    selectedValue={selectedModel}
+                    onSelect={(value) => {
+                      setSelectedModel(value)
+                      setShowModelDropdown(false)
+                    }}
+                    isActive={false}
+                  />
                 </div>
                 
                 {/* 分辨率选择 */}
