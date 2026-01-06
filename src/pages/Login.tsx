@@ -29,8 +29,8 @@ function Login({ onLoginSuccess, onClose, isModal = false }: LoginProps) {
         if (onLoginSuccess) {
           onLoginSuccess()
         } else {
-          // 如果没有提供回调，使用默认行为
-          navigate('/tasks')
+          // 如果没有提供回调，默认停留在当前页面（首页）
+          // 不进行跳转
         }
       } else {
         setError(result.error || '登录失败')

@@ -194,7 +194,7 @@ function WorksShowcase() {
     
     if (!checkAuth()) {
       alertError('请先登录', '需要登录')
-      navigate('/login')
+      navigate('/?showLogin=true')
       return
     }
 

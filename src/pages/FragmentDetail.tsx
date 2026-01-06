@@ -50,7 +50,7 @@ function FragmentDetail() {
       
       if (!token) {
         alert('请先登录', 'warning')
-        navigate('/login')
+        navigate('/?showLogin=true')
         return
       }
 

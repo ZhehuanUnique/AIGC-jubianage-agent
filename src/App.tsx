@@ -74,7 +74,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />
+    // 未登录时重定向到首页，并带上 showLogin 参数以显示登录模态框
+    return <Navigate to="/?showLogin=true" replace />
   }
 
   return <>{children}</>
@@ -90,7 +91,6 @@ function App() {
     <BrowserRouter>
       {AlertComponent}
       <Routes>
-        <Route path="/login" element={<Login />} />
         <Route path="/" element={isMobile ? <Home /> : <Home />} />
         <Route
           path="/tasks"

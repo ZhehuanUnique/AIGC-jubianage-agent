@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useEffect, useState, useRef } from 'react'
 import NavigationBar from '../components/NavigationBar'
 import { AuthService } from '../services/auth'
@@ -7,6 +7,7 @@ import PosterCarousel from '../components/PosterCarousel'
 
 function Home() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [showLoginModal, setShowLoginModal] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
   
@@ -33,6 +34,22 @@ function Home() {
     }
   }, [])
 
+  // 检查 URL 参数，如果需要显示登录模态框
+  useEffect(() => {
+    const showLogin = searchParams.get('showLogin')
+    if (showLogin === 'true') {
+      // 检查是否已登录
+      AuthService.verifyToken().then(authenticated => {
+        if (!authenticated) {
+          setShowLoginModal(true)
+        } else {
+          // 如果已登录，清除参数
+          setSearchParams({}, { replace: true })
+        }
+      })
+    }
+  }, [searchParams, setSearchParams])
+
 
   const handleClick = async () => {
     // 先检查是否已登录
@@ -49,7 +66,11 @@ function Home() {
   const handleLoginSuccess = () => {
     setShowLoginModal(false)
     setIsAuthenticated(true)
-    navigate('/tasks')
+    // 登录成功后停留在首页，不跳转
+    // 清除 URL 参数
+    if (window.location.search.includes('showLogin')) {
+      navigate('/', { replace: true })
+    }
   }
 
   const videoRef = useRef<HTMLVideoElement>(null)

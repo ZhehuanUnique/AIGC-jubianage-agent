@@ -279,7 +279,16 @@ function NavigationBar({ activeTab = 'home' }: NavigationBarProps) {
             />
             <label 
               htmlFor="glass-project"
-              onClick={() => navigate('/project-management')}
+              onClick={async () => {
+                // 检查是否已登录
+                const authenticated = await AuthService.verifyToken()
+                if (authenticated) {
+                  navigate('/project-management')
+                } else {
+                  // 未登录，跳转到首页并显示登录模态框
+                  navigate('/?showLogin=true')
+                }
+              }}
             >
               项目管理
             </label>
@@ -369,7 +378,7 @@ function NavigationBar({ activeTab = 'home' }: NavigationBarProps) {
                 e.preventDefault()
                 e.stopPropagation()
                 AuthService.logout()
-                navigate('/login')
+                navigate('/')
               }}
             >
               退出登录
