@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Upload, Loader2, Share2, Download, MoreVertical, Heart, ThumbsUp, Edit, Sparkles, Zap } from 'lucide-react'
+import { ArrowLeft, Upload, Loader2, Share2, Download, Heart, ThumbsUp, Edit, Sparkles, Zap } from 'lucide-react'
 import { alertSuccess, alertError } from '../utils/alert'
 import { generateFirstLastFrameVideo, getFirstLastFrameVideoStatus, getFirstLastFrameVideos, createVideoProcessingTask } from '../services/api'
 import { calculateVideoGenerationCredit } from '../utils/creditCalculator'
