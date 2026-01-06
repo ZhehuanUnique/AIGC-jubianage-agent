@@ -121,7 +121,6 @@ function FirstLastFrameVideo() {
   const [isBottomEdgeHovered, setIsBottomEdgeHovered] = useState(false)
   const [hoveredVideoId, setHoveredVideoId] = useState<string | null>(null)
   const videoRefs = useRef<Map<string, HTMLVideoElement>>(new Map())
-  const [showMenuForVideo, setShowMenuForVideo] = useState<string | null>(null)
   
   // 筛选状态
   const [timeFilter, setTimeFilter] = useState<'all' | 'week' | 'month' | 'quarter' | 'custom'>('all')
@@ -1193,6 +1192,81 @@ function FirstLastFrameVideo() {
                         src={task.firstFrameUrl}
                         alt="首帧"
                         className="w-full h-full object-cover"
+                        onError={(e) => {
+                          // 如果首帧图片加载失败，尝试从视频URL提取第一帧
+                          const img = e.currentTarget
+                          if (task.videoUrl && task.status === 'completed') {
+                            // 创建一个隐藏的video元素来提取第一帧
+                            const video = document.createElement('video')
+                            video.crossOrigin = 'anonymous'
+                            video.preload = 'metadata'
+                            video.muted = true
+                            video.playsInline = true
+                            
+                            video.onloadedmetadata = () => {
+                              video.currentTime = 0.1
+                            }
+                            
+                            video.onseeked = () => {
+                              try {
+                                const canvas = document.createElement('canvas')
+                                canvas.width = video.videoWidth || 1920
+                                canvas.height = video.videoHeight || 1080
+                                const ctx = canvas.getContext('2d')
+                                
+                                if (ctx) {
+                                  ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+                                  const thumbnail = canvas.toDataURL('image/jpeg', 0.8)
+                                  img.src = thumbnail
+                                  // 更新任务的首帧URL
+                                  setAllTasks(prev => prev.map(t => 
+                                    t.id === task.id ? { ...t, firstFrameUrl: thumbnail } : t
+                                  ))
+                                  setTasks(prev => prev.map(t => 
+                                    t.id === task.id ? { ...t, firstFrameUrl: thumbnail } : t
+                                  ))
+                                }
+                              } catch (error) {
+                                console.error('提取视频第一帧失败:', error)
+                                // 如果提取失败，显示占位符
+                                img.style.display = 'none'
+                                const parent = img.parentElement
+                                if (parent && !parent.querySelector('.placeholder')) {
+                                  const placeholder = document.createElement('div')
+                                  placeholder.className = 'w-full h-full flex items-center justify-center bg-gray-200 placeholder'
+                                  placeholder.innerHTML = '<svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>'
+                                  parent.appendChild(placeholder)
+                                }
+                              }
+                              video.src = ''
+                            }
+                            
+                            video.onerror = () => {
+                              // 视频加载失败，显示占位符
+                              img.style.display = 'none'
+                              const parent = img.parentElement
+                              if (parent && !parent.querySelector('.placeholder')) {
+                                const placeholder = document.createElement('div')
+                                placeholder.className = 'w-full h-full flex items-center justify-center bg-gray-200 placeholder'
+                                placeholder.innerHTML = '<svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>'
+                                parent.appendChild(placeholder)
+                              }
+                              video.src = ''
+                            }
+                            
+                            video.src = task.videoUrl
+                          } else {
+                            // 没有视频URL，显示占位符
+                            img.style.display = 'none'
+                            const parent = img.parentElement
+                            if (parent && !parent.querySelector('.placeholder')) {
+                              const placeholder = document.createElement('div')
+                              placeholder.className = 'w-full h-full flex items-center justify-center bg-gray-200 placeholder'
+                              placeholder.innerHTML = '<svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>'
+                              parent.appendChild(placeholder)
+                            }
+                          }
+                        }}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-gray-200">
@@ -1275,40 +1349,25 @@ function FirstLastFrameVideo() {
                                     >
                                       <Download size={18} />
                                     </button>
-                                    <div className="relative">
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          setShowMenuForVideo(showMenuForVideo === task.id ? null : task.id)
-                                        }}
-                                        className="p-2 bg-black bg-opacity-60 hover:bg-opacity-80 text-white rounded-lg transition-all"
-                                        title="更多选项"
-                                      >
-                                        <MoreVertical size={18} />
-                                      </button>
-                                      {showMenuForVideo === task.id && (
-                                        <div className="absolute top-full right-0 mt-2 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-30">
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              // 仅前端状态切换，用于筛选（不调用API）
-                                              const newFavorited = !task.isFavorited
-                                              setAllTasks(prev => prev.map(t => 
-                                                t.id === task.id ? { ...t, isFavorited: newFavorited } : t
-                                              ))
-                                              setTasks(prev => prev.map(t => 
-                                                t.id === task.id ? { ...t, isFavorited: newFavorited } : t
-                                              ))
-                                              setShowMenuForVideo(null)
-                                            }}
-                                            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                                          >
-                                            <Heart size={16} className={task.isFavorited ? 'fill-red-500 text-red-500' : ''} />
-                                            <span>收藏</span>
-                                          </button>
-                                        </div>
-                                      )}
-                                    </div>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        // 仅前端状态切换，用于筛选（不调用API）
+                                        const newFavorited = !task.isFavorited
+                                        setAllTasks(prev => prev.map(t => 
+                                          t.id === task.id ? { ...t, isFavorited: newFavorited } : t
+                                        ))
+                                        setTasks(prev => prev.map(t => 
+                                          t.id === task.id ? { ...t, isFavorited: newFavorited } : t
+                                        ))
+                                      }}
+                                      className={`p-2 bg-black bg-opacity-60 hover:bg-opacity-80 text-white rounded-lg transition-all ${
+                                        task.isFavorited ? 'bg-red-500 bg-opacity-80' : ''
+                                      }`}
+                                      title={task.isFavorited ? '取消收藏' : '收藏'}
+                                    >
+                                      <Heart size={18} className={task.isFavorited ? 'fill-white' : ''} />
+                                    </button>
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation()
