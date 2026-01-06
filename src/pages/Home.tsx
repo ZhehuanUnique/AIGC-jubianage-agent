@@ -196,6 +196,10 @@ function Home() {
                         {text}
                       </span>
                     ))}
+                    {/* 添加第一个文本到末尾以实现无缝循环 */}
+                    <span className="uiverse-word">
+                      {buttonTexts[0]}
+                    </span>
                   </div>
                 </div>
               </button>
