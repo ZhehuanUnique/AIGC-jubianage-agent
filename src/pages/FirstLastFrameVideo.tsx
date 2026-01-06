@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Upload, Loader2, Share2, Download, Heart, ThumbsUp, Edit, Sparkles, Zap, Trash2 } from 'lucide-react'
+import { ArrowLeft, Upload, Loader2, Share2, Download, Heart, ThumbsUp, Edit, Sparkles, Zap, Trash2, Eye, X } from 'lucide-react'
 import { alertSuccess, alertError } from '../utils/alert'
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
 import { generateFirstLastFrameVideo, getFirstLastFrameVideoStatus, getFirstLastFrameVideos, createVideoProcessingTask } from '../services/api'
@@ -405,6 +405,10 @@ function FirstLastFrameVideo() {
 
   // 处理首帧上传
   const triggerFirstFrameUpload = () => {
+    // 如果已经有图片，需要先删除才能替换
+    if (firstFramePreview) {
+      return // 不触发上传，需要先删除
+    }
     firstFrameInputRef.current?.click()
   }
 
@@ -466,6 +470,10 @@ function FirstLastFrameVideo() {
 
   // 处理尾帧上传
   const triggerLastFrameUpload = () => {
+    // 如果已经有图片，需要先删除才能替换
+    if (lastFramePreview) {
+      return // 不触发上传，需要先删除
+    }
     lastFrameInputRef.current?.click()
   }
 
