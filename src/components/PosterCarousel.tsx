@@ -19,9 +19,11 @@ function PosterCarousel({ posterFolder }: PosterCarouselProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [startX, setStartX] = useState(0)
   const [scrollLeft, setScrollLeft] = useState(0)
-  const [scrollSpeed, setScrollSpeed] = useState(-1) // 负数表示从右往左，正数表示从左往右
+  const [scrollSpeed, setScrollSpeed] = useState(1) // 正数表示从左往右，负数表示从右往左（初始从左往右）
   const animationRef = useRef<number>()
   const lastScrollTimeRef = useRef<number>(0)
+  const lastScrollPositionRef = useRef<number>(0)
+  const stopCheckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [posters, setPosters] = useState<string[]>([])
   const baseScrollSpeed = 1.5 // 基础滚动速度（像素/帧）- 加快速度
 
@@ -116,6 +118,30 @@ function PosterCarousel({ posterFolder }: PosterCarouselProps) {
           const currentScroll = containerRef.current.scrollLeft
           containerRef.current.scrollLeft = currentScroll + scrollDelta
           lastScrollTimeRef.current = timestamp
+          
+          // 检测是否停止：如果滚动位置没有变化，说明可能停止了
+          if (Math.abs(currentScroll - lastScrollPositionRef.current) < 0.1) {
+            // 清除之前的超时
+            if (stopCheckTimeoutRef.current) {
+              clearTimeout(stopCheckTimeoutRef.current)
+            }
+            // 等待500ms确认是否真的停止了
+            stopCheckTimeoutRef.current = setTimeout(() => {
+              const finalScroll = containerRef.current?.scrollLeft || 0
+              if (Math.abs(finalScroll - lastScrollPositionRef.current) < 0.1) {
+                // 确实停止了，切换方向
+                console.log('海报轮播检测到停止，切换方向')
+                setScrollSpeed(prev => -prev) // 切换方向
+              }
+            }, 500)
+          } else {
+            // 如果还在滚动，清除超时
+            if (stopCheckTimeoutRef.current) {
+              clearTimeout(stopCheckTimeoutRef.current)
+              stopCheckTimeoutRef.current = null
+            }
+          }
+          lastScrollPositionRef.current = currentScroll
         }
       }
       // 确保动画持续运行
@@ -128,6 +154,9 @@ function PosterCarousel({ posterFolder }: PosterCarouselProps) {
     return () => {
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current)
+      }
+      if (stopCheckTimeoutRef.current) {
+        clearTimeout(stopCheckTimeoutRef.current)
       }
     }
   }, [scrollSpeed, isDragging, posters.length])

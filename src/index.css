@@ -177,6 +177,154 @@ body {
   }
 }
 
+/* Uiverse下拉菜单样式 - From Uiverse.io by gharsh11032000 */
+.uiverse-menu {
+  font-size: 16px;
+  line-height: 1.6;
+  color: #000000;
+  width: fit-content;
+  display: flex;
+  list-style: none;
+}
+
+.uiverse-menu a {
+  text-decoration: none;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.uiverse-menu-link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px 36px;
+  border-radius: 16px;
+  overflow: hidden;
+  transition: all 0.48s cubic-bezier(0.23, 1, 0.32, 1);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.uiverse-menu-link::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: #0a3cff;
+  z-index: -1;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.48s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.uiverse-menu-link svg {
+  width: 14px;
+  height: 14px;
+  fill: #000000;
+  transition: all 0.48s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.uiverse-menu-item {
+  position: relative;
+}
+
+.uiverse-submenu {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: absolute;
+  bottom: 100%; /* 向上展开 */
+  border-radius: 16px 16px 0 0; /* 上圆角 */
+  left: 0;
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid #cccccc;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(12px); /* 向上移动 */
+  transition: all 0.48s cubic-bezier(0.23, 1, 0.32, 1);
+  z-index: 1;
+  pointer-events: none;
+  list-style: none;
+  background: white;
+  margin-bottom: -1px; /* 与按钮无缝连接 */
+}
+
+.uiverse-submenu-open {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  pointer-events: auto;
+  border-bottom: transparent;
+  border-color: #0a3cff;
+}
+
+.uiverse-menu-item:hover .uiverse-menu-link,
+.uiverse-menu-item-open .uiverse-menu-link {
+  color: #ffffff;
+  border-radius: 0 0 16px 16px; /* 下圆角 */
+}
+
+.uiverse-menu-item:hover .uiverse-menu-link::after,
+.uiverse-menu-item-open .uiverse-menu-link::after {
+  transform: scaleX(1);
+  transform-origin: right;
+}
+
+.uiverse-menu-item:hover .uiverse-menu-link svg,
+.uiverse-menu-item-open .uiverse-menu-link svg {
+  fill: #ffffff;
+  transform: rotate(180deg);
+}
+
+.uiverse-submenu-item {
+  width: 100%;
+  transition: all 0.48s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.uiverse-submenu-link {
+  display: block;
+  padding: 12px 24px;
+  width: 100%;
+  position: relative;
+  text-align: center;
+  transition: all 0.48s cubic-bezier(0.23, 1, 0.32, 1);
+  font-size: 14px;
+}
+
+.uiverse-submenu-item:last-child .uiverse-submenu-link {
+  border-bottom: none;
+}
+
+.uiverse-submenu-link::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: scaleX(0);
+  width: 100%;
+  height: 100%;
+  background-color: #0a3cff;
+  z-index: -1;
+  transform-origin: left;
+  transition: transform 0.48s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.uiverse-submenu-link:hover::before {
+  transform: scaleX(1);
+  transform-origin: right;
+}
+
+.uiverse-submenu-link:hover {
+  color: #ffffff;
+}
+
 /* Uiverse风格按钮动画 - From Uiverse.io by kennyotsu */
 .uiverse-button-card {
   /* color used to softly clip top and bottom of the .words container */

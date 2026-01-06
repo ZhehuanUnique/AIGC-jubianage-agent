@@ -5,6 +5,7 @@ import { alertSuccess, alertError } from '../utils/alert'
 import { generateFirstLastFrameVideo, getFirstLastFrameVideoStatus, getFirstLastFrameVideos, toggleFirstLastFrameVideoLike, toggleFirstLastFrameVideoFavorite, createVideoProcessingTask } from '../services/api'
 import { calculateVideoGenerationCredit } from '../utils/creditCalculator'
 import { getUserSettings } from '../services/settingsService'
+import UiverseDropdown from '../components/UiverseDropdown'
 
 interface VideoTask {
   id: string
@@ -840,225 +841,60 @@ function FirstLastFrameVideo() {
                 </span>
               </div>
               {/* 时间筛选 */}
-              <div className="relative">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setShowTimeDropdown(!showTimeDropdown)
-                    setShowVideoDropdown(false)
-                    setShowOperationDropdown(false)
-                  }}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
-                    timeFilter !== 'all' 
-                      ? 'bg-blue-50 text-blue-600' 
-                      : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  时间
-                  <svg className={`w-4 h-4 transition-transform ${showTimeDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={showTimeDropdown ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7"} />
-                  </svg>
-                </button>
-                {showTimeDropdown && (
-                  <div 
-                    className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50 p-2"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <div className="space-y-2">
-                      <button
-                        onClick={() => {
-                          setTimeFilter('all')
-                          setShowTimeDropdown(false)
-                        }}
-                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all flex items-center justify-between ${
-                          timeFilter === 'all' ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50'
-                        }`}
-                      >
-                        全部
-                        {timeFilter === 'all' && (
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                          </svg>
-                        )}
-                      </button>
-                      <button
-                        onClick={() => {
-                          setTimeFilter('week')
-                          setShowTimeDropdown(false)
-                        }}
-                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
-                          timeFilter === 'week' ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50'
-                        }`}
-                      >
-                        最近一周
-                      </button>
-                      <button
-                        onClick={() => {
-                          setTimeFilter('month')
-                          setShowTimeDropdown(false)
-                        }}
-                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
-                          timeFilter === 'month' ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50'
-                        }`}
-                      >
-                        最近一个月
-                      </button>
-                      <button
-                        onClick={() => {
-                          setTimeFilter('quarter')
-                          setShowTimeDropdown(false)
-                        }}
-                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
-                          timeFilter === 'quarter' ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50'
-                        }`}
-                      >
-                        最近三个月
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <UiverseDropdown
+                label="时间"
+                options={[
+                  { value: 'all', label: '全部' },
+                  { value: 'week', label: '最近一周' },
+                  { value: 'month', label: '最近一个月' },
+                  { value: 'quarter', label: '最近三个月' },
+                ]}
+                selectedValue={timeFilter}
+                onSelect={(value) => {
+                  setTimeFilter(value as 'all' | 'week' | 'month' | 'quarter')
+                  setShowTimeDropdown(false)
+                  setShowVideoDropdown(false)
+                  setShowOperationDropdown(false)
+                }}
+                isActive={timeFilter !== 'all'}
+              />
               
               {/* 视频筛选 */}
-              <div className="relative">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setShowVideoDropdown(!showVideoDropdown)
-                    setShowTimeDropdown(false)
-                    setShowOperationDropdown(false)
-                  }}
-                  className="px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 bg-gray-50 text-gray-700 hover:bg-gray-100"
-                >
-                  视频
-                  <svg className={`w-4 h-4 transition-transform ${showVideoDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                {showVideoDropdown && (
-                  <div 
-                    className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50 p-2"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <div className="space-y-2">
-                      <button
-                        onClick={() => {
-                          setVideoFilter('all')
-                          setShowVideoDropdown(false)
-                        }}
-                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all flex items-center justify-between ${
-                          videoFilter === 'all' ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50'
-                        }`}
-                      >
-                        全部
-                        {videoFilter === 'all' && (
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                          </svg>
-                        )}
-                      </button>
-                      <button
-                        onClick={() => {
-                          setVideoFilter('group')
-                          setShowVideoDropdown(false)
-                        }}
-                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
-                          videoFilter === 'group' ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50'
-                        }`}
-                      >
-                        小组
-                      </button>
-                      <button
-                        onClick={() => {
-                          setVideoFilter('personal')
-                          setShowVideoDropdown(false)
-                        }}
-                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
-                          videoFilter === 'personal' ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50'
-                        }`}
-                      >
-                        个人
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <UiverseDropdown
+                label="视频"
+                options={[
+                  { value: 'all', label: '全部' },
+                  { value: 'group', label: '小组' },
+                  { value: 'personal', label: '个人' },
+                ]}
+                selectedValue={videoFilter}
+                onSelect={(value) => {
+                  setVideoFilter(value as 'all' | 'personal' | 'group')
+                  setShowTimeDropdown(false)
+                  setShowVideoDropdown(false)
+                  setShowOperationDropdown(false)
+                }}
+                isActive={videoFilter !== 'all'}
+              />
               
               {/* 操作类型筛选 */}
-              <div className="relative">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setShowOperationDropdown(!showOperationDropdown)
-                    setShowTimeDropdown(false)
-                    setShowVideoDropdown(false)
-                  }}
-                  className="px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 bg-gray-50 text-gray-700 hover:bg-gray-100"
-                >
-                  操作类型
-                  <svg className={`w-4 h-4 transition-transform ${showOperationDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                {showOperationDropdown && (
-                  <div 
-                    className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50 p-2"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <div className="space-y-2">
-                      <button
-                        onClick={() => {
-                          setOperationFilter('all')
-                          setShowOperationDropdown(false)
-                        }}
-                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all flex items-center justify-between ${
-                          operationFilter === 'all' ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50'
-                        }`}
-                      >
-                        全部
-                        {operationFilter === 'all' && (
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                          </svg>
-                        )}
-                      </button>
-                      <button
-                        onClick={() => {
-                          setOperationFilter('ultra_hd')
-                          setShowOperationDropdown(false)
-                        }}
-                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
-                          operationFilter === 'ultra_hd' ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50'
-                        }`}
-                      >
-                        已超清
-                      </button>
-                      <button
-                        onClick={() => {
-                          setOperationFilter('favorite')
-                          setShowOperationDropdown(false)
-                        }}
-                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
-                          operationFilter === 'favorite' ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50'
-                        }`}
-                      >
-                        已收藏
-                      </button>
-                      <button
-                        onClick={() => {
-                          setOperationFilter('liked')
-                          setShowOperationDropdown(false)
-                        }}
-                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
-                          operationFilter === 'liked' ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50'
-                        }`}
-                      >
-                        已点赞
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <UiverseDropdown
+                label="操作类型"
+                options={[
+                  { value: 'all', label: '全部' },
+                  { value: 'ultra_hd', label: '已超清' },
+                  { value: 'favorite', label: '已收藏' },
+                  { value: 'liked', label: '已点赞' },
+                ]}
+                selectedValue={operationFilter}
+                onSelect={(value) => {
+                  setOperationFilter(value as 'all' | 'ultra_hd' | 'favorite' | 'liked')
+                  setShowTimeDropdown(false)
+                  setShowVideoDropdown(false)
+                  setShowOperationDropdown(false)
+                }}
+                isActive={operationFilter !== 'all'}
+              />
             </div>
           </div>
         </div>
@@ -1134,90 +970,90 @@ function FirstLastFrameVideo() {
                       <h3 className="text-lg font-semibold text-gray-800">{dateKey}</h3>
                       
                       {/* 该日期的视频网格 */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                         {groupedTasks[dateKey].map((task) => (
-                          <div
-                            key={task.id}
-                            className="group relative bg-white rounded-xl shadow-sm hover:shadow-lg transition-all"
-                            style={{ overflow: 'visible' }}
-                            onMouseEnter={() => {
-                              setHoveredVideoId(task.id)
-                              const video = videoRefs.current.get(task.id)
-                              if (video) {
-                                video.play().catch(() => {})
-                              }
-                            }}
-                            onMouseLeave={() => {
-                              setHoveredVideoId(null)
-                              const video = videoRefs.current.get(task.id)
-                              if (video) {
-                                video.pause()
-                                video.currentTime = 0
-                              }
-                            }}
-                          >
-                            {/* 视频容器 */}
-                            <div 
-                              className="relative aspect-video bg-gray-100 rounded-t-xl overflow-hidden"
-                              style={task.status !== 'completed' && task.firstFrameUrl ? {
-                                backgroundImage: `url(${task.firstFrameUrl})`,
-                                backgroundSize: 'cover',
-                                backgroundPosition: 'center'
-                              } : {}}
-                            >
-                              {task.videoUrl && task.status === 'completed' ? (
-                                <video
-                                  ref={(el) => {
-                                    if (el) {
-                                      videoRefs.current.set(task.id, el)
-                                    } else {
-                                      videoRefs.current.delete(task.id)
-                                    }
-                                  }}
-                                  src={task.videoUrl}
-                                  className="w-full h-full object-cover"
-                                  muted
-                                  loop
-                                  preload="metadata"
-                                />
-                              ) : task.firstFrameUrl ? (
-                                <img
-                                  src={task.firstFrameUrl}
-                                  alt="首帧"
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                                  <Upload className="w-12 h-12 text-gray-400" />
-                                </div>
-                              )}
-                              
-                              {/* 状态覆盖层 */}
-                              {task.status !== 'completed' && (
-                                <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                                  <div className="text-center text-white px-4 w-full">
-                                    {(task.status === 'processing' || task.status === 'pending') && (
-                                      <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-2"></div>
-                                    )}
-                                    <p className="text-sm font-medium mb-2">{getStatusText(task.status)}</p>
-                                    {/* 进度条 */}
-                                    {(task.status === 'processing' || task.status === 'pending') && (
-                                      <div className="w-full max-w-xs mx-auto mb-2">
-                                        <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
-                                          <div
-                                            className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                                            style={{ width: `${getEstimatedProgress(task)}%` }}
-                                          ></div>
-                                        </div>
-                                        <p className="text-xs text-gray-300 mt-1">{Math.round(getEstimatedProgress(task))}%</p>
-                                      </div>
-                                    )}
-                                    {task.status === 'failed' && task.errorMessage && (
-                                      <p className="text-xs text-gray-300 mt-1">{task.errorMessage}</p>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
+                <div
+                  key={task.id}
+                  className="group relative bg-white rounded-xl shadow-sm hover:shadow-lg transition-all"
+                  style={{ overflow: 'visible' }}
+                  onMouseEnter={() => {
+                    setHoveredVideoId(task.id)
+                    const video = videoRefs.current.get(task.id)
+                    if (video) {
+                      video.play().catch(() => {})
+                    }
+                  }}
+                  onMouseLeave={() => {
+                    setHoveredVideoId(null)
+                    const video = videoRefs.current.get(task.id)
+                    if (video) {
+                      video.pause()
+                      video.currentTime = 0
+                    }
+                  }}
+                >
+                  {/* 视频容器 */}
+                  <div 
+                    className="relative aspect-video bg-gray-100 rounded-t-xl overflow-hidden"
+                    style={task.status !== 'completed' && task.firstFrameUrl ? {
+                      backgroundImage: `url(${task.firstFrameUrl})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center'
+                    } : {}}
+                  >
+                    {task.videoUrl && task.status === 'completed' ? (
+                      <video
+                        ref={(el) => {
+                          if (el) {
+                            videoRefs.current.set(task.id, el)
+                          } else {
+                            videoRefs.current.delete(task.id)
+                          }
+                        }}
+                        src={task.videoUrl}
+                        className="w-full h-full object-cover"
+                        muted
+                        loop
+                        preload="metadata"
+                      />
+                    ) : task.firstFrameUrl ? (
+                      <img
+                        src={task.firstFrameUrl}
+                        alt="首帧"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                        <Upload className="w-12 h-12 text-gray-400" />
+                      </div>
+                    )}
+                    
+                    {/* 状态覆盖层 */}
+                    {task.status !== 'completed' && (
+                      <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                        <div className="text-center text-white px-4 w-full">
+                          {(task.status === 'processing' || task.status === 'pending') && (
+                            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-2"></div>
+                          )}
+                          <p className="text-sm font-medium mb-2">{getStatusText(task.status)}</p>
+                          {/* 进度条 */}
+                          {(task.status === 'processing' || task.status === 'pending') && (
+                            <div className="w-full max-w-xs mx-auto mb-2">
+                              <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
+                                <div
+                                  className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                                  style={{ width: `${getEstimatedProgress(task)}%` }}
+                                ></div>
+                              </div>
+                              <p className="text-xs text-gray-300 mt-1">{Math.round(getEstimatedProgress(task))}%</p>
+                            </div>
+                          )}
+                          {task.status === 'failed' && task.errorMessage && (
+                            <p className="text-xs text-gray-300 mt-1">{task.errorMessage}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                               {/* 悬停时的控制栏 - 图2样式 */}
                               {hoveredVideoId === task.id && task.status === 'completed' && (
@@ -1362,13 +1198,13 @@ function FirstLastFrameVideo() {
                                   </div>
                                 </>
                               )}
-                            </div>
-                            
-                            {/* 视频信息 */}
-                            <div className="p-3">
-                              <p className="text-sm text-gray-700 line-clamp-2 mb-2">{task.text || '无描述'}</p>
+                  </div>
+                  
+                  {/* 视频信息 */}
+                  <div className="p-3">
+                    <p className="text-sm text-gray-700 line-clamp-2 mb-2">{task.text || '无描述'}</p>
                               <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
-                                <span>视频 {videoVersion} | {task.duration}s | {task.resolution}</span>
+                      <span>视频 {videoVersion} | {task.duration}s | {task.resolution}</span>
                               </div>
                               {/* 操作按钮 */}
                               <div className="flex items-center gap-2">
@@ -1430,11 +1266,11 @@ function FirstLastFrameVideo() {
                                 >
                                   再次生成
                                 </button>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
                     </div>
                   ))}
                 </div>
@@ -1556,7 +1392,7 @@ function FirstLastFrameVideo() {
                             <path d="M6 8h12" stroke-linecap="round" />
                             <path d="M22 12l-4-4 4-4" stroke-linecap="round" stroke-linejoin="round" />
                             <path d="M18 8H6" stroke-linecap="round" />
-                          </svg>
+                    </svg>
                         `
                         target.parentElement?.appendChild(fallback.firstChild as Node)
                       }}
@@ -1657,10 +1493,10 @@ function FirstLastFrameVideo() {
                       // Ctrl+Enter 或 Cmd+Enter 允许换行（不阻止默认行为）
                     } else {
                       // 如果未开启，保持原有行为：Enter提交，Shift+Enter换行
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault()
-                        if (prompt.trim() && firstFrameFile && !isGenerating) {
-                          generateVideo()
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      if (prompt.trim() && firstFrameFile && !isGenerating) {
+                        generateVideo()
                         }
                       }
                     }
@@ -1701,7 +1537,7 @@ function FirstLastFrameVideo() {
                           onClick={() => setShowModelDropdown(false)}
                         />
                         <div className="absolute bottom-full left-0 mb-1 w-full bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-60 overflow-y-auto">
-                          {supportedModels.map((model) => (
+                      {supportedModels.map((model) => (
                             <button
                               key={model.value}
                               type="button"
