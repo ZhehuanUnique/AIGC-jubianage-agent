@@ -182,9 +182,9 @@ function Home() {
           <div className="flex flex-col items-center gap-4 bg-transparent">
             {/* 标题和"做真人剧"按钮在同一行 */}
             <div className="flex items-center gap-4 bg-transparent">
-              <h1 className="text-5xl md:text-6xl font-bold text-white text-center drop-shadow-lg bg-transparent">
-                用剧变时代AI
-              </h1>
+              <div className="glitch-loader">
+                <div data-glitch="用剧变时代AI" className="glitch-text">用剧变时代AI</div>
+              </div>
               <button
                 onClick={handleClick}
                 className="uiverse-button-card px-10 py-5 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xl md:text-2xl font-semibold rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-300 shadow-2xl hover:shadow-purple-500/50 relative z-20 transform hover:scale-105 overflow-hidden"
