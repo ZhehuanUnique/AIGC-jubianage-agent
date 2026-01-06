@@ -215,7 +215,7 @@ body {
   height: 40px;
   display: flex;
   flex-direction: column;
-  animation: spin_words 10s infinite;
+  animation: spin_words 7s infinite linear;
 }
 
 .uiverse-words::after {
@@ -243,12 +243,13 @@ body {
 
 /* 6个文本的动画关键帧（5个原始文本 + 1个重复的第一个文本，实现无缝循环） */
 /* 每个文本占 16.66% 的时间（100% / 6），确保无缝过渡 */
+/* 使用 linear 缓动函数确保匀速播放 */
 @keyframes spin_words {
   0% {
     -webkit-transform: translateY(0%);
     transform: translateY(0%);
   }
-  8% {
+  5% {
     -webkit-transform: translateY(-102%);
     transform: translateY(-102%);
   }
@@ -256,7 +257,7 @@ body {
     -webkit-transform: translateY(-100%);
     transform: translateY(-100%);
   }
-  24.66% {
+  21.66% {
     -webkit-transform: translateY(-202%);
     transform: translateY(-202%);
   }
@@ -264,7 +265,7 @@ body {
     -webkit-transform: translateY(-200%);
     transform: translateY(-200%);
   }
-  41.33% {
+  38.33% {
     -webkit-transform: translateY(-302%);
     transform: translateY(-302%);
   }
@@ -272,7 +273,7 @@ body {
     -webkit-transform: translateY(-300%);
     transform: translateY(-300%);
   }
-  58% {
+  55% {
     -webkit-transform: translateY(-402%);
     transform: translateY(-402%);
   }
@@ -280,7 +281,7 @@ body {
     -webkit-transform: translateY(-400%);
     transform: translateY(-400%);
   }
-  74.66% {
+  71.66% {
     -webkit-transform: translateY(-502%);
     transform: translateY(-502%);
   }
@@ -288,7 +289,7 @@ body {
     -webkit-transform: translateY(-500%);
     transform: translateY(-500%);
   }
-  91.33% {
+  88.33% {
     -webkit-transform: translateY(-602%);
     transform: translateY(-602%);
   }
