@@ -22,6 +22,7 @@ interface VideoTask {
   createdAt: string
   isLiked?: boolean
   isFavorited?: boolean
+  isUltraHd?: boolean
 }
 
 function FirstLastFrameVideo() {
@@ -170,10 +171,22 @@ function FirstLastFrameVideo() {
       })
     }
 
-    // 操作类型筛选（目前只支持前端筛选，后端暂不支持）
+    // 操作类型筛选
     if (operationFilter !== 'all') {
-      // 注意：这里需要后端支持 is_ultra_hd, is_favorite, is_liked 字段
-      // 暂时跳过，因为当前数据结构中没有这些字段
+      switch (operationFilter) {
+        case 'ultra_hd':
+          // 只显示已超分辨率的视频
+          filtered = filtered.filter(video => video.isUltraHd === true)
+          break
+        case 'favorite':
+          // 只显示已收藏的视频
+          filtered = filtered.filter(video => video.isFavorited === true)
+          break
+        case 'liked':
+          // 只显示已点赞的视频
+          filtered = filtered.filter(video => video.isLiked === true)
+          break
+      }
     }
 
     setTasks(filtered)
@@ -241,9 +254,10 @@ function FirstLastFrameVideo() {
           duration: v.duration,
           text: v.text || undefined,
           createdAt: v.createdAt,
-          isLiked: v.isLiked || false,
-          isFavorited: v.isFavorited || false,
-        }))
+              isLiked: v.isLiked || false,
+              isFavorited: v.isFavorited || false,
+              isUltraHd: v.isUltraHd || false,
+            }))
         
         // 合并本地任务和数据库任务：保留本地新添加的任务（如果数据库还没有）
         const dbTaskIds = new Set(dbVideoTasks.map(t => t.id))
@@ -840,14 +854,8 @@ function FirstLastFrameVideo() {
               </button>
             </div>
             
-            {/* 右侧：日期和筛选下拉菜单 */}
+            {/* 右侧：筛选下拉菜单 */}
             <div className="flex items-center gap-2">
-              {/* 日期显示（黄色框） */}
-              <div className="px-4 py-2 bg-yellow-100 border-2 border-yellow-300 rounded-lg">
-                <span className="text-sm font-semibold text-gray-800">
-                  {new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })}
-                </span>
-              </div>
               {/* 时间筛选 */}
               <div className="relative">
                 <button

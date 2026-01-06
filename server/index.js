@@ -1449,21 +1449,26 @@ app.get('/api/projects/:projectId/first-last-frame-videos', authenticateToken, a
     }
     
     // 从 first_last_frame_videos 表获取所有首尾帧视频（包括所有状态：pending, processing, completed, failed）
+    // 默认只返回最近一周的视频
+    const oneWeekAgo = new Date()
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
+    
     const videosResult = await db.query(
       `SELECT id, task_id, video_url, first_frame_url, last_frame_url, 
               model, resolution, ratio, duration, prompt, text, status, 
               shot_id, estimated_credit, actual_credit, error_message, created_at, updated_at
        FROM first_last_frame_videos
-       WHERE project_id = $1 AND user_id = $2
+       WHERE project_id = $1 AND user_id = $2 AND created_at >= $3
        ORDER BY created_at DESC
        LIMIT 200`,
-      [projectId, userId]
+      [projectId, userId, oneWeekAgo]
     )
     
     // 获取当前用户的点赞和收藏状态
     const taskIds = videosResult.rows.map(v => v.task_id)
     let likedTaskIds = new Set()
     let favoritedTaskIds = new Set()
+    let ultraHdTaskIds = new Set()
     
     if (taskIds.length > 0) {
       // 查询点赞状态（如果表不存在，静默失败，不返回点赞状态）
@@ -1491,6 +1496,22 @@ app.get('/api/projects/:projectId/first-last-frame-videos', authenticateToken, a
         console.warn('查询收藏状态失败（表可能不存在）:', favoritesError.message)
         // 静默失败，不返回收藏状态
       }
+      
+      // 查询超分辨率处理任务（已完成的）
+      try {
+        const ultraHdResult = await db.query(
+          `SELECT DISTINCT source_video_task_id 
+           FROM video_processing_tasks 
+           WHERE source_video_task_id = ANY($1) 
+             AND processing_type = 'super_resolution' 
+             AND status = 'completed'`,
+          [taskIds]
+        )
+        ultraHdTaskIds = new Set(ultraHdResult.rows.map(r => r.source_video_task_id))
+      } catch (ultraHdError) {
+        console.warn('查询超分辨率状态失败（表可能不存在）:', ultraHdError.message)
+        // 静默失败，不返回超分辨率状态
+      }
     }
     
     // 格式化返回数据
@@ -1515,6 +1536,7 @@ app.get('/api/projects/:projectId/first-last-frame-videos', authenticateToken, a
         updatedAt: video.updated_at,
         isLiked: likedTaskIds.has(video.task_id),
         isFavorited: favoritedTaskIds.has(video.task_id),
+        isUltraHd: ultraHdTaskIds.has(video.task_id),
       }
     })
     
