@@ -56,6 +56,12 @@ export async function generateVideoWithKling26(imageUrl, options = {}) {
 
   const apiKey = process.env.KLING_26_API_KEY
   if (!apiKey) {
+    console.error('❌ KLING_26_API_KEY 环境变量未设置')
+    console.error('当前环境变量:', {
+      hasKLING_26_API_KEY: !!process.env.KLING_26_API_KEY,
+      hasKLING_O1_API_KEY: !!process.env.KLING_O1_API_KEY,
+      KLING_API_HOST: process.env.KLING_API_HOST || '未设置（使用默认值）',
+    })
     throw new Error('KLING_26_API_KEY 环境变量未设置，请检查 .env 文件')
   }
 
@@ -66,6 +72,8 @@ export async function generateVideoWithKling26(imageUrl, options = {}) {
       hasPrompt: !!prompt,
       enableAudio,
       duration,
+      apiKeyPrefix: apiKey.substring(0, 10) + '...', // 只显示前10个字符，避免泄露完整密钥
+      apiBaseUrl: API_BASE_URL,
     })
 
     // 准备 multipart/form-data
@@ -139,7 +147,13 @@ export async function generateVideoWithKling26(imageUrl, options = {}) {
     if (!response.ok) {
       const errorText = await response.text()
       console.error('❌ Kling-2.6 API 错误响应:', errorText)
-      throw new Error(`Kling-2.6 API 请求失败: ${response.status} ${response.statusText}`)
+      console.error('❌ 请求详情:', {
+        url: `${API_BASE_URL}${apiEndpoint}`,
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries()),
+      })
+      throw new Error(`Kling-2.6 API 请求失败: ${response.status} ${response.statusText}${errorText ? ` - ${errorText.substring(0, 200)}` : ''}`)
     }
 
     const result = await response.json()
@@ -189,6 +203,12 @@ export async function generateVideoWithKlingO1(imageUrl, options = {}) {
 
   const apiKey = process.env.KLING_O1_API_KEY
   if (!apiKey) {
+    console.error('❌ KLING_O1_API_KEY 环境变量未设置')
+    console.error('当前环境变量:', {
+      hasKLING_26_API_KEY: !!process.env.KLING_26_API_KEY,
+      hasKLING_O1_API_KEY: !!process.env.KLING_O1_API_KEY,
+      KLING_API_HOST: process.env.KLING_API_HOST || '未设置（使用默认值）',
+    })
     throw new Error('KLING_O1_API_KEY 环境变量未设置，请检查 .env 文件')
   }
 
@@ -265,7 +285,13 @@ export async function generateVideoWithKlingO1(imageUrl, options = {}) {
     if (!response.ok) {
       const errorText = await response.text()
       console.error('❌ Kling-O1 API 错误响应:', errorText)
-      throw new Error(`Kling-O1 API 请求失败: ${response.status} ${response.statusText}`)
+      console.error('❌ 请求详情:', {
+        url: `${API_BASE_URL}/klingai/m2v_omni_video`,
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries()),
+      })
+      throw new Error(`Kling-O1 API 请求失败: ${response.status} ${response.statusText}${errorText ? ` - ${errorText.substring(0, 200)}` : ''}`)
     }
 
     const result = await response.json()

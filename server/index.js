@@ -997,6 +997,13 @@ app.post('/api/first-last-frame-video/generate', authenticateToken, uploadImage.
   } catch (error) {
     console.error('首尾帧生视频错误:', error)
     console.error('错误堆栈:', error.stack)
+    console.error('错误详情:', {
+      message: error.message,
+      name: error.name,
+      model: req.body?.model,
+      hasFirstFrame: !!(req.files && req.files.firstFrame && req.files.firstFrame[0]),
+      hasLastFrame: !!(req.files && req.files.lastFrame && req.files.lastFrame[0]),
+    })
     
     // 确保错误信息是字符串
     let errorMessage = '首尾帧生视频失败，请稍后重试'
@@ -1004,6 +1011,15 @@ app.post('/api/first-last-frame-video/generate', authenticateToken, uploadImage.
       errorMessage = typeof error.message === 'string' ? error.message : JSON.stringify(error.message)
     } else if (error) {
       errorMessage = typeof error === 'string' ? error : JSON.stringify(error)
+    }
+    
+    // 如果是 Kling 模型相关的错误，提供更详细的错误信息
+    if (req.body?.model === 'kling-2.6' || req.body?.model === 'kling-o1') {
+      if (errorMessage.includes('环境变量未设置')) {
+        errorMessage = `Kling API Key 未配置: ${errorMessage}。请检查服务器端的 .env 文件中是否设置了 KLING_26_API_KEY 或 KLING_O1_API_KEY`
+      } else if (errorMessage.includes('API 请求失败')) {
+        errorMessage = `${errorMessage}。请检查 API Key 是否正确，以及网络连接是否正常。`
+      }
     }
     
     res.status(500).json({
