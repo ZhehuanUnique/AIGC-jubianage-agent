@@ -706,14 +706,14 @@ function FirstLastFrameVideo() {
 
     // 记录任务开始时间（用于超时检查）
     const taskStartTime = Date.now()
-    const TIMEOUT_MS = 10 * 60 * 1000 // 10分钟超时
+    const TIMEOUT_MS = 5 * 60 * 1000 // 5分钟超时
 
     pollIntervalRef.current = setInterval(async () => {
       try {
         // 检查是否超时
         const elapsedTime = Date.now() - taskStartTime
         if (elapsedTime > TIMEOUT_MS) {
-          console.warn(`任务 ${taskId} 生成超时（超过10分钟），判定为失败`)
+          console.warn(`任务 ${taskId} 生成超时（超过5分钟），判定为失败`)
           
           // 停止轮询
           clearInterval(pollIntervalRef.current!)
@@ -721,7 +721,7 @@ function FirstLastFrameVideo() {
           polledTasksRef.current.delete(taskId)
           
           // 更新任务状态为失败
-          const errorMessage = '视频生成超时，超过10分钟未完成'
+          const errorMessage = '视频生成超时，超过5分钟未完成'
           setAllTasks(prev => prev.map(t => 
             t.id === taskId 
               ? { ...t, status: 'failed', errorMessage }
