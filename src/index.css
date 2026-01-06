@@ -82,7 +82,7 @@ body {
 
 .glitch-text {
   position: relative;
-  font-size: 2.5rem;
+  font-size: 3rem;
   font-weight: 700;
   line-height: 1.2;
   color: #fff;
@@ -380,8 +380,10 @@ body {
   padding-left: 6px;
   color: #ffffff;
   animation: spin_words 5s infinite;
-  line-height: 40px;
+  line-height: 60px;
   flex-shrink: 0;
+  font-size: 3rem;
+  font-weight: 600;
 }
 
 /* 5个文本的动画关键帧（根据 uiverse 原版调整） */
