@@ -8196,6 +8196,8 @@ app.post('/api/community-videos', authenticateToken, async (req, res) => {
 
     // 从files表获取视频信息（如果提供了projectId和shotId）
     let metadata = {}
+    let thumbnailUrl = null
+    
     if (projectId && shotId) {
       const fileResult = await db.query(
         `SELECT metadata, file_name, file_size, mime_type
@@ -8210,11 +8212,50 @@ app.post('/api/community-videos', authenticateToken, async (req, res) => {
 
       if (fileResult.rows.length > 0) {
         metadata = fileResult.rows[0].metadata || {}
+        // 优先使用 metadata 中的首帧URL
+        thumbnailUrl = metadata.first_frame_url || null
       }
     }
-
-    // 生成缩略图URL（可以从视频URL生成，或使用首帧）
-    const thumbnailUrl = metadata.first_frame_url || null
+    
+    // 如果没有缩略图，尝试从 first_last_frame_videos 表查询（通过 videoUrl 匹配）
+    if (!thumbnailUrl && videoUrl) {
+      try {
+        // 尝试从 videoUrl 提取 task_id 或通过 cos_key 匹配
+        const videoUrlMatch = videoUrl.match(/first_last_frame_(\d+)/)
+        if (videoUrlMatch) {
+          const timestamp = videoUrlMatch[1]
+          // 查询 first_last_frame_videos 表，通过 cos_key 或 video_url 匹配
+          const videoRecord = await db.query(
+            `SELECT first_frame_url FROM first_last_frame_videos 
+             WHERE (cos_key LIKE $1 OR video_url = $2)
+             ORDER BY created_at DESC
+             LIMIT 1`,
+            [`%first_last_frame_${timestamp}%`, videoUrl]
+          )
+          
+          if (videoRecord.rows.length > 0 && videoRecord.rows[0].first_frame_url) {
+            thumbnailUrl = videoRecord.rows[0].first_frame_url
+            console.log('✅ 从 first_last_frame_videos 表获取到首帧URL作为缩略图')
+          }
+        } else {
+          // 直接通过 video_url 匹配
+          const videoRecord = await db.query(
+            `SELECT first_frame_url FROM first_last_frame_videos 
+             WHERE video_url = $1
+             ORDER BY created_at DESC
+             LIMIT 1`,
+            [videoUrl]
+          )
+          
+          if (videoRecord.rows.length > 0 && videoRecord.rows[0].first_frame_url) {
+            thumbnailUrl = videoRecord.rows[0].first_frame_url
+            console.log('✅ 从 first_last_frame_videos 表获取到首帧URL作为缩略图')
+          }
+        }
+      } catch (queryError) {
+        console.warn('查询 first_last_frame_videos 表获取缩略图失败（继续使用 null）:', queryError.message)
+      }
+    }
 
     // 生成COS key（从videoUrl提取或生成新的）
     let cosKey = videoUrl
