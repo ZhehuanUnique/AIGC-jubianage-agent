@@ -6,8 +6,8 @@
  * 
  * API文档：
  * - Kling-2.6-5秒: https://302ai.apifox.cn/386524568e0
- * - Kling-2.6-10秒: https://302ai.apifox.cn/386524568e0
- * - Kling-O1: https://doc.302.ai/385221088e0
+ * - Kling-2.6-10秒: https://302ai.apifox.cn/386528742e0
+ * - Kling-O1: https://302ai.apifox.cn/385221088e0
  * - 任务查询: https://302ai.apifox.cn/211531465e0
  */
 
