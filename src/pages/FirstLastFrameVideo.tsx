@@ -125,7 +125,7 @@ function FirstLastFrameVideo() {
   const videoRefs = useRef<Map<string, HTMLVideoElement>>(new Map())
   const [deleteConfirmState, setDeleteConfirmState] = useState<{ isOpen: boolean; taskId: string | null }>({ isOpen: false, taskId: null })
   const [previewImage, setPreviewImage] = useState<{ url: string; type: 'first' | 'last' } | null>(null)
-  const [generatingTask, setGeneratingTask] = useState<{ taskId: string; progress: number; status: 'accelerating' | 'generating' } | null>(null)
+  const [generatingTask, setGeneratingTask] = useState<{ taskId: string; progress: number; status: 'accelerating' | 'generating'; startTime: number } | null>(null)
   
   // 筛选状态
   const [timeFilter, setTimeFilter] = useState<'all' | 'week' | 'month' | 'quarter' | 'custom'>('all')
