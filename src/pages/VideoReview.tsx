@@ -123,27 +123,27 @@ function VideoReview() {
         await deleteAnnotation(parseInt(projectId, 10), annotationId)
         
         // 删除成功，更新前端状态
-        setAnnotations(prev => prev.filter(a => a.id !== annotationId))
+    setAnnotations(prev => prev.filter(a => a.id !== annotationId))
 
-        // 删除对应的弹幕（优先通过ID匹配，如果ID不匹配则通过时间戳匹配）
-        setDanmakus(prev => prev.filter(d => {
-          // 如果弹幕ID与批注ID相同，直接删除
-          if (d.id === annotationId) {
-            return false
-          }
-          
-          // 如果时间戳存在，通过时间戳匹配（允许1秒误差）
-          if (annotation.timestamp) {
-            const annotationTime = timestampToSeconds(annotation.timestamp)
-            if (annotationTime >= 0 && Math.abs(d.time - annotationTime) <= 1) {
-              return false
-            }
-          }
-          
-          return true
-        }))
+    // 删除对应的弹幕（优先通过ID匹配，如果ID不匹配则通过时间戳匹配）
+    setDanmakus(prev => prev.filter(d => {
+      // 如果弹幕ID与批注ID相同，直接删除
+      if (d.id === annotationId) {
+        return false
+      }
+      
+      // 如果时间戳存在，通过时间戳匹配（允许1秒误差）
+      if (annotation.timestamp) {
+        const annotationTime = timestampToSeconds(annotation.timestamp)
+        if (annotationTime >= 0 && Math.abs(d.time - annotationTime) <= 1) {
+          return false
+        }
+      }
+      
+      return true
+    }))
 
-        alertSuccess('批注已删除', '删除成功')
+    alertSuccess('批注已删除', '删除成功')
         
         // 重新加载批注列表，确保数据同步
         if (fragmentId) {
@@ -938,76 +938,76 @@ function VideoReview() {
                 )}
                 {/* 视频播放 */}
                 {videoUrl && (
-                  <video
-                    ref={videoRef}
-                    src={videoUrl}
-                    className="w-full h-full object-contain"
+                <video
+                  ref={videoRef}
+                  src={videoUrl}
+                  className="w-full h-full object-contain"
                     onLoadStart={() => setIsVideoLoading(true)}
                     onCanPlay={() => {
                       setIsVideoLoading(false)
                       // 视频加载完成后，可以清空缩略图（可选，保留也可以）
                       // setVideoThumbnail(null)
                     }}
-                    onTimeUpdate={(e) => {
-                      try {
-                        const video = e.currentTarget
-                        // 只在视频已加载元数据时更新（避免显示错误的时间）
-                        if (video.duration && video.duration > 0) {
-                          // 保留2位小数，提供更精确的时间跟踪
-                          setCurrentTime(Math.round(video.currentTime * 100) / 100)
-                        }
-                      } catch (error) {
-                        console.error('视频时间更新错误:', error)
+                  onTimeUpdate={(e) => {
+                    try {
+                      const video = e.currentTarget
+                      // 只在视频已加载元数据时更新（避免显示错误的时间）
+                      if (video.duration && video.duration > 0) {
+                        // 保留2位小数，提供更精确的时间跟踪
+                        setCurrentTime(Math.round(video.currentTime * 100) / 100)
                       }
-                    }}
-                    onLoadedMetadata={(e) => {
-                      try {
-                        const video = e.currentTarget
-                        // 保留2位小数，提供更精确的时长
-                        const videoDuration = Math.round(video.duration * 100) / 100
-                        setDuration(videoDuration)
-                        // 确保当前时间为0
-                        setCurrentTime(0)
-                        // 如果视频元素存在，重置播放位置
-                        if (videoRef.current) {
-                          videoRef.current.currentTime = 0
-                        }
-                      } catch (error) {
-                        console.error('视频元数据加载错误:', error)
+                    } catch (error) {
+                      console.error('视频时间更新错误:', error)
+                    }
+                  }}
+                  onLoadedMetadata={(e) => {
+                    try {
+                      const video = e.currentTarget
+                      // 保留2位小数，提供更精确的时长
+                      const videoDuration = Math.round(video.duration * 100) / 100
+                      setDuration(videoDuration)
+                      // 确保当前时间为0
+                      setCurrentTime(0)
+                      // 如果视频元素存在，重置播放位置
+                      if (videoRef.current) {
+                        videoRef.current.currentTime = 0
                       }
-                    }}
-                    onPlay={() => {
-                      try {
-                        setIsPlaying(true)
-                      } catch (error) {
-                        console.error('视频播放错误:', error)
-                      }
-                    }}
-                    onPause={() => {
-                      try {
-                        setIsPlaying(false)
-                      } catch (error) {
-                        console.error('视频暂停错误:', error)
-                      }
-                    }}
-                    onError={(e) => {
+                    } catch (error) {
+                      console.error('视频元数据加载错误:', error)
+                    }
+                  }}
+                  onPlay={() => {
+                    try {
+                      setIsPlaying(true)
+                    } catch (error) {
+                      console.error('视频播放错误:', error)
+                    }
+                  }}
+                  onPause={() => {
+                    try {
+                      setIsPlaying(false)
+                    } catch (error) {
+                      console.error('视频暂停错误:', error)
+                    }
+                  }}
+                  onError={(e) => {
                       setIsVideoLoading(false)
-                      console.error('视频加载错误:', e)
-                      alertError('视频加载失败，请检查视频文件是否有效', '视频错误')
-                      // 清空视频URL，回到上传状态
-                      setVideoUrl(null)
-                      setCosVideoUrl(null)
-                      if (videoFile) {
-                        // 释放本地URL
-                        try {
-                          URL.revokeObjectURL(videoFile.name)
-                        } catch (err) {
-                          // 忽略释放错误
-                        }
+                    console.error('视频加载错误:', e)
+                    alertError('视频加载失败，请检查视频文件是否有效', '视频错误')
+                    // 清空视频URL，回到上传状态
+                    setVideoUrl(null)
+                    setCosVideoUrl(null)
+                    if (videoFile) {
+                      // 释放本地URL
+                      try {
+                        URL.revokeObjectURL(videoFile.name)
+                      } catch (err) {
+                        // 忽略释放错误
                       }
-                      setVideoFile(null)
-                    }}
-                  />
+                    }
+                    setVideoFile(null)
+                  }}
+                />
                 )}
                 
                 {/* 上传进度覆盖层 */}
@@ -1052,7 +1052,7 @@ function VideoReview() {
               /* 上传区域 */
               <div 
                 onClick={handleUploadClick}
-                className="w-full h-full bg-gradient-to-br from-purple-900 to-pink-900 flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity relative"
+                className="w-full h-full bg-white border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:border-purple-500 hover:bg-gray-50 transition-all relative"
               >
                 <input
                   ref={fileInputRef}
@@ -1062,11 +1062,11 @@ function VideoReview() {
                   className="hidden"
                 />
               <div className="text-center">
-                  <div className="w-20 h-20 mx-auto mb-4 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
-                    <Upload size={40} className="text-white" />
+                  <div className="w-20 h-20 mx-auto mb-4 bg-purple-100 rounded-full flex items-center justify-center">
+                    <Upload size={40} className="text-purple-600" />
                   </div>
-                  <p className="text-white text-lg font-medium mb-2">点击上传视频</p>
-                  <p className="text-white text-sm opacity-80">支持 MP4、AVI、MOV 等格式</p>
+                  <p className="text-gray-700 text-lg font-medium mb-2">点击上传视频</p>
+                  <p className="text-gray-500 text-sm">支持 MP4、AVI、MOV 等格式</p>
                 </div>
               </div>
             )}
@@ -1178,33 +1178,33 @@ function VideoReview() {
 
           {/* 批注输入 - 仅在审片模式下显示 */}
           {mode === 'review' && (
-            <div className="space-y-2">
-              <textarea
-                value={annotation}
-                onChange={(e) => setAnnotation(e.target.value)}
-                placeholder="请输入批注内容..."
+          <div className="space-y-2">
+            <textarea
+              value={annotation}
+              onChange={(e) => setAnnotation(e.target.value)}
+              placeholder="请输入批注内容..."
                 rows={3}
-                maxLength={1000}
+              maxLength={1000}
                 className="w-full px-3 sm:px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 resize-none text-sm sm:text-base"
-              />
+            />
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs sm:text-sm text-gray-600">{annotation.length}/1000</span>
                 <div className="flex gap-1.5 sm:gap-2">
-                  <button
-                    onClick={() => setAnnotation('')}
+                <button
+                  onClick={() => setAnnotation('')}
                     className="px-3 sm:px-4 py-1.5 sm:py-2 bg-gray-50 border border-gray-300 rounded-lg active:bg-gray-100 sm:hover:bg-gray-100 touch-manipulation text-xs sm:text-sm"
-                  >
-                    清空
-                  </button>
-                  <button 
-                    onClick={handleSubmitAnnotation}
+                >
+                  清空
+                </button>
+                <button 
+                  onClick={handleSubmitAnnotation}
                     className="px-3 sm:px-4 py-1.5 sm:py-2 bg-purple-600 text-white rounded-lg active:bg-purple-700 sm:hover:bg-purple-700 touch-manipulation text-xs sm:text-sm"
-                  >
-                    提交
-                  </button>
-                </div>
+                >
+                  提交
+                </button>
               </div>
             </div>
+          </div>
           )}
         </div>
 
@@ -1283,7 +1283,7 @@ function VideoReview() {
             <>
               <h3 className="text-sm sm:text-lg font-semibold mb-3 sm:mb-4">批注列表</h3>
               <div className="space-y-3 sm:space-y-4">
-                {filteredAnnotations.map((item) => (
+            {filteredAnnotations.map((item) => (
               <div key={item.id} className="bg-gray-50 border border-gray-200 rounded-lg p-3 sm:p-4">
                 <div className="flex items-start gap-2 sm:gap-3 mb-2">
                   <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-purple-600 flex items-center justify-center text-white text-xs sm:text-sm flex-shrink-0">
@@ -1319,9 +1319,9 @@ function VideoReview() {
                     </button>
                   </div>
                 </div>
-                </div>
-              ))}
               </div>
+            ))}
+          </div>
             </>
           )}
         </div>

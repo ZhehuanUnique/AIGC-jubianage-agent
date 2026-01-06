@@ -464,13 +464,17 @@ function FragmentManagement() {
         try {
           const dbFragments = await getProjectFragments(numericProjectId)
           if (dbFragments && dbFragments.length > 0) {
-            const convertedFragments = dbFragments.map(fragment => ({
-              id: fragment.id,
-              name: fragment.name,
-              description: fragment.description,
-              imageUrl: fragment.imageUrl,
-              videoUrls: fragment.videoUrls || [],
-            }))
+            // 过滤掉正在删除的分镜（避免"回光返照"）
+            const deletingIds = Array.from(deletingFragmentsRef.current)
+            const convertedFragments = dbFragments
+              .filter(fragment => !deletingIds.includes(fragment.id.toString()))
+              .map(fragment => ({
+                id: fragment.id,
+                name: fragment.name,
+                description: fragment.description,
+                imageUrl: fragment.imageUrl,
+                videoUrls: fragment.videoUrls || [],
+              }))
             setFragments(convertedFragments)
             // 更新缓存
             const storageKey = projectId ? `fragments_${projectId}` : 'fragments'
@@ -612,23 +616,28 @@ function FragmentManagement() {
       // 如果返回404或错误提示片段不存在，说明已经删除成功，静默处理
       if (response.status === 404 || (result.error && result.error.includes('不存在'))) {
         console.log('片段已不存在，删除成功（可能是重复请求）')
-        // 静默处理，不显示错误
-        loadFragments(true)
+        // 删除成功，不刷新（保持乐观更新状态，避免"回光返照"）
+        // 延迟移除删除标记，确保UI已更新且不会在刷新时重新出现
+        setTimeout(() => {
+          deletingFragmentsRef.current.delete(fragmentIdToDelete)
+        }, 2000) // 延迟2秒，确保删除操作完全完成
       } else if (result.success) {
-        // 删除成功，静默刷新以确保数据同步
-        loadFragments(true)
+        // 删除成功，不刷新（保持乐观更新状态，避免"回光返照"）
+        // 延迟移除删除标记，确保UI已更新且不会在刷新时重新出现
+        setTimeout(() => {
+          deletingFragmentsRef.current.delete(fragmentIdToDelete)
+        }, 2000) // 延迟2秒，确保删除操作完全完成
       } else {
         // 其他错误才显示提示
         alert(`删除失败: ${result.error}`, 'error')
         // 如果删除失败，重新加载以恢复数据
         loadFragments(true)
+        deletingFragmentsRef.current.delete(fragmentIdToDelete)
       }
     } catch (error) {
       console.error('删除片段失败:', error)
       // 网络错误等，不显示错误提示，静默刷新
       loadFragments(true)
-    } finally {
-      // 移除删除标记
       deletingFragmentsRef.current.delete(fragmentIdToDelete)
     }
   }
