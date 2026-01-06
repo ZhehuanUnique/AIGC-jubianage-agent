@@ -1345,21 +1345,31 @@ app.get('/api/projects/:projectId/first-last-frame-videos', authenticateToken, a
     let favoritedTaskIds = new Set()
     
     if (taskIds.length > 0) {
-      // 查询点赞状态
-      const likesResult = await db.query(
-        `SELECT video_task_id FROM first_last_frame_video_likes 
-         WHERE user_id = $1 AND video_task_id = ANY($2)`,
-        [userId, taskIds]
-      )
-      likedTaskIds = new Set(likesResult.rows.map(r => r.video_task_id))
+      // 查询点赞状态（如果表不存在，静默失败，不返回点赞状态）
+      try {
+        const likesResult = await db.query(
+          `SELECT video_task_id FROM first_last_frame_video_likes 
+           WHERE user_id = $1 AND video_task_id = ANY($2)`,
+          [userId, taskIds]
+        )
+        likedTaskIds = new Set(likesResult.rows.map(r => r.video_task_id))
+      } catch (likesError) {
+        console.warn('查询点赞状态失败（表可能不存在）:', likesError.message)
+        // 静默失败，不返回点赞状态
+      }
       
-      // 查询收藏状态
-      const favoritesResult = await db.query(
-        `SELECT video_task_id FROM first_last_frame_video_favorites 
-         WHERE user_id = $1 AND video_task_id = ANY($2)`,
-        [userId, taskIds]
-      )
-      favoritedTaskIds = new Set(favoritesResult.rows.map(r => r.video_task_id))
+      // 查询收藏状态（如果表不存在，静默失败，不返回收藏状态）
+      try {
+        const favoritesResult = await db.query(
+          `SELECT video_task_id FROM first_last_frame_video_favorites 
+           WHERE user_id = $1 AND video_task_id = ANY($2)`,
+          [userId, taskIds]
+        )
+        favoritedTaskIds = new Set(favoritesResult.rows.map(r => r.video_task_id))
+      } catch (favoritesError) {
+        console.warn('查询收藏状态失败（表可能不存在）:', favoritesError.message)
+        // 静默失败，不返回收藏状态
+      }
     }
     
     // 格式化返回数据

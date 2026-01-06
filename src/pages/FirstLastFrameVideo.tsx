@@ -1415,7 +1415,6 @@ function FirstLastFrameVideo() {
                                     setTimeout(() => {
                                       window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
                                     }, 100)
-                                    alertSuccess('已填充到输入框', '重新编辑')
                                   }}
                                   className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700 transition-colors flex items-center gap-1"
                                 >
