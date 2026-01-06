@@ -254,21 +254,12 @@ function WorksShowcase() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [currentVideoIndex, videos, navigate, isMobile])
 
-  // 滚轮导航（桌面端）
-  useEffect(() => {
-    if (isMobile) return
-
-    const handleWheel = (e: WheelEvent) => {
-      if (!containerRef.current?.contains(e.target as Node)) return
-
-      e.preventDefault()
-      const direction = e.deltaY > 0 ? 1 : -1
-      switchToVideo(currentVideoIndex + direction)
-    }
-
-    window.addEventListener('wheel', handleWheel, { passive: false })
-    return () => window.removeEventListener('wheel', handleWheel)
-  }, [currentVideoIndex, videos, isMobile])
+  // 滚轮导航（桌面端 - 仅用于移动端全屏模式，桌面端网格模式不需要）
+  // 注意：桌面端网格模式应该允许正常滚动，所以这里不添加滚轮监听
+  // useEffect(() => {
+  //   if (isMobile) return
+  //   // 桌面端网格模式不需要滚轮切换视频，应该允许正常页面滚动
+  // }, [currentVideoIndex, videos, isMobile])
 
   // 自动播放当前视频
   useEffect(() => {
