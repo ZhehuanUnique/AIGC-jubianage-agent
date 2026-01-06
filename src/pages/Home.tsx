@@ -12,7 +12,6 @@ function Home() {
   
   // 按钮文本轮播
   const buttonTexts = ['做真人剧', '做爆款剧', '做动态漫剧', '做高能打斗', '高效产出']
-  const [currentTextIndex, setCurrentTextIndex] = useState(0)
 
   useEffect(() => {
     // 检查是否已登录
@@ -34,14 +33,6 @@ function Home() {
     }
   }, [])
 
-  // 按钮文本轮播效果
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentTextIndex((prevIndex) => (prevIndex + 1) % buttonTexts.length)
-    }, 2000) // 每2秒切换一次
-
-    return () => clearInterval(interval)
-  }, [buttonTexts.length])
 
   const handleClick = async () => {
     // 先检查是否已登录
@@ -196,16 +187,17 @@ function Home() {
               </h1>
               <button
                 onClick={handleClick}
-                className="uiverse-button px-10 py-5 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xl md:text-2xl font-semibold rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-300 shadow-2xl hover:shadow-purple-500/50 relative z-20 transform hover:scale-105 overflow-hidden"
+                className="uiverse-button-card px-10 py-5 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xl md:text-2xl font-semibold rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-300 shadow-2xl hover:shadow-purple-500/50 relative z-20 transform hover:scale-105 overflow-hidden"
               >
-                <span className="button-text-wrapper inline-block">
-                  <span 
-                    key={currentTextIndex}
-                    className="button-text animate-text-slide"
-                  >
-                    {buttonTexts[currentTextIndex]}
-                  </span>
-                </span>
+                <div className="uiverse-loader">
+                  <div className="uiverse-words">
+                    {buttonTexts.map((text, index) => (
+                      <span key={index} className="uiverse-word">
+                        {text}
+                      </span>
+                    ))}
+                  </div>
+                </div>
               </button>
             </div>
             <button
