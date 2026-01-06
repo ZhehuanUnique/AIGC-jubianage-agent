@@ -581,7 +581,8 @@ function FirstLastFrameVideo() {
         setGeneratingTask({
           taskId: result.data.taskId,
           progress: 0,
-          status: 'accelerating'
+          status: 'accelerating',
+          startTime: Date.now()
         })
         
         // 清空输入
@@ -667,7 +668,8 @@ function FirstLastFrameVideo() {
               setGeneratingTask({
                 taskId,
                 progress: 0,
-                status: 'generating'
+                status: 'generating',
+                startTime: generatingTask.startTime
               })
             }
             
@@ -676,10 +678,8 @@ function FirstLastFrameVideo() {
             if (task.status === 'completed') {
               progress = 100
             } else if (task.status === 'processing' || task.status === 'pending') {
-              // 根据任务创建时间估算进度
-              const createdTime = new Date(task.createdAt || Date.now()).getTime()
-              const now = Date.now()
-              const elapsedMinutes = (now - createdTime) / 60000
+              // 根据任务创建时间估算进度（从generatingTask创建时间开始计算）
+              const elapsedMinutes = (Date.now() - generatingTask.startTime) / 60000
               
               if (elapsedMinutes < 1) {
                 progress = Math.min(30, 10 + elapsedMinutes * 20)
