@@ -1400,21 +1400,6 @@ function FirstLastFrameVideo() {
                       </div>
                     )}
                     
-                    {/* 右上角删除按钮 - 所有状态都显示 */}
-                    <div className="absolute top-2 right-2 z-30">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          // 显示删除确认对话框
-                          setDeleteConfirmState({ isOpen: true, taskId: task.id })
-                        }}
-                        className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all shadow-lg"
-                        title="删除"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
-
                     {/* 状态覆盖层 */}
                     {task.status !== 'completed' && (
                       <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
@@ -1480,95 +1465,97 @@ function FirstLastFrameVideo() {
                       </div>
                     )}
 
-                              {/* 悬停时的控制栏 - 图2样式 */}
-                              {hoveredVideoId === task.id && task.status === 'completed' && (
+                              {/* 悬停时的控制栏 */}
+                              {hoveredVideoId === task.id && (
                                 <>
-                                  {/* 左上角控制栏 */}
-                                  <div className="absolute top-2 left-2 flex items-center gap-2 z-20">
-                                    <button
-                                      onClick={async (e) => {
-                                        e.stopPropagation()
-                                        // 上传到社区
-                                        if (!task.videoUrl) {
-                                          alertError('视频尚未生成完成', '无法上传')
-                                          return
-                                        }
-                                        try {
-                                          const { publishVideoToCommunity } = await import('../services/api')
-                                          await publishVideoToCommunity({
-                                            videoUrl: task.videoUrl,
-                                            title: task.text || `首尾帧视频 ${task.id}`,
-                                            description: `使用${task.model}模型生成，分辨率${task.resolution}，时长${task.duration}秒`,
-                                            projectId: projectId ? parseInt(projectId) : undefined,
-                                          })
-                                          // alertSuccess('视频已发布到社区', '上传成功') // 已移除成功提示框
-                                        } catch (error) {
-                                          console.error('上传到社区失败:', error)
-                                          alertError(error instanceof Error ? error.message : '上传到社区失败，请稍后重试', '上传失败')
-                                        }
-                                      }}
-                                      className="p-2 bg-black bg-opacity-60 hover:bg-opacity-80 text-white rounded-lg transition-all"
-                                      title="上传到社区"
-                                    >
-                                      <Share2 size={18} />
-                                    </button>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        // 下载视频（静默下载，不显示提示）
-                                        if (task.videoUrl) {
-                                          const link = document.createElement('a')
-                                          link.href = task.videoUrl
-                                          link.download = `video_${task.id}.mp4`
-                                          link.click()
-                                        }
-                                      }}
-                                      className="p-2 bg-black bg-opacity-60 hover:bg-opacity-80 text-white rounded-lg transition-all"
-                                      title="下载"
-                                    >
-                                      <Download size={18} />
-                                    </button>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        // 仅前端状态切换，用于筛选（不调用API）
-                                        const newFavorited = !task.isFavorited
-                                        setAllTasks(prev => prev.map(t => 
-                                          t.id === task.id ? { ...t, isFavorited: newFavorited } : t
-                                        ))
-                                        setTasks(prev => prev.map(t => 
-                                          t.id === task.id ? { ...t, isFavorited: newFavorited } : t
-                                        ))
-                                      }}
-                                      className={`p-2 bg-black bg-opacity-60 hover:bg-opacity-80 text-white rounded-lg transition-all ${
-                                        task.isFavorited ? 'bg-red-500 bg-opacity-80' : ''
-                                      }`}
-                                      title={task.isFavorited ? '取消收藏' : '收藏'}
-                                    >
-                                      <Heart size={18} className={task.isFavorited ? 'fill-white' : ''} />
-                                    </button>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        // 仅前端状态切换，用于筛选（不调用API）
-                                        const newLiked = !task.isLiked
-                                        setAllTasks(prev => prev.map(t => 
-                                          t.id === task.id ? { ...t, isLiked: newLiked } : t
-                                        ))
-                                        setTasks(prev => prev.map(t => 
-                                          t.id === task.id ? { ...t, isLiked: newLiked } : t
-                                        ))
-                                      }}
-                                      className={`p-2 bg-black bg-opacity-60 hover:bg-opacity-80 text-white rounded-lg transition-all ${
-                                        task.isLiked ? 'bg-red-500 bg-opacity-80' : ''
-                                      }`}
-                                      title="点赞"
-                                    >
-                                      <ThumbsUp size={18} className={task.isLiked ? 'fill-white' : ''} />
-                                    </button>
-                                  </div>
+                                  {/* 左上角控制栏 - 只有已完成状态显示功能按钮 */}
+                                  {task.status === 'completed' && (
+                                    <div className="absolute top-2 left-2 flex items-center gap-2 z-20">
+                                      <button
+                                        onClick={async (e) => {
+                                          e.stopPropagation()
+                                          // 上传到社区
+                                          if (!task.videoUrl) {
+                                            alertError('视频尚未生成完成', '无法上传')
+                                            return
+                                          }
+                                          try {
+                                            const { publishVideoToCommunity } = await import('../services/api')
+                                            await publishVideoToCommunity({
+                                              videoUrl: task.videoUrl,
+                                              title: task.text || `首尾帧视频 ${task.id}`,
+                                              description: `使用${task.model}模型生成，分辨率${task.resolution}，时长${task.duration}秒`,
+                                              projectId: projectId ? parseInt(projectId) : undefined,
+                                            })
+                                            // alertSuccess('视频已发布到社区', '上传成功') // 已移除成功提示框
+                                          } catch (error) {
+                                            console.error('上传到社区失败:', error)
+                                            alertError(error instanceof Error ? error.message : '上传到社区失败，请稍后重试', '上传失败')
+                                          }
+                                        }}
+                                        className="p-2 bg-black bg-opacity-60 hover:bg-opacity-80 text-white rounded-lg transition-all"
+                                        title="上传到社区"
+                                      >
+                                        <Share2 size={18} />
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          // 下载视频（静默下载，不显示提示）
+                                          if (task.videoUrl) {
+                                            const link = document.createElement('a')
+                                            link.href = task.videoUrl
+                                            link.download = `video_${task.id}.mp4`
+                                            link.click()
+                                          }
+                                        }}
+                                        className="p-2 bg-black bg-opacity-60 hover:bg-opacity-80 text-white rounded-lg transition-all"
+                                        title="下载"
+                                      >
+                                        <Download size={18} />
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          // 仅前端状态切换，用于筛选（不调用API）
+                                          const newFavorited = !task.isFavorited
+                                          setAllTasks(prev => prev.map(t => 
+                                            t.id === task.id ? { ...t, isFavorited: newFavorited } : t
+                                          ))
+                                          setTasks(prev => prev.map(t => 
+                                            t.id === task.id ? { ...t, isFavorited: newFavorited } : t
+                                          ))
+                                        }}
+                                        className={`p-2 bg-black bg-opacity-60 hover:bg-opacity-80 text-white rounded-lg transition-all ${
+                                          task.isFavorited ? 'bg-red-500 bg-opacity-80' : ''
+                                        }`}
+                                        title={task.isFavorited ? '取消收藏' : '收藏'}
+                                      >
+                                        <Heart size={18} className={task.isFavorited ? 'fill-white' : ''} />
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          // 仅前端状态切换，用于筛选（不调用API）
+                                          const newLiked = !task.isLiked
+                                          setAllTasks(prev => prev.map(t => 
+                                            t.id === task.id ? { ...t, isLiked: newLiked } : t
+                                          ))
+                                          setTasks(prev => prev.map(t => 
+                                            t.id === task.id ? { ...t, isLiked: newLiked } : t
+                                          ))
+                                        }}
+                                        className={`p-2 bg-black bg-opacity-60 hover:bg-opacity-80 text-white rounded-lg transition-all ${
+                                          task.isLiked ? 'bg-red-500 bg-opacity-80' : ''
+                                        }`}
+                                        title="点赞"
+                                      >
+                                        <ThumbsUp size={18} className={task.isLiked ? 'fill-white' : ''} />
+                                      </button>
+                                    </div>
+                                  )}
 
-                                  {/* 右上角删除按钮 */}
+                                  {/* 右上角删除按钮 - 所有状态都显示（悬停时） */}
                                   <div className="absolute top-2 right-2 z-20">
                                     <button
                                       onClick={(e) => {
@@ -1583,49 +1570,51 @@ function FirstLastFrameVideo() {
                                     </button>
                                   </div>
 
-                                  {/* 底部控制栏 */}
-                                  <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between z-20">
-                                    <button
-                                      onClick={async (e) => {
-                                        e.stopPropagation()
-                                        try {
-                                          await createVideoProcessingTask({
-                                            videoTaskId: task.id,
-                                            processingType: 'frame_interpolation'
-                                          })
-                                          alertSuccess('补帧任务已创建，请稍后查看结果', '任务创建成功')
-                                        } catch (error) {
-                                          console.error('创建补帧任务失败:', error)
-                                          alertError(error instanceof Error ? error.message : '创建补帧任务失败，请稍后重试', '操作失败')
-                                        }
-                                      }}
-                                      className="px-3 py-1.5 bg-black bg-opacity-60 hover:bg-opacity-80 text-white rounded-lg text-sm transition-all flex items-center gap-2"
-                                      title="补帧"
-                                    >
-                                      <Sparkles size={16} />
-                                      <span>补帧</span>
-                                    </button>
-                                    <button
-                                      onClick={async (e) => {
-                                        e.stopPropagation()
-                                        try {
-                                          await createVideoProcessingTask({
-                                            videoTaskId: task.id,
-                                            processingType: 'super_resolution'
-                                          })
-                                          alertSuccess('超分辨率任务已创建，请稍后查看结果', '任务创建成功')
-                                        } catch (error) {
-                                          console.error('创建超分辨率任务失败:', error)
-                                          alertError(error instanceof Error ? error.message : '创建超分辨率任务失败，请稍后重试', '操作失败')
-                                        }
-                                      }}
-                                      className="px-3 py-1.5 bg-black bg-opacity-60 hover:bg-opacity-80 text-white rounded-lg text-sm transition-all flex items-center gap-2"
-                                      title="超分辨率"
-                                    >
-                                      <Zap size={16} />
-                                      <span>超分辨率</span>
-                                    </button>
-                                  </div>
+                                  {/* 底部控制栏 - 只有已完成状态显示补帧和超分辨率 */}
+                                  {task.status === 'completed' && (
+                                    <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between z-20">
+                                      <button
+                                        onClick={async (e) => {
+                                          e.stopPropagation()
+                                          try {
+                                            await createVideoProcessingTask({
+                                              videoTaskId: task.id,
+                                              processingType: 'frame_interpolation'
+                                            })
+                                            alertSuccess('补帧任务已创建，请稍后查看结果', '任务创建成功')
+                                          } catch (error) {
+                                            console.error('创建补帧任务失败:', error)
+                                            alertError(error instanceof Error ? error.message : '创建补帧任务失败，请稍后重试', '操作失败')
+                                          }
+                                        }}
+                                        className="px-3 py-1.5 bg-black bg-opacity-60 hover:bg-opacity-80 text-white rounded-lg text-sm transition-all flex items-center gap-2"
+                                        title="补帧"
+                                      >
+                                        <Sparkles size={16} />
+                                        <span>补帧</span>
+                                      </button>
+                                      <button
+                                        onClick={async (e) => {
+                                          e.stopPropagation()
+                                          try {
+                                            await createVideoProcessingTask({
+                                              videoTaskId: task.id,
+                                              processingType: 'super_resolution'
+                                            })
+                                            alertSuccess('超分辨率任务已创建，请稍后查看结果', '任务创建成功')
+                                          } catch (error) {
+                                            console.error('创建超分辨率任务失败:', error)
+                                            alertError(error instanceof Error ? error.message : '创建超分辨率任务失败，请稍后重试', '操作失败')
+                                          }
+                                        }}
+                                        className="px-3 py-1.5 bg-black bg-opacity-60 hover:bg-opacity-80 text-white rounded-lg text-sm transition-all flex items-center gap-2"
+                                        title="超分辨率"
+                                      >
+                                        <Zap size={16} />
+                                        <span>超分辨率</span>
+                                      </button>
+                                    </div>
+                                  )}
                                 </>
                               )}
                   </div>
