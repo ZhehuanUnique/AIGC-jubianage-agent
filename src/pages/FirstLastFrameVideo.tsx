@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Upload, Loader2, Share2, Download, Heart, ThumbsUp, Edit, Sparkles, Zap } from 'lucide-react'
+import { ArrowLeft, Upload, Loader2, Share2, Download, Heart, ThumbsUp, Edit, Sparkles, Zap, Trash2 } from 'lucide-react'
 import { alertSuccess, alertError } from '../utils/alert'
 import { generateFirstLastFrameVideo, getFirstLastFrameVideoStatus, getFirstLastFrameVideos, createVideoProcessingTask } from '../services/api'
 import { calculateVideoGenerationCredit } from '../utils/creditCalculator'
@@ -1304,8 +1304,8 @@ function FirstLastFrameVideo() {
                               {/* 悬停时的控制栏 - 图2样式 */}
                               {hoveredVideoId === task.id && task.status === 'completed' && (
                                 <>
-                                  {/* 顶部控制栏 */}
-                                  <div className="absolute top-2 right-2 flex items-center gap-2 z-20">
+                                  {/* 左上角控制栏 */}
+                                  <div className="absolute top-2 left-2 flex items-center gap-2 z-20">
                                     <button
                                       onClick={async (e) => {
                                         e.stopPropagation()
@@ -1386,6 +1386,51 @@ function FirstLastFrameVideo() {
                                       title="点赞"
                                     >
                                       <ThumbsUp size={18} className={task.isLiked ? 'fill-white' : ''} />
+                                    </button>
+                                  </div>
+
+                                  {/* 右上角删除按钮 */}
+                                  <div className="absolute top-2 right-2 z-20">
+                                    <button
+                                      onClick={async (e) => {
+                                        e.stopPropagation()
+                                        // 确认删除
+                                        if (!window.confirm('确定要删除这个视频吗？')) {
+                                          return
+                                        }
+                                        try {
+                                          // 从列表中移除
+                                          setAllTasks(prev => prev.filter(t => t.id !== task.id))
+                                          setTasks(prev => prev.filter(t => t.id !== task.id))
+                                          allTasksRef.current = allTasksRef.current.filter(t => t.id !== task.id)
+                                          
+                                          // TODO: 调用后端API删除视频（如果后端有API）
+                                          // const { deleteFirstLastFrameVideo } = await import('../services/api')
+                                          // await deleteFirstLastFrameVideo(task.id)
+                                          
+                                          // 更新缓存
+                                          if (projectId) {
+                                            const storageKey = `first_last_frame_videos_${projectId}`
+                                            const cachedVideos = localStorage.getItem(storageKey)
+                                            if (cachedVideos) {
+                                              try {
+                                                const parsed = JSON.parse(cachedVideos)
+                                                const filtered = parsed.filter((v: any) => (v.taskId || v.id) !== task.id)
+                                                localStorage.setItem(storageKey, JSON.stringify(filtered))
+                                              } catch (e) {
+                                                console.warn('更新缓存失败:', e)
+                                              }
+                                            }
+                                          }
+                                        } catch (error) {
+                                          console.error('删除视频失败:', error)
+                                          alertError(error instanceof Error ? error.message : '删除视频失败，请稍后重试', '删除失败')
+                                        }
+                                      }}
+                                      className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all"
+                                      title="删除"
+                                    >
+                                      <Trash2 size={18} />
                                     </button>
                                   </div>
 
