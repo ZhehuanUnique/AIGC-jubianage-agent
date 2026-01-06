@@ -1306,6 +1306,119 @@ app.get('/api/first-last-frame-video/status/:taskId', authenticateToken, async (
   }
 })
 
+// 删除首尾帧视频
+app.delete('/api/first-last-frame-videos/:taskId', authenticateToken, async (req, res) => {
+  try {
+    const { taskId } = req.params
+    const userId = req.user?.id
+    
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: '未登录，请先登录',
+      })
+    }
+    
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+    
+    // 查询视频记录，验证权限
+    const videoResult = await db.query(
+      `SELECT id, video_url, cos_key, first_frame_url, last_frame_url, project_id, user_id
+       FROM first_last_frame_videos
+       WHERE task_id = $1 AND user_id = $2`,
+      [taskId, userId]
+    )
+    
+    if (videoResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: '视频不存在或无权访问',
+      })
+    }
+    
+    const video = videoResult.rows[0]
+    
+    // 删除COS中的视频文件
+    if (video.cos_key) {
+      try {
+        const { deleteFile } = await import('./services/cosService.js')
+        await deleteFile(video.cos_key).catch(err => {
+          console.warn('删除COS视频文件失败:', err)
+        })
+      } catch (cosError) {
+        console.warn('删除COS视频文件失败（继续删除数据库记录）:', cosError)
+      }
+    }
+    
+    // 删除首帧图片（如果存在且是COS URL）
+    if (video.first_frame_url) {
+      try {
+        const { deleteFile } = await import('./services/cosService.js')
+        const match = video.first_frame_url.match(/https?:\/\/[^\/]+\/(.+)/)
+        if (match) {
+          await deleteFile(match[1]).catch(err => {
+            console.warn('删除COS首帧图片失败:', err)
+          })
+        }
+      } catch (cosError) {
+        console.warn('删除COS首帧图片失败（继续删除数据库记录）:', cosError)
+      }
+    }
+    
+    // 删除尾帧图片（如果存在且是COS URL）
+    if (video.last_frame_url) {
+      try {
+        const { deleteFile } = await import('./services/cosService.js')
+        const match = video.last_frame_url.match(/https?:\/\/[^\/]+\/(.+)/)
+        if (match) {
+          await deleteFile(match[1]).catch(err => {
+            console.warn('删除COS尾帧图片失败:', err)
+          })
+        }
+      } catch (cosError) {
+        console.warn('删除COS尾帧图片失败（继续删除数据库记录）:', cosError)
+      }
+    }
+    
+    // 删除关联的点赞和收藏记录
+    try {
+      await db.query(
+        'DELETE FROM first_last_frame_video_likes WHERE video_task_id = $1',
+        [taskId]
+      )
+    } catch (likesError) {
+      console.warn('删除点赞记录失败（继续删除）:', likesError.message)
+    }
+    
+    try {
+      await db.query(
+        'DELETE FROM first_last_frame_video_favorites WHERE video_task_id = $1',
+        [taskId]
+      )
+    } catch (favoritesError) {
+      console.warn('删除收藏记录失败（继续删除）:', favoritesError.message)
+    }
+    
+    // 删除数据库记录
+    await db.query(
+      'DELETE FROM first_last_frame_videos WHERE task_id = $1 AND user_id = $2',
+      [taskId, userId]
+    )
+    
+    res.json({
+      success: true,
+      message: '视频已删除',
+    })
+  } catch (error) {
+    console.error('删除首尾帧视频失败:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '删除首尾帧视频失败',
+    })
+  }
+})
+
 // 获取项目的首尾帧视频历史
 app.get('/api/projects/:projectId/first-last-frame-videos', authenticateToken, async (req, res) => {
   try {

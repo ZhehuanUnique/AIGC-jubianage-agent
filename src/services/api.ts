@@ -2227,6 +2227,33 @@ export async function getFirstLastFrameVideos(projectId: number): Promise<Array<
 }
 
 /**
+ * 删除首尾帧视频
+ */
+export async function deleteFirstLastFrameVideo(taskId: string): Promise<void> {
+  const token = AuthService.getToken()
+  if (!token) {
+    throw new Error('未登录，请先登录')
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/first-last-frame-videos/${taskId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+
+    const data = await response.json()
+    if (!response.ok) {
+      throw new Error(data.error || '删除视频失败')
+    }
+  } catch (error: any) {
+    console.error('删除首尾帧视频API失败:', error)
+    throw error
+  }
+}
+
+/**
  * 获取视频批注列表
  */
 export async function getAnnotations(projectId: number, fragmentId: string): Promise<Array<{

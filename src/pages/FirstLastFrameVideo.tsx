@@ -1875,14 +1875,14 @@ function FirstLastFrameVideo() {
             const taskToDelete = allTasks.find(t => t.id === taskId)
             if (!taskToDelete) return
 
+            // 调用后端API删除视频
+            const { deleteFirstLastFrameVideo } = await import('../services/api')
+            await deleteFirstLastFrameVideo(taskId)
+            
             // 从列表中移除
             setAllTasks(prev => prev.filter(t => t.id !== taskId))
             setTasks(prev => prev.filter(t => t.id !== taskId))
             allTasksRef.current = allTasksRef.current.filter(t => t.id !== taskId)
-            
-            // TODO: 调用后端API删除视频（如果后端有API）
-            // const { deleteFirstLastFrameVideo } = await import('../services/api')
-            // await deleteFirstLastFrameVideo(taskId)
             
             // 更新缓存
             if (projectId) {
