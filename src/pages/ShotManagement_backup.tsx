@@ -67,7 +67,7 @@ function ShotManagement() {
       style: state?.workStyle || '三维动漫�?,
       sceneDescription: '',
       visualFocus: '',
-      model: '即梦AI-视频生成3.0pro',
+      model: 'volcengine-video-3.0-pro',
       aspectRatio: '16:9',
       quantity: 1,
       isExpanded: false,
