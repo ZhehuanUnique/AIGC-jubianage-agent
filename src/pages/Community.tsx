@@ -124,12 +124,8 @@ function Community() {
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-16">
-            {/* Logo和搜索 */}
+            {/* 搜索 */}
             <div className="flex items-center gap-4 flex-1">
-              <div className="flex items-center gap-2">
-                <img src="/logo.png" alt="Logo" className="w-8 h-8 rounded-full" />
-                <span className="text-sm text-gray-600 hidden sm:inline">剧变时代AI</span>
-              </div>
               <div className="flex-1 max-w-md relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <input
