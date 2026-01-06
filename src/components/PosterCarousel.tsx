@@ -132,45 +132,45 @@ function PosterCarousel({ posterFolder }: PosterCarouselProps) {
     }
   }, [scrollSpeed, isDragging, posters.length])
 
-  // 处理无限循环滚动
+  // 处理无限循环滚动 - 使用更可靠的检查机制
   useEffect(() => {
     const container = containerRef.current
     if (!container || posters.length === 0) return
 
-    const handleScroll = () => {
-      if (isDragging) return // 拖动时不处理循环
+    const itemWidth = 200 + 16 // 卡片宽度 + gap（缩小后的尺寸）
+    const secondGroupStart = itemWidth * posters.length
+    const secondGroupEnd = itemWidth * posters.length * 2
 
-      const itemWidth = 200 + 16 // 卡片宽度 + gap（缩小后的尺寸）
-      const secondGroupStart = itemWidth * posters.length
-      const secondGroupEnd = itemWidth * posters.length * 2
+    // 使用 requestAnimationFrame 持续检查，确保无限循环
+    let checkInterval: number
+    const checkLoop = () => {
+      if (!container || isDragging) {
+        checkInterval = requestAnimationFrame(checkLoop)
+        return
+      }
 
+      const currentScroll = container.scrollLeft
+      
       // 当滚动到第二组的末尾时，重置到第二组的开头（实现无缝循环）
       if (scrollSpeed < 0) {
         // 从右往左
-        if (container.scrollLeft >= secondGroupEnd - container.clientWidth - 10) {
-          // 添加10px的容差，确保在接近边界时就能重置
+        if (currentScroll >= secondGroupEnd - container.clientWidth - 50) {
+          // 增加容差到50px，确保在接近边界时就能重置
           container.scrollLeft = secondGroupStart
         }
       } else {
         // 从左往右
-        if (container.scrollLeft <= secondGroupStart + 10) {
-          // 添加10px的容差，确保在接近边界时就能重置
+        if (currentScroll <= secondGroupStart + 50) {
+          // 增加容差到50px，确保在接近边界时就能重置
           container.scrollLeft = secondGroupEnd - container.clientWidth
         }
       }
-    }
-
-    // 使用 requestAnimationFrame 定期检查，而不是依赖 scroll 事件
-    let checkInterval: number
-    const checkLoop = () => {
-      handleScroll()
+      
       checkInterval = requestAnimationFrame(checkLoop)
     }
     checkInterval = requestAnimationFrame(checkLoop)
 
-    container.addEventListener('scroll', handleScroll)
     return () => {
-      container.removeEventListener('scroll', handleScroll)
       if (checkInterval) {
         cancelAnimationFrame(checkInterval)
       }
