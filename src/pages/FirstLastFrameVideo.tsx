@@ -1363,6 +1363,21 @@ function FirstLastFrameVideo() {
                       </div>
                     )}
                     
+                    {/* 右上角删除按钮 - 所有状态都显示 */}
+                    <div className="absolute top-2 right-2 z-30">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          // 显示删除确认对话框
+                          setDeleteConfirmState({ isOpen: true, taskId: task.id })
+                        }}
+                        className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all shadow-lg"
+                        title="删除"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+
                     {/* 状态覆盖层 */}
                     {task.status !== 'completed' && (
                       <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
@@ -2040,16 +2055,6 @@ function FirstLastFrameVideo() {
 
               {/* 右侧：提示词输入框 */}
               <div className="flex-1 flex flex-col">
-                {/* 当前配置显示（黄色框） */}
-                <div className="mb-3 px-3 py-2 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <div className="flex items-center gap-2 text-sm text-gray-700">
-                    <span className="font-medium">当前配置:</span>
-                    <span className="text-gray-600">
-                      {supportedModels.find(m => m.value === selectedModel)?.label || selectedModel} | {duration}秒 | {resolution}
-                    </span>
-                  </div>
-                </div>
-                
                 <textarea
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
