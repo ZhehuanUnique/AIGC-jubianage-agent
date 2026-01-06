@@ -515,11 +515,23 @@ function WorksShowcase() {
                           setVideoAspectRatios(prev => new Map(prev).set(video.id, ratio))
                         }}
                       />
-                    ) : video.thumbnailUrl ? (
+                    ) : video.thumbnailUrl && video.thumbnailUrl.trim() !== '' ? (
                       <img
                         src={video.thumbnailUrl}
                         alt={video.title}
                         className="w-full h-full object-cover"
+                        onError={(e) => {
+                          // 如果缩略图加载失败，显示占位符
+                          const target = e.currentTarget
+                          target.style.display = 'none'
+                          const parent = target.parentElement
+                          if (parent && !parent.querySelector('.placeholder')) {
+                            const placeholder = document.createElement('div')
+                            placeholder.className = 'w-full h-full flex items-center justify-center bg-gray-200 placeholder'
+                            placeholder.innerHTML = '<svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>'
+                            parent.appendChild(placeholder)
+                          }
+                        }}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-gray-200">

@@ -2,10 +2,9 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Upload, Loader2, Share2, Download, MoreVertical, Heart, ThumbsUp, Edit, Sparkles, Zap } from 'lucide-react'
 import { alertSuccess, alertError } from '../utils/alert'
-import { generateFirstLastFrameVideo, getFirstLastFrameVideoStatus, getFirstLastFrameVideos, toggleFirstLastFrameVideoLike, toggleFirstLastFrameVideoFavorite, createVideoProcessingTask } from '../services/api'
+import { generateFirstLastFrameVideo, getFirstLastFrameVideoStatus, getFirstLastFrameVideos, createVideoProcessingTask } from '../services/api'
 import { calculateVideoGenerationCredit } from '../utils/creditCalculator'
 import { getUserSettings } from '../services/settingsService'
-import UiverseDropdown from '../components/UiverseDropdown'
 
 interface VideoTask {
   id: string
@@ -870,7 +869,7 @@ function FirstLastFrameVideo() {
                 </button>
                 {showTimeDropdown && (
                   <div 
-                    className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50 p-2"
+                    className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50 p-2"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <div className="space-y-2">
@@ -946,7 +945,7 @@ function FirstLastFrameVideo() {
                 </button>
                 {showVideoDropdown && (
                   <div 
-                    className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50 p-2"
+                    className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50 p-2"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <div className="space-y-2">
@@ -1011,7 +1010,7 @@ function FirstLastFrameVideo() {
                 </button>
                 {showOperationDropdown && (
                   <div 
-                    className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50 p-2"
+                    className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50 p-2"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <div className="space-y-2">
