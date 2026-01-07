@@ -339,11 +339,10 @@ function Community() {
                           className="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-lg cursor-pointer relative"
                           onMouseEnter={(e) => {
                             const rect = e.currentTarget.getBoundingClientRect()
-                            const scrollY = window.scrollY || window.pageYOffset
                             setHoveredUserId(video.username || '')
                             setHoveredUserPosition({
-                              x: rect.left + rect.width / 2, // 头像中心点
-                              y: rect.bottom + scrollY + 8 // 头像底部 + 滚动位置 + 间距
+                              x: rect.left + rect.width / 2, // 头像中心点（视口坐标）
+                              y: rect.bottom + 8 // 头像底部 + 间距（视口坐标）
                             })
                           }}
                           onMouseLeave={() => {
