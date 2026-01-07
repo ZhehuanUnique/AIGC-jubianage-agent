@@ -710,6 +710,7 @@ app.post('/api/first-last-frame-video/generate', authenticateToken, uploadImage.
         duration: parseInt(duration),
         serviceTier: 'offline', // 使用离线推理，更稳定
         generateAudio: true,
+        lastFrameUrl: hasLastFrame ? lastFrameUrl : null, // 传递尾帧URL（如果提供）
       })
     } else if (model === 'veo3.1' || model === 'veo3.1-pro') {
       // 使用 Veo3.1 服务（仅支持单首帧）

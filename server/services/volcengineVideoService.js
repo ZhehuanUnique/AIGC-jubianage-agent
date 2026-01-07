@@ -181,7 +181,7 @@ function generateVolcengineSignature(method, uri, queryParams, host, contentType
 }
 
 /**
- * 使用火山引擎即梦生成视频（图生视频）
+ * 使用火山引擎即梦生成视频（图生视频，支持首尾帧）
  * @param {string} imageUrl - 图片URL（必须是可访问的HTTP/HTTPS URL）
  * @param {Object} options - 生成选项
  * @param {string} options.model - 模型名称：'volcengine-video-3.0-pro'
@@ -191,6 +191,7 @@ function generateVolcengineSignature(method, uri, queryParams, host, contentType
  * @param {string} options.text - 文本提示词（可选）
  * @param {string} options.serviceTier - 服务层级：'default'（在线推理）或 'offline'（离线推理），默认 'default'
  * @param {boolean} options.generateAudio - 是否生成音频，默认 true
+ * @param {string} options.lastFrameUrl - 尾帧图片URL（可选，支持首尾帧模式）
  * @returns {Promise<Object>} 返回任务ID和状态
  */
 export async function generateVideoWithVolcengine(imageUrl, options = {}) {
@@ -202,17 +203,22 @@ export async function generateVideoWithVolcengine(imageUrl, options = {}) {
     text = '',
     serviceTier = 'default', // 'default' 在线推理, 'offline' 离线推理
     generateAudio = true,
+    lastFrameUrl = null, // 尾帧图片URL（可选）
   } = options
 
-  if (!VOLCENGINE_AK || !VOLCENGINE_SK) {
-    throw new Error('VOLCENGINE_AK 和 VOLCENGINE_SK 环境变量未设置，请检查 .env 文件')
+  // 检查认证方式：优先使用ARK API Key（Bearer Token），否则使用AK/SK（签名认证）
+  const useArkApi = !!VOLCENGINE_ARK_API_KEY
+  
+  if (!useArkApi && (!VOLCENGINE_AK || !VOLCENGINE_SK)) {
+    throw new Error('VOLCENGINE_AK 和 VOLCENGINE_SK 环境变量未设置，或未设置 VOLCENGINE_ARK_API_KEY，请检查 .env 文件')
   }
 
   const modelId = getModelId(model)
 
   try {
-    console.log(`🎬 调用火山引擎即梦 ${model} 图生视频API:`, {
+    console.log(`🎬 调用火山引擎即梦 ${model} 图生视频API (${useArkApi ? 'ARK API' : 'Visual API'}):`, {
       imageUrl: imageUrl.substring(0, 100) + (imageUrl.length > 100 ? '...' : ''),
+      lastFrameUrl: lastFrameUrl ? lastFrameUrl.substring(0, 100) + (lastFrameUrl.length > 100 ? '...' : '') : null,
       model: modelId,
       resolution,
       ratio,
@@ -220,28 +226,89 @@ export async function generateVideoWithVolcengine(imageUrl, options = {}) {
       serviceTier,
       hasText: !!text,
       generateAudio,
+      hasLastFrame: !!lastFrameUrl,
     })
 
-    // 构建请求体（根据即梦-3.0Pro接口文档格式）
-    // 根据文档：https://www.volcengine.com/docs/85621/1777001?lang=zh
-    // req_key固定值为 "jimeng_ti2v_v30_pro"
-    // 使用 image_urls 数组格式，或 binary_data_base64
-    // frames: 121帧=5秒，241帧=10秒
-    const requestBody = {
-      req_key: modelId, // 固定值：jimeng_ti2v_v30_pro
-      image_urls: [imageUrl], // 图片URL数组（必须是可访问的HTTP/HTTPS URL）
-      seed: -1, // 随机种子，-1表示随机
-      frames: duration === 5 ? 121 : duration === 10 ? 241 : 121, // 帧数：121=5秒，241=10秒
-    }
+    let requestBody
+    let apiUrl
+    let headers
 
-    // 添加文本提示词（可选）
-    if (text && text.trim()) {
-      requestBody.prompt = text.trim()
-    }
+    if (useArkApi) {
+      // 使用ARK API（Bearer Token认证）
+      // 根据用户提供的curl示例：https://ark.cn-beijing.volces.com/api/v3/contents/generations/tasks
+      apiUrl = `${VOLCENGINE_ARK_API_HOST}/api/v3/contents/generations/tasks`
+      
+      // 构建请求体（ARK API格式，支持首尾帧）
+      const content = []
+      
+      // 添加文本提示词
+      if (text && text.trim()) {
+        content.push({
+          type: 'text',
+          text: text.trim()
+        })
+      }
+      
+      // 添加首帧图片
+      content.push({
+        type: 'image_url',
+        image_url: {
+          url: imageUrl
+        },
+        role: 'first_frame'
+      })
+      
+      // 添加尾帧图片（如果提供）
+      if (lastFrameUrl) {
+        content.push({
+          type: 'image_url',
+          image_url: {
+            url: lastFrameUrl
+          },
+          role: 'last_frame'
+        })
+      }
+      
+      requestBody = {
+        model: modelId, // 使用模型ID
+        content: content,
+        generate_audio: generateAudio,
+      }
+      
+      headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${VOLCENGINE_ARK_API_KEY}`,
+      }
+    } else {
+      // 使用Visual API（签名认证）
+      apiUrl = VOLCENGINE_API_HOST
+      
+      // 构建请求体（根据即梦-3.0Pro接口文档格式）
+      // 根据文档：https://www.volcengine.com/docs/85621/1777001?lang=zh
+      // req_key固定值为 "jimeng_ti2v_v30_pro"
+      // 使用 image_urls 数组格式，或 binary_data_base64
+      // frames: 121帧=5秒，241帧=10秒
+      requestBody = {
+        req_key: modelId, // 固定值：jimeng_ti2v_v30_pro
+        image_urls: [imageUrl], // 图片URL数组（必须是可访问的HTTP/HTTPS URL）
+        seed: -1, // 随机种子，-1表示随机
+        frames: duration === 5 ? 121 : duration === 10 ? 241 : 121, // 帧数：121=5秒，241=10秒
+      }
 
-    // 设置宽高比（如果指定且不是adaptive）
-    if (ratio && ratio !== 'adaptive') {
-      requestBody.aspect_ratio = ratio
+      // 添加文本提示词（可选）
+      if (text && text.trim()) {
+        requestBody.prompt = text.trim()
+      }
+
+      // 设置宽高比（如果指定且不是adaptive）
+      if (ratio && ratio !== 'adaptive') {
+        requestBody.aspect_ratio = ratio
+      }
+      
+      // Visual API暂不支持首尾帧，如果有尾帧则记录警告
+      if (lastFrameUrl) {
+        console.warn('⚠️  Visual API暂不支持首尾帧模式，将只使用首帧')
+      }
     }
 
     const requestBodyJson = JSON.stringify(requestBody)
