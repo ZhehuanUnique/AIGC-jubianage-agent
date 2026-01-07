@@ -41,8 +41,8 @@ function getModelType() {
  */
 function getModelName(modelType) {
   const modelMap = {
-    'flash': 'gemini-2.5-flash-preview-05-20', // 302.ai 可用的 Flash 模型
-    'pro': 'gemini-2.5-pro-preview-06-05', // 302.ai 可用的 Pro 模型
+    'flash': 'gemini-3-flash-preview', // 302.ai 支持的 Gemini 3 Flash 模型
+    'pro': 'gemini-3-pro-preview', // 302.ai 支持的 Gemini 3 Pro 模型
   }
   return modelMap[modelType] || modelMap['flash']
 }
@@ -75,7 +75,7 @@ async function callGeminiAPI(prompt, options = {}) {
   const model = customModel || getModelName(modelType)
 
   try {
-    console.log(`🤖 调用 Gemini ${modelType === 'flash' ? '3.0 Flash' : '3.0 Pro'} API 生成榜单... (模型: ${model})`)
+    console.log(`🤖 调用 Gemini ${modelType === 'flash' ? '3 Flash' : '3 Pro'} API 生成榜单... (模型: ${model})`)
 
     const requestBody = {
       model: model,
