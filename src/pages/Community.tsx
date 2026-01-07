@@ -499,7 +499,7 @@ function Community() {
                       {/* 视频播放器 */}
                       <div 
                         className="relative bg-black cursor-pointer"
-                        style={{ aspectRatio: '16/9' }}
+                        style={{ aspectRatio: `${videoAspectRatios.get(video.id) || 16/9}` }}
                         onClick={() => navigate(`/works/${video.id}`)}
                       >
                         {video.videoUrl ? (
@@ -510,8 +510,8 @@ function Community() {
                             preload="metadata"
                             onLoadedMetadata={(e) => {
                               const videoEl = e.currentTarget
-                              const duration = videoEl.duration
-                              // 可以在这里设置时长显示
+                              const ratio = videoEl.videoWidth / videoEl.videoHeight
+                              setVideoAspectRatios(prev => new Map(prev).set(video.id, ratio))
                             }}
                           />
                         ) : video.thumbnailUrl ? (
@@ -519,6 +519,12 @@ function Community() {
                             src={video.thumbnailUrl}
                             alt={video.title}
                             className="w-full h-full object-contain"
+                            onLoad={(e) => {
+                              // 如果是图片，也尝试获取宽高比
+                              const img = e.currentTarget
+                              const ratio = img.naturalWidth / img.naturalHeight
+                              setVideoAspectRatios(prev => new Map(prev).set(video.id, ratio))
+                            }}
                             onError={(e) => {
                               const target = e.target as HTMLImageElement
                               target.style.display = 'none'
