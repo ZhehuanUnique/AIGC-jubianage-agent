@@ -682,43 +682,55 @@ body {
   white-space: nowrap;
 }
 
-/* 5个文本的动画关键帧（根据 uiverse 原版调整） */
+/* 6个文本的动画关键帧 - 持续无缝循环（添加了第一个文本到末尾） */
 @keyframes spin_words {
   0% {
     -webkit-transform: translateY(0%);
     transform: translateY(0%);
   }
-  10% {
+  8.33% {
     -webkit-transform: translateY(-102%);
     transform: translateY(-102%);
   }
-  25% {
+  16.67% {
     -webkit-transform: translateY(-100%);
     transform: translateY(-100%);
   }
-  35% {
+  25% {
     -webkit-transform: translateY(-202%);
     transform: translateY(-202%);
   }
-  50% {
+  33.33% {
     -webkit-transform: translateY(-200%);
     transform: translateY(-200%);
   }
-  60% {
+  41.67% {
     -webkit-transform: translateY(-302%);
     transform: translateY(-302%);
   }
-  75% {
+  50% {
     -webkit-transform: translateY(-300%);
     transform: translateY(-300%);
   }
-  85% {
+  58.33% {
     -webkit-transform: translateY(-402%);
     transform: translateY(-402%);
   }
-  100% {
+  66.67% {
     -webkit-transform: translateY(-400%);
     transform: translateY(-400%);
+  }
+  75% {
+    -webkit-transform: translateY(-502%);
+    transform: translateY(-502%);
+  }
+  83.33% {
+    -webkit-transform: translateY(-500%);
+    transform: translateY(-500%);
+  }
+  100% {
+    -webkit-transform: translateY(-500%);
+    transform: translateY(-500%);
   }
 }
 
