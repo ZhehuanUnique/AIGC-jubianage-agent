@@ -5,7 +5,7 @@ import NavigationBar from '../components/NavigationBar'
 
 // 榜单类型
 const rankingTypes = [
-  { id: 'anime', label: '动态漫榜' },
+  { id: 'anime', label: '动态漫剧榜' },
   { id: 'ai-real', label: 'AI短剧榜' },
   { id: 'short-drama', label: '短剧榜' },
   { id: 'trending', label: '热搜榜' },

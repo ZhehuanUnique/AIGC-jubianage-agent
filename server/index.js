@@ -7858,7 +7858,7 @@ async function updateRankings(isDbConnected) {
     const db = pool.default
     const today = new Date().toISOString().split('T')[0]
 
-    // 更新动态漫榜
+    // 更新动态漫剧榜
     try {
       const animeRanking = await updateRanking('anime')
       await db.query(
@@ -7870,9 +7870,9 @@ async function updateRankings(isDbConnected) {
            updated_at = CURRENT_TIMESTAMP`,
         ['anime', JSON.stringify(animeRanking), today]
       )
-      console.log('✅ 动态漫榜更新成功')
+      console.log('✅ 动态漫剧榜更新成功')
     } catch (error) {
-      console.error('❌ 更新动态漫榜失败:', error.message)
+      console.error('❌ 更新动态漫剧榜失败:', error.message)
     }
 
     // 更新AI短剧榜
@@ -8426,7 +8426,7 @@ async function startServer() {
 // 获取榜单数据
 app.get('/api/trending-rankings', authenticateToken, async (req, res) => {
   try {
-    const { type = 'anime' } = req.query // 榜单类型：'anime'（动态漫榜）或 'ai-real'（AI短剧榜）
+    const { type = 'anime' } = req.query // 榜单类型：'anime'（动态漫剧榜）或 'ai-real'（AI短剧榜）
     const pool = await import('./db/connection.js')
     const db = pool.default
     
@@ -8473,7 +8473,7 @@ app.get('/api/trending-rankings', authenticateToken, async (req, res) => {
 // 手动更新榜单（管理员功能）
 app.post('/api/trending-rankings/update', authenticateToken, async (req, res) => {
   try {
-    const { type = 'anime' } = req.body // 榜单类型：'anime'（动态漫榜）或 'ai-real'（AI短剧榜）
+    const { type = 'anime' } = req.body // 榜单类型：'anime'（动态漫剧榜）或 'ai-real'（AI短剧榜）
     const userId = req.user?.id
     
     // 检查是否为管理员（可选，根据实际需求）

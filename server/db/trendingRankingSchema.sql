@@ -15,8 +15,8 @@ CREATE INDEX IF NOT EXISTS idx_trending_rankings_date ON trending_rankings(date 
 CREATE INDEX IF NOT EXISTS idx_trending_rankings_type_date ON trending_rankings(ranking_type, date DESC);
 
 -- 添加注释
-COMMENT ON TABLE trending_rankings IS '榜单数据表，存储动态漫榜和AI短剧榜';
-COMMENT ON COLUMN trending_rankings.ranking_type IS '榜单类型：anime（动态漫榜）或 ai-real（AI短剧榜）';
+COMMENT ON TABLE trending_rankings IS '榜单数据表，存储动态漫剧榜和AI短剧榜';
+COMMENT ON COLUMN trending_rankings.ranking_type IS '榜单类型：anime（动态漫剧榜）或 ai-real（AI短剧榜）';
 COMMENT ON COLUMN trending_rankings.ranking_data IS '榜单数据，JSON数组格式，包含keyword、tag、rank、views等字段';
 COMMENT ON COLUMN trending_rankings.date IS '榜单日期';
 
