@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Heart, MessageCircle, Eye, Share2, Plus, Home, Clock, TrendingUp, Flame, Bell, User, ChevronDown } from 'lucide-react'
+import { Search, Heart, MessageCircle, Eye, Share2, Plus, Home, Clock, TrendingUp, Flame, Bell, User, ChevronDown, Settings } from 'lucide-react'
 import { getCommunityVideos, toggleVideoLike, CommunityVideo } from '../services/api'
 import { alertError } from '../utils/alert'
 import { AuthService } from '../services/auth'
@@ -39,11 +39,30 @@ function Community() {
   const [isLoadingRanking, setIsLoadingRanking] = useState(false)
   const [hoveredUserId, setHoveredUserId] = useState<string | null>(null)
   const [hoveredUserPosition, setHoveredUserPosition] = useState<{ x: number; y: number } | null>(null)
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false)
+  const settingsMenuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const user = AuthService.getCurrentUser()
     setCurrentUser(user)
   }, [])
+
+  // 点击外部关闭设置菜单
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (settingsMenuRef.current && !settingsMenuRef.current.contains(event.target as Node)) {
+        setShowSettingsMenu(false)
+      }
+    }
+
+    if (showSettingsMenu) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showSettingsMenu])
 
   // 加载榜单数据
   const loadRanking = async (type: string, forceUpdate: boolean = false) => {
@@ -223,6 +242,119 @@ function Community() {
                 <Bell className="w-5 h-5 text-gray-600" />
                 <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
               </button>
+              <div className="relative" ref={settingsMenuRef}>
+                <button 
+                  onClick={() => setShowSettingsMenu(!showSettingsMenu)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <Settings className="w-5 h-5 text-gray-600" />
+                </button>
+                {showSettingsMenu && (
+                  <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 z-50 py-2">
+                    <button
+                      onClick={() => {
+                        setShowSettingsMenu(false)
+                        // TODO: 跳转到账号设置
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      账号设置
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowSettingsMenu(false)
+                        navigate('/verification')
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      V认证
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowSettingsMenu(false)
+                        // TODO: 跳转到会员中心
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      会员中心
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowSettingsMenu(false)
+                        // TODO: 跳转到账号安全
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      账号安全
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowSettingsMenu(false)
+                        // TODO: 跳转到隐私设置
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      隐私设置
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowSettingsMenu(false)
+                        // TODO: 跳转到消息设置
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      消息设置
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowSettingsMenu(false)
+                        // TODO: 跳转到屏蔽设置
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      屏蔽设置
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowSettingsMenu(false)
+                        // TODO: 跳转到使用偏好
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      使用偏好
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowSettingsMenu(false)
+                        // TODO: 跳转到意见反馈
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      意见反馈
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowSettingsMenu(false)
+                        // TODO: 跳转到帮助中心
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      帮助中心
+                    </button>
+                    <div className="border-t border-gray-200 my-1"></div>
+                    <button
+                      onClick={() => {
+                        setShowSettingsMenu(false)
+                        AuthService.logout()
+                        navigate('/')
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50 transition-colors"
+                    >
+                      退出
+                    </button>
+                  </div>
+                )}
+              </div>
               {currentUser ? (
                 <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
                   <User className="w-5 h-5 text-gray-600" />

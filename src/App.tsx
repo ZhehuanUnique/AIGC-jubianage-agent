@@ -30,6 +30,7 @@ import Community from './pages/Community'
 import RankingDetail from './pages/RankingDetail'
 import UserAgreement from './pages/UserAgreement'
 import PrivacyPolicy from './pages/PrivacyPolicy'
+import Verification from './pages/Verification'
 import { useAlert } from './hooks/useAlert.tsx'
 
 // 受保护的路由组件
@@ -287,6 +288,14 @@ function App() {
         <Route
           path="/privacy-policy"
           element={<PrivacyPolicy />}
+        />
+        <Route
+          path="/verification"
+          element={
+            <ProtectedRoute>
+              <Verification />
+            </ProtectedRoute>
+          }
         />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
