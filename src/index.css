@@ -927,4 +927,21 @@ body {
   box-shadow: 12px 17px 51px rgba(59, 130, 246, 0.3);
 }
 
+/* 模型选择下拉框：选中项居中，下拉列表左对齐 */
+select.text-center {
+  text-align-last: center;
+  text-align: center;
+}
+
+/* 确保下拉列表中的选项左对齐 */
+select.text-center option {
+  text-align: left;
+  direction: ltr;
+}
+
+/* 针对不同浏览器的兼容性 */
+select.text-center::-ms-expand {
+  display: none;
+}
+
 

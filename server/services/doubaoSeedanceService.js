@@ -333,8 +333,15 @@ export async function generateFirstLastFrameVideoWithSeedance(firstFrameUrl, las
   const apiHost = process.env.DOUBAO_SEEDANCE_API_HOST || process.env.MIDJOURNEY_API_HOST || 'https://api.302.ai'
 
   try {
-    // 使用 1.5 Pro 模型（唯一支持首尾帧生视频的模型）
-    const actualModel = 'doubao-seedance-1-5-pro-251215'
+    // 根据传入的模型参数决定使用哪个模型
+    // 如果传入的是1.0 Pro，尝试使用1.0 Pro；否则使用1.5 Pro
+    let actualModel = model
+    if (model === 'doubao-seedance-1-0-pro-250528' || model === 'doubao-seedance-1-0-pro') {
+      actualModel = 'doubao-seedance-1-0-pro-250528'
+    } else {
+      // 默认使用 1.5 Pro 模型（支持首尾帧生视频）
+      actualModel = 'doubao-seedance-1-5-pro-251215'
+    }
 
     console.log(`🎬 调用豆包 Seedance ${actualModel} 首尾帧生视频API:`, {
       firstFrameUrl: firstFrameUrl.substring(0, 100) + (firstFrameUrl.length > 100 ? '...' : ''),

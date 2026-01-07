@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Heart, Play, ArrowLeft, ChevronUp, ChevronDown, Trash2, Plus } from 'lucide-react'
+import { Heart, Play, ArrowLeft, ChevronUp, ChevronDown, Trash2, Plus, Sparkles, Download, Share2, MoreVertical } from 'lucide-react'
 import { getCommunityVideos, toggleVideoLike, recordVideoView, deleteCommunityVideo, CommunityVideo } from '../services/api'
 import { alertError, alertSuccess, alertWarning } from '../utils/alert'
 import { AuthService } from '../services/auth'
@@ -447,6 +447,101 @@ function WorksShowcase() {
             ref={containerRef}
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6"
           >
+            {/* 第一个卡片：模板卡片 */}
+            <div
+              className="group relative rounded-xl overflow-hidden cursor-pointer transition-all shadow-sm hover:shadow-lg"
+              style={{
+                background: 'linear-gradient(135deg, rgba(107, 114, 128, 0.1) 0%, rgba(156, 163, 175, 0.1) 100%)',
+              }}
+              onClick={() => {
+                // 点击模板卡片，可以导航到模板页面或触发模板使用功能
+                console.log('使用模板')
+              }}
+            >
+              {/* 背景模糊层 */}
+              <div 
+                className="absolute inset-0 bg-white bg-opacity-60 backdrop-blur-md"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.7)',
+                  backdropFilter: 'blur(20px)',
+                  WebkitBackdropFilter: 'blur(20px)',
+                }}
+              />
+              
+              {/* 内容层 */}
+              <div className="relative z-10 min-h-[280px] flex flex-col">
+                {/* 顶部操作栏 */}
+                <div className="flex items-center justify-between p-3">
+                  {/* 左侧：使用模板按钮 */}
+                  <button
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium text-gray-900 transition-colors shadow-sm"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      console.log('使用模板')
+                    }}
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>使用模板</span>
+                  </button>
+                  
+                  {/* 右侧：三个操作按钮 */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center transition-colors shadow-sm"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        console.log('下载')
+                      }}
+                    >
+                      <Download className="w-4 h-4 text-gray-700" />
+                    </button>
+                    <button
+                      className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center transition-colors shadow-sm"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        console.log('分享')
+                      }}
+                    >
+                      <Share2 className="w-4 h-4 text-gray-700" />
+                    </button>
+                    <button
+                      className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center transition-colors shadow-sm"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        console.log('更多')
+                      }}
+                    >
+                      <MoreVertical className="w-4 h-4 text-gray-700" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* 内容区域 */}
+                <div className="flex-1 px-4 pb-4 flex flex-col justify-center">
+                  {/* 标题 */}
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    老己的生活片段
+                  </h3>
+                  
+                  {/* 副标题 */}
+                  <p className="text-sm text-gray-600">
+                    上传照片,生成老己的生活片段
+                  </p>
+                </div>
+
+                {/* 底部信息栏 */}
+                <div className="px-4 pb-4 flex items-center gap-2">
+                  <span className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-700">
+                    00:11
+                  </span>
+                  <span className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-700">
+                    模板
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* 其他视频卡片 */}
             {videos.map((video, index) => {
               const aspectRatio = videoAspectRatios.get(video.id)
               const isPortrait = aspectRatio !== undefined && aspectRatio < 1

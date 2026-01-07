@@ -41,17 +41,18 @@ export function FrameInterpolationModal({
     if (fpsOptions.length > 0) {
       setSelectedFps(fpsOptions[0].value)
     }
-  }, [selectedMethod, currentFps, fpsOptions])
+  }, [selectedMethod, currentFps]) // 移除fpsOptions依赖，避免循环
 
   // 当弹窗打开时，重置选择
   useEffect(() => {
     if (isOpen) {
       setSelectedMethod('rife')
-      if (fpsOptions.length > 0) {
-        setSelectedFps(fpsOptions[0].value)
-      }
+      // 计算初始fpsOptions（RIFE模式）
+      const initialMultipliers = [2, 4, 8]
+      const initialFps = Math.round(currentFps * initialMultipliers[0])
+      setSelectedFps(initialFps)
     }
-  }, [isOpen, fpsOptions])
+  }, [isOpen, currentFps]) // 移除fpsOptions依赖，避免循环
 
   if (!isOpen) return null
 

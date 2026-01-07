@@ -7767,8 +7767,10 @@ async function startServer() {
       // 初始化首尾帧视频表和批注表
       try {
         const { initFirstLastFrameVideosTable, initVideoAnnotationsTable } = await import('./db/initFirstLastFrameVideosTable.js')
+        const { initVideoProcessingTasksTable } = await import('./db/initVideoProcessingTasksTable.js')
         await initFirstLastFrameVideosTable()
         await initVideoAnnotationsTable()
+        await initVideoProcessingTasksTable()
       } catch (error) {
         console.warn('⚠️  初始化数据库表失败:', error.message)
         console.warn('💡 提示：可以手动运行 node server/db/initFirstLastFrameVideosTable.js 来初始化表')
