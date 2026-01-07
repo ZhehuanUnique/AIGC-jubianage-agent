@@ -17,24 +17,10 @@ const leftMenuItems = [
 // 榜单类型
 const rankingTypes = [
   { id: 'anime', label: '动态漫榜' },
-  { id: 'ai-real', label: 'AI真人榜' },
+  { id: 'ai-real', label: 'AI短剧榜' },
   { id: 'short-drama', label: '短剧榜' },
   { id: 'trending', label: '热搜榜' },
   { id: 'popular', label: '热门榜' },
-]
-
-// 热搜榜单数据（示例）
-const hotSearchList = [
-  { id: 1, keyword: '日本年轻人聚众晒梅毒', tag: '新', rank: 1 },
-  { id: 2, keyword: '冯提莫瘦了50斤', tag: '热', rank: 2 },
-  { id: 3, keyword: '白百何还回来当女明星吗', tag: null, rank: 3 },
-  { id: 4, keyword: '沈腾确认回归春晚语言类节目', tag: null, rank: 4 },
-  { id: 5, keyword: '短剧行业新动态', tag: '新', rank: 5 },
-  { id: 6, keyword: 'AI视频生成技术突破', tag: null, rank: 6 },
-  { id: 7, keyword: '短剧出海市场分析', tag: null, rank: 7 },
-  { id: 8, keyword: '剧变时代AI新功能', tag: '热', rank: 8 },
-  { id: 9, keyword: '短剧制作成本优化', tag: null, rank: 9 },
-  { id: 10, keyword: '短视频平台政策更新', tag: null, rank: 10 },
 ]
 
 function Community() {
@@ -49,11 +35,94 @@ function Community() {
   const [currentUser, setCurrentUser] = useState<{ username: string; displayName: string } | null>(null)
   const [activeLeftMenu, setActiveLeftMenu] = useState('hot')
   const [activeRankingType, setActiveRankingType] = useState('anime')
+  const [hotSearchList, setHotSearchList] = useState<Array<{ id: number; keyword: string; tag: string | null; rank: number; views?: number }>>([])
+  const [isLoadingRanking, setIsLoadingRanking] = useState(false)
 
   useEffect(() => {
     const user = AuthService.getCurrentUser()
     setCurrentUser(user)
   }, [])
+
+  // 加载榜单数据
+  const loadRanking = async (type: string, forceUpdate: boolean = false) => {
+    try {
+      setIsLoadingRanking(true)
+      const token = AuthService.getToken()
+      if (!token) {
+        return
+      }
+
+      // 确定API基础URL
+      const apiBaseUrl = (() => {
+        if (import.meta.env.VITE_API_BASE_URL !== undefined) {
+          return import.meta.env.VITE_API_BASE_URL
+        }
+        const isProduction = typeof window !== 'undefined' && 
+          !window.location.hostname.includes('localhost') && 
+          !window.location.hostname.includes('127.0.0.1')
+        return isProduction ? '' : 'http://localhost:3002'
+      })()
+
+      // 如果强制更新，先调用更新API
+      if (forceUpdate) {
+        try {
+          const updateResponse = await fetch(`${apiBaseUrl}/api/trending-rankings/update`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({ type }),
+          })
+          
+          if (!updateResponse.ok) {
+            console.warn('更新榜单失败，使用缓存数据')
+          }
+        } catch (error) {
+          console.warn('更新榜单失败:', error)
+        }
+      }
+
+      const response = await fetch(`${apiBaseUrl}/api/trending-rankings?type=${type}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error('获取榜单失败')
+      }
+
+      const result = await response.json()
+      if (result.success && result.data.ranking && result.data.ranking.length > 0) {
+        // 将API返回的数据转换为前端需要的格式
+        const ranking = result.data.ranking.map((item: any, index: number) => ({
+          id: index + 1,
+          keyword: item.keyword,
+          tag: item.tag || null,
+          rank: item.rank || index + 1,
+          views: item.views,
+        }))
+        setHotSearchList(ranking)
+      } else {
+        // 如果没有数据，显示空列表
+        setHotSearchList([])
+      }
+    } catch (error) {
+      console.error('加载榜单失败:', error)
+      // 显示空列表
+      setHotSearchList([])
+    } finally {
+      setIsLoadingRanking(false)
+    }
+  }
+
+  // 当榜单类型改变时，重新加载榜单
+  useEffect(() => {
+    if (activeLeftMenu === 'trending') {
+      loadRanking(activeRankingType)
+    }
+  }, [activeRankingType, activeLeftMenu])
 
   // 加载视频列表
   const loadVideos = async () => {
@@ -376,8 +445,13 @@ function Community() {
               <div className="bg-white rounded-lg shadow-sm p-4">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold text-gray-900">剧变热榜</h3>
-                  <button className="p-1 hover:bg-gray-100 rounded-full transition-colors" title="点击刷新">
-                    <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <button 
+                    onClick={() => loadRanking(activeRankingType, true)}
+                    disabled={isLoadingRanking}
+                    className="p-1 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed" 
+                    title="点击刷新"
+                  >
+                    <svg className={`w-4 h-4 text-gray-600 ${isLoadingRanking ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
                   </button>
@@ -401,7 +475,17 @@ function Community() {
                 </div>
                 
                 <div className="space-y-3">
-                  {hotSearchList.map((item, index) => (
+                  {isLoadingRanking ? (
+                    <div className="flex items-center justify-center py-8">
+                      <HamsterLoader size={4} />
+                      <span className="ml-2 text-sm text-gray-500">加载榜单中...</span>
+                    </div>
+                  ) : hotSearchList.length === 0 ? (
+                    <div className="text-center py-8 text-sm text-gray-500">
+                      暂无榜单数据
+                    </div>
+                  ) : (
+                    hotSearchList.map((item, index) => (
                     <div
                       key={item.id}
                       className="flex items-start gap-3 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
@@ -421,12 +505,9 @@ function Community() {
                               {item.tag}
                             </span>
                           )}
-                          {/* 可以添加热度数据或时间戳 */}
-                          {index === 0 && (
-                            <span className="text-xs text-gray-500">60610</span>
-                          )}
-                          {index === 3 && (
-                            <span className="text-xs text-gray-500">287004</span>
+                          {/* 显示浏览量（如果有） */}
+                          {item.views && (
+                            <span className="text-xs text-gray-500">{item.views.toLocaleString()}</span>
                           )}
                         </div>
                       </div>

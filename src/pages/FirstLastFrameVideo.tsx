@@ -25,6 +25,7 @@ interface VideoTask {
   isLiked?: boolean
   isFavorited?: boolean
   isUltraHd?: boolean
+  progress?: number // 后端返回的实际进度（异步模型）
 }
 
 function FirstLastFrameVideo() {
@@ -736,7 +737,7 @@ function FirstLastFrameVideo() {
           // 更新生成进度模态框
           // 如果任务正在处理中，需要显示进度（即使没有generatingTask，也要为pending/processing状态的任务显示进度）
           if (task.status === 'pending' || task.status === 'processing') {
-            // 计算进度（基于任务创建时间）
+            // 计算进度（优先使用后端返回的实际进度，否则使用模拟进度）
             const taskCreatedAt = task.createdAt ? new Date(task.createdAt).getTime() : Date.now()
             const elapsedMinutes = (Date.now() - taskCreatedAt) / 60000
             
@@ -771,23 +772,29 @@ function FirstLastFrameVideo() {
               return
             }
             
-            // 更保守的进度计算，避免刷新后立即跳到95%
+            // 优先使用后端返回的实际进度（如果存在）
             let progress = 0
-            if (elapsedMinutes < 0.5) {
-              progress = Math.min(20, 5 + elapsedMinutes * 30)
-            } else if (elapsedMinutes < 1) {
-              progress = Math.min(40, 20 + (elapsedMinutes - 0.5) * 40)
-            } else if (elapsedMinutes < 2) {
-              progress = Math.min(60, 40 + (elapsedMinutes - 1) * 20)
-            } else if (elapsedMinutes < 3) {
-              progress = Math.min(75, 60 + (elapsedMinutes - 2) * 15)
-            } else if (elapsedMinutes < 4) {
-              progress = Math.min(85, 75 + (elapsedMinutes - 3) * 10)
-            } else if (elapsedMinutes < 5) {
-              progress = Math.min(90, 85 + (elapsedMinutes - 4) * 5)
+            if (task.progress !== undefined && task.progress !== null) {
+              // 异步模型：使用后端返回的实际进度
+              progress = Math.min(99, Math.max(0, typeof task.progress === 'number' ? task.progress : parseInt(task.progress) || 0))
             } else {
-              // 超过5分钟，保持90%，等待超时检测
-              progress = 90
+              // 同步模型或没有进度信息：使用模拟进度
+              if (elapsedMinutes < 0.5) {
+                progress = Math.min(20, 5 + elapsedMinutes * 30)
+              } else if (elapsedMinutes < 1) {
+                progress = Math.min(40, 20 + (elapsedMinutes - 0.5) * 40)
+              } else if (elapsedMinutes < 2) {
+                progress = Math.min(60, 40 + (elapsedMinutes - 1) * 20)
+              } else if (elapsedMinutes < 3) {
+                progress = Math.min(75, 60 + (elapsedMinutes - 2) * 15)
+              } else if (elapsedMinutes < 4) {
+                progress = Math.min(85, 75 + (elapsedMinutes - 3) * 10)
+              } else if (elapsedMinutes < 5) {
+                progress = Math.min(90, 85 + (elapsedMinutes - 4) * 5)
+              } else {
+                // 超过5分钟，保持90%，等待超时检测
+                progress = 90
+              }
             }
             
             // 更新generatingTask（如果存在）
@@ -1419,7 +1426,7 @@ function FirstLastFrameVideo() {
                       <img
                         src={task.firstFrameUrl}
                         alt="首帧"
-                        className="w-full h-full object-cover cursor-pointer"
+                        className="w-full h-full object-cover cursor-pointer relative z-10"
                         onClick={(e) => {
                           e.stopPropagation()
                           setPreviewImage({ url: task.firstFrameUrl, type: 'first' })
@@ -1508,7 +1515,7 @@ function FirstLastFrameVideo() {
                     
                     {/* 状态覆盖层 */}
                     {task.status !== 'completed' && (
-                      <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                      <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center pointer-events-none">
                         <div className="text-center text-white px-4 w-full">
                           {/* 如果是正在生成的任务，显示"加速中"或进度 */}
                           {generatingTask && generatingTask.taskId === task.id ? (
@@ -1524,9 +1531,6 @@ function FirstLastFrameVideo() {
                             ) : (
                               // 生成中状态（显示进度）
                               <>
-                                <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center mb-4 mx-auto">
-                                  <HamsterLoader size={8} className="text-white" />
-                                </div>
                                 <div className="bg-yellow-400 border-2 border-yellow-500 rounded-lg px-3 py-1 mb-3 inline-block">
                                   <div className="text-lg font-bold text-gray-800">
                                     {generatingTask.progress}%生成中
@@ -1539,18 +1543,13 @@ function FirstLastFrameVideo() {
                                       style={{ width: `${generatingTask.progress}%` }}
                                     ></div>
                                   </div>
+                                  <p className="text-xs text-gray-300 mt-1 text-center">{generatingTask.progress}%</p>
                                 </div>
-                                <p className="text-xs text-gray-300">预计还需要几分钟，请稍候...</p>
                               </>
                             )
                           ) : (
                             // 其他状态（pending/processing/failed）
                             <>
-                              {(task.status === 'processing' || task.status === 'pending') && (
-                                <div className="mb-2 flex justify-center">
-                                  <HamsterLoader size={6} />
-                                </div>
-                              )}
                               <p className="text-sm font-medium mb-2">{getStatusText(task.status)}</p>
                               {/* 进度条 */}
                               {(task.status === 'processing' || task.status === 'pending') && (
@@ -1561,7 +1560,7 @@ function FirstLastFrameVideo() {
                                       style={{ width: `${getEstimatedProgress(task)}%` }}
                                     ></div>
                                   </div>
-                                  <p className="text-xs text-gray-300 mt-1">{Math.round(getEstimatedProgress(task))}%</p>
+                                  <p className="text-xs text-gray-300 mt-1 text-center">{Math.round(getEstimatedProgress(task))}%</p>
                                 </div>
                               )}
                               {task.status === 'failed' && task.errorMessage && (
@@ -2035,9 +2034,13 @@ function FirstLastFrameVideo() {
                         <img
                           src={firstFramePreview}
                           alt="首帧"
-                          className={`absolute inset-0 w-full h-full rounded-[17px] ${
+                          className={`absolute inset-0 w-full h-full rounded-[17px] cursor-pointer ${
                             frameAspectRatio === 'other' ? 'object-cover object-top' : 'object-cover'
                           }`}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setPreviewImage({ url: firstFramePreview, type: 'first' })
+                          }}
                         />
                       </div>
                     ) : (
@@ -2410,24 +2413,27 @@ function FirstLastFrameVideo() {
                 />
               )}
               
-              {/* 删除按钮 - 右下角 */}
-              <div className="absolute bottom-0 right-0 flex gap-2 z-10 m-2">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    if (previewImage.type === 'first') {
-                      clearFirstFrame()
-                    } else {
-                      clearLastFrame()
-                    }
-                    setPreviewImage(null)
-                  }}
-                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 flex items-center gap-2 shadow-lg"
-                >
-                  <Trash2 size={16} />
-                  删除{previewImage.type === 'first' ? '首帧' : '尾帧'}
-                </button>
-              </div>
+              {/* 删除按钮 - 右下角（仅在输入区域预览时显示） */}
+              {(previewImage.type === 'first' && firstFramePreview === previewImage.url) || 
+               (previewImage.type === 'last' && lastFramePreview === previewImage.url) ? (
+                <div className="absolute bottom-0 right-0 flex gap-2 z-10 m-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (previewImage.type === 'first') {
+                        clearFirstFrame()
+                      } else {
+                        clearLastFrame()
+                      }
+                      setPreviewImage(null)
+                    }}
+                    className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 flex items-center gap-2 shadow-lg"
+                  >
+                    <Trash2 size={16} />
+                    删除{previewImage.type === 'first' ? '首帧' : '尾帧'}
+                  </button>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>

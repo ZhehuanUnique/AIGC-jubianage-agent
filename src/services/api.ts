@@ -2058,7 +2058,7 @@ export async function generateFirstLastFrameVideo(formData: FormData): Promise<{
   }
 }
 
-export async function getFirstLastFrameVideoStatus(taskId: string, projectId: string, model: string = 'volcengine-video-3.0-pro'): Promise<{ success: boolean; data?: { status: string; videoUrl?: string; errorMessage?: string }; error?: string }> {
+export async function getFirstLastFrameVideoStatus(taskId: string, projectId: string, model: string = 'volcengine-video-3.0-pro'): Promise<{ success: boolean; data?: { status: string; videoUrl?: string; errorMessage?: string; progress?: number; createdAt?: string }; error?: string }> {
   const token = AuthService.getToken()
   if (!token) {
     return { success: false, error: '未登录，请先登录' }

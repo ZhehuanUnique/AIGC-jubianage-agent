@@ -1842,6 +1842,67 @@ async function processVideoTask(taskId, sourceVideoUrl, processingType, userId, 
       ]
     )
     
+    // 如果是补帧或超分辨率任务，在历史记录中创建新任务
+    if (processingType === 'frame_interpolation' || processingType === 'super_resolution') {
+      // 获取源视频的完整信息
+      const sourceVideoInfoResult = await db.query(
+        `SELECT first_frame_url, last_frame_url, model, resolution, ratio, duration, prompt, text, estimated_credit
+         FROM first_last_frame_videos 
+         WHERE task_id = $1 AND user_id = $2`,
+        [sourceVideoTaskId, userId]
+      )
+      
+      if (sourceVideoInfoResult.rows.length > 0) {
+        const sourceVideoInfo = sourceVideoInfoResult.rows[0]
+        
+        // 生成新的任务ID（使用 processing_task_ 前缀）
+        const newTaskId = `processing_task_${taskId}`
+        
+        // 构建处理后的视频描述
+        let processedText = sourceVideoInfo.text || sourceVideoInfo.prompt || ''
+        if (processingType === 'frame_interpolation') {
+          const targetFps = metadata.targetFps || result.targetFps
+          const method = metadata.method || result.method || 'rife'
+          processedText = `${processedText} [补帧至${targetFps}FPS-${method.toUpperCase()}]`
+        } else if (processingType === 'super_resolution') {
+          const scale = metadata.scale || result.scale || 2
+          processedText = `${processedText} [超分辨率${scale}x]`
+        }
+        
+        // 插入到 first_last_frame_videos 表，作为新的独立任务
+        await db.query(
+          `INSERT INTO first_last_frame_videos 
+           (user_id, project_id, task_id, video_url, cos_key, first_frame_url, last_frame_url, 
+            model, resolution, ratio, duration, prompt, text, status, estimated_credit, actual_credit)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'completed', $14, $15)
+           ON CONFLICT (task_id) DO UPDATE SET
+             video_url = EXCLUDED.video_url,
+             cos_key = EXCLUDED.cos_key,
+             status = EXCLUDED.status,
+             updated_at = CURRENT_TIMESTAMP`,
+          [
+            userId,
+            projectId,
+            newTaskId,
+            result.videoUrl,
+            result.cosKey,
+            sourceVideoInfo.first_frame_url,
+            sourceVideoInfo.last_frame_url,
+            sourceVideoInfo.model,
+            sourceVideoInfo.resolution,
+            sourceVideoInfo.ratio,
+            sourceVideoInfo.duration,
+            processedText,
+            processedText,
+            sourceVideoInfo.estimated_credit || 0,
+            sourceVideoInfo.estimated_credit || 0, // 处理任务不额外消耗积分
+          ]
+        )
+        
+        console.log(`✅ 已在历史记录中创建新任务: ${newTaskId}`)
+      }
+    }
+    
     console.log(`✅ 视频处理任务 ${taskId} 完成:`, result.videoUrl)
   } catch (error) {
     console.error(`❌ 视频处理任务 ${taskId} 失败:`, error)
@@ -7798,9 +7859,11 @@ async function startServer() {
       try {
         const { initFirstLastFrameVideosTable, initVideoAnnotationsTable } = await import('./db/initFirstLastFrameVideosTable.js')
         const { initVideoProcessingTasksTable } = await import('./db/initVideoProcessingTasksTable.js')
+        const initTrendingRankingTable = (await import('./db/initTrendingRankingTable.js')).default
         await initFirstLastFrameVideosTable()
         await initVideoAnnotationsTable()
         await initVideoProcessingTasksTable()
+        await initTrendingRankingTable()
       } catch (error) {
         console.warn('⚠️  初始化数据库表失败:', error.message)
         console.warn('💡 提示：可以手动运行 node server/db/initFirstLastFrameVideosTable.js 来初始化表')
@@ -7812,6 +7875,111 @@ async function startServer() {
   } catch (error) {
     console.warn('⚠️  数据库连接检查失败:', error.message)
     console.warn('💡 提示：请确保已安装PostgreSQL并配置正确的连接信息')
+  }
+
+  // ==================== 定时任务：每天自动更新榜单 ====================
+  // 计算到明天凌晨的时间（毫秒）
+  const getTimeUntilMidnight = () => {
+    const now = new Date()
+    const tomorrow = new Date(now)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    tomorrow.setHours(0, 0, 0, 0)
+    return tomorrow.getTime() - now.getTime()
+  }
+
+  // 更新榜单的函数
+  const updateRankings = async () => {
+    try {
+      console.log('🔄 开始自动更新榜单...')
+      const { updateRanking } = await import('./services/trendingRankingService.js')
+      const pool = await import('./db/connection.js')
+      const db = pool.default
+      const today = new Date().toISOString().split('T')[0]
+
+      // 更新动态漫榜
+      try {
+        const animeRanking = await updateRanking('anime')
+        await db.query(
+          `INSERT INTO trending_rankings (ranking_type, ranking_data, date, updated_at)
+           VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+           ON CONFLICT (ranking_type, date) 
+           DO UPDATE SET 
+             ranking_data = EXCLUDED.ranking_data,
+             updated_at = CURRENT_TIMESTAMP`,
+          ['anime', JSON.stringify(animeRanking), today]
+        )
+        console.log('✅ 动态漫榜更新成功')
+      } catch (error) {
+        console.error('❌ 更新动态漫榜失败:', error.message)
+      }
+
+      // 更新AI短剧榜
+      try {
+        const aiRealRanking = await updateRanking('ai-real')
+        await db.query(
+          `INSERT INTO trending_rankings (ranking_type, ranking_data, date, updated_at)
+           VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+           ON CONFLICT (ranking_type, date) 
+           DO UPDATE SET 
+             ranking_data = EXCLUDED.ranking_data,
+             updated_at = CURRENT_TIMESTAMP`,
+          ['ai-real', JSON.stringify(aiRealRanking), today]
+        )
+        console.log('✅ AI短剧榜更新成功')
+      } catch (error) {
+        console.error('❌ 更新AI短剧榜失败:', error.message)
+      }
+    } catch (error) {
+      console.error('❌ 自动更新榜单失败:', error.message)
+    }
+  }
+
+  // 立即检查并更新今天的榜单（如果还没有）
+  if (dbConnected) {
+    setTimeout(async () => {
+      try {
+        const pool = await import('./db/connection.js')
+        const db = pool.default
+        const today = new Date().toISOString().split('T')[0]
+        
+        // 检查今天是否已有榜单数据
+        const animeCheck = await db.query(
+          'SELECT id FROM trending_rankings WHERE ranking_type = $1 AND date = $2',
+          ['anime', today]
+        )
+        const aiRealCheck = await db.query(
+          'SELECT id FROM trending_rankings WHERE ranking_type = $1 AND date = $2',
+          ['ai-real', today]
+        )
+        
+        // 如果没有今天的榜单，立即更新
+        if (animeCheck.rows.length === 0 || aiRealCheck.rows.length === 0) {
+          console.log('📊 检测到今日榜单未更新，立即更新...')
+          await updateRankings()
+        }
+      } catch (error) {
+        console.warn('⚠️  检查今日榜单失败:', error.message)
+      }
+    }, 5000) // 延迟5秒，等待服务器完全启动
+  }
+
+  // 设置每天凌晨自动更新
+  const scheduleDailyUpdate = () => {
+    const timeUntilMidnight = getTimeUntilMidnight()
+    
+    setTimeout(() => {
+      // 立即执行一次更新
+      updateRankings()
+      
+      // 然后每24小时执行一次
+      setInterval(updateRankings, 24 * 60 * 60 * 1000)
+    }, timeUntilMidnight)
+    
+    console.log(`⏰ 已设置定时任务：将在 ${Math.round(timeUntilMidnight / 1000 / 60)} 分钟后首次更新榜单，之后每24小时自动更新`)
+  }
+
+  if (dbConnected) {
+    scheduleDailyUpdate()
   }
 
   // ==================== 小组管理 API ====================
@@ -8247,6 +8415,102 @@ async function startServer() {
     console.log(`   - 检查环境变量: npm run check-env`)
   })
 }
+
+// ==================== 榜单 API ====================
+// 获取榜单数据
+app.get('/api/trending-rankings', authenticateToken, async (req, res) => {
+  try {
+    const { type = 'anime' } = req.query // 榜单类型：'anime'（动态漫榜）或 'ai-real'（AI短剧榜）
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+    
+    // 获取今天的榜单数据
+    const today = new Date().toISOString().split('T')[0]
+    const result = await db.query(
+      `SELECT ranking_data, date, updated_at 
+       FROM trending_rankings 
+       WHERE ranking_type = $1 AND date = $2 
+       ORDER BY updated_at DESC 
+       LIMIT 1`,
+      [type, today]
+    )
+    
+    if (result.rows.length > 0) {
+      return res.json({
+        success: true,
+        data: {
+          ranking: result.rows[0].ranking_data,
+          date: result.rows[0].date,
+          updatedAt: result.rows[0].updated_at,
+        },
+      })
+    }
+    
+    // 如果没有今天的榜单，返回空数组
+    res.json({
+      success: true,
+      data: {
+        ranking: [],
+        date: today,
+        updatedAt: null,
+      },
+    })
+  } catch (error) {
+    console.error('获取榜单数据失败:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '获取榜单数据失败',
+    })
+  }
+})
+
+// 手动更新榜单（管理员功能）
+app.post('/api/trending-rankings/update', authenticateToken, async (req, res) => {
+  try {
+    const { type = 'anime' } = req.body // 榜单类型：'anime'（动态漫榜）或 'ai-real'（AI短剧榜）
+    const userId = req.user?.id
+    
+    // 检查是否为管理员（可选，根据实际需求）
+    // const userResult = await db.query('SELECT username FROM users WHERE id = $1', [userId])
+    // const isAdmin = userResult.rows[0]?.username === 'Chiefavefan'
+    // if (!isAdmin) {
+    //   return res.status(403).json({ success: false, error: '无权执行此操作' })
+    // }
+    
+    const { updateRanking } = await import('./services/trendingRankingService.js')
+    const ranking = await updateRanking(type)
+    
+    // 保存到数据库
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+    const today = new Date().toISOString().split('T')[0]
+    
+    await db.query(
+      `INSERT INTO trending_rankings (ranking_type, ranking_data, date, updated_at)
+       VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+       ON CONFLICT (ranking_type, date) 
+       DO UPDATE SET 
+         ranking_data = EXCLUDED.ranking_data,
+         updated_at = CURRENT_TIMESTAMP`,
+      [type, JSON.stringify(ranking), today]
+    )
+    
+    res.json({
+      success: true,
+      data: {
+        ranking,
+        date: today,
+        updatedAt: new Date().toISOString(),
+      },
+    })
+  } catch (error) {
+    console.error('更新榜单失败:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '更新榜单失败',
+    })
+  }
+})
 
 // ==================== 社区视频 API ====================
 // 获取社区视频列表

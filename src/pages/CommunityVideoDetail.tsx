@@ -50,8 +50,18 @@ function CommunityVideoDetail() {
           relatedVideo.thumbnailUrl.trim() !== '' && 
           relatedVideo.thumbnailUrl !== 'null' &&
           !relatedVideo.thumbnailUrl.startsWith('data:')
+        
+        // 如果已经在提取中或已提取过，跳过
+        if (extractingThumbnailsRef.current.has(relatedVideo.id) || 
+            extractedThumbnailsRef.current.has(relatedVideo.id)) {
+          return
+        }
+        
         if (!hasValidThumbnail && relatedVideo.videoUrl) {
           extractVideoThumbnail(relatedVideo.id, relatedVideo.videoUrl)
+        } else if (hasValidThumbnail) {
+          // 如果有有效缩略图，标记为已提取，避免重复处理
+          extractedThumbnailsRef.current.add(relatedVideo.id)
         }
       })
     } catch (error) {
@@ -62,9 +72,32 @@ function CommunityVideoDetail() {
     }
   }
 
+  // 用于跟踪正在提取缩略图的视频，避免重复调用
+  const extractingThumbnailsRef = useRef<Set<number>>(new Set())
+  const extractedThumbnailsRef = useRef<Set<number>>(new Set()) // 已成功提取的缩略图
+  
   // 提取视频第一帧作为缩略图（可选，如果失败会显示占位符）
   const extractVideoThumbnail = (videoId: number, videoUrl: string) => {
     if (!videoUrl) return
+    
+    // 如果已经在提取中，跳过
+    if (extractingThumbnailsRef.current.has(videoId)) {
+      return
+    }
+    
+    // 如果已经成功提取过，跳过
+    if (extractedThumbnailsRef.current.has(videoId)) {
+      return
+    }
+    
+    // 如果已经有缩略图（从state中），跳过
+    if (relatedVideoThumbnails.has(videoId)) {
+      extractedThumbnailsRef.current.add(videoId)
+      return
+    }
+    
+    // 标记为正在提取
+    extractingThumbnailsRef.current.add(videoId)
 
     // 创建一个隐藏的video元素来提取第一帧
     const video = document.createElement('video')
@@ -73,10 +106,17 @@ function CommunityVideoDetail() {
     video.muted = true
     video.playsInline = true
     
+    let hasError = false // 标记是否已经处理过错误
+    
     // 设置超时，避免长时间等待
     const timeout = setTimeout(() => {
-      console.warn(`提取相关视频 ${videoId} 缩略图超时`)
-      video.src = ''
+      if (!hasError) {
+        hasError = true
+        extractingThumbnailsRef.current.delete(videoId)
+        // 标记为已处理（即使超时），避免重复尝试
+        extractedThumbnailsRef.current.add(videoId)
+        video.src = ''
+      }
     }, 10000) // 10秒超时
     
     video.onloadedmetadata = () => {
@@ -98,20 +138,31 @@ function CommunityVideoDetail() {
           // 将canvas转换为base64图片
           const thumbnail = canvas.toDataURL('image/jpeg', 0.8)
           setRelatedVideoThumbnails(prev => new Map(prev).set(videoId, thumbnail))
-          console.log(`✅ 已提取相关视频 ${videoId} 的缩略图`)
+          extractedThumbnailsRef.current.add(videoId) // 标记为已成功提取
         }
         video.src = '' // 清理
+        extractingThumbnailsRef.current.delete(videoId)
       } catch (error) {
-        clearTimeout(timeout)
-        console.warn(`提取相关视频 ${videoId} 缩略图失败，将显示占位符:`, error)
-        video.src = '' // 清理
+        if (!hasError) {
+          hasError = true
+          clearTimeout(timeout)
+          video.src = '' // 清理
+          extractingThumbnailsRef.current.delete(videoId)
+          // 标记为已处理（即使失败），避免重复尝试
+          extractedThumbnailsRef.current.add(videoId)
+        }
       }
     }
     
     video.onerror = () => {
-      clearTimeout(timeout)
-      console.warn(`相关视频 ${videoId} 加载失败，将显示占位符`)
-      video.src = '' // 清理
+      if (!hasError) {
+        hasError = true
+        clearTimeout(timeout)
+        video.src = '' // 清理
+        extractingThumbnailsRef.current.delete(videoId)
+        // 标记为已处理（即使失败），避免重复尝试
+        extractedThumbnailsRef.current.add(videoId)
+      }
     }
     
     video.src = videoUrl
@@ -289,36 +340,32 @@ function CommunityVideoDetail() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex">
-        <div className="w-16 bg-gray-800 flex flex-col items-center py-4">
-          <button
-            onClick={() => navigate('/works')}
-            className="w-12 h-12 bg-purple-600 text-white rounded-lg active:bg-purple-700 hover:bg-purple-700 flex items-center justify-center transition-colors"
-          >
-            <ArrowLeft size={20} />
-          </button>
+      <div className="min-h-screen bg-white flex relative">
+        <button
+          onClick={() => navigate('/works')}
+          className="absolute top-4 left-4 z-50 back-button"
+        >
+          <svg height="16" width="16" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 1024 1024"><path d="M874.690416 495.52477c0 11.2973-9.168824 20.466124-20.466124 20.466124l-604.773963 0 188.083679 188.083679c7.992021 7.992021 7.992021 20.947078 0 28.939099-4.001127 3.990894-9.240455 5.996574-14.46955 5.996574-5.239328 0-10.478655-1.995447-14.479783-5.996574l-223.00912-223.00912c-3.837398-3.837398-5.996574-9.046027-5.996574-14.46955 0-5.433756 2.159176-10.632151 5.996574-14.46955l223.019353-223.029586c7.992021-7.992021 20.957311-7.992021 28.949332 0 7.992021 8.002254 7.992021 20.957311 0 28.949332l-188.073446 188.073446 604.753497 0C865.521592 475.058646 874.690416 484.217237 874.690416 495.52477z"></path></svg>
+        </button>
+        <div className="flex-1 bg-white flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
         </div>
-        <div className="flex-1 bg-gray-900 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
-        </div>
-        <div className="w-80 bg-gray-100"></div>
+        <div className="w-80 bg-white border-l border-gray-200"></div>
       </div>
     )
   }
 
   if (!video) {
     return (
-      <div className="min-h-screen bg-gray-100 flex">
-        <div className="w-16 bg-gray-800 flex flex-col items-center py-4">
-          <button
-            onClick={() => navigate('/works')}
-            className="w-12 h-12 bg-purple-600 text-white rounded-lg active:bg-purple-700 hover:bg-purple-700 flex items-center justify-center transition-colors"
-          >
-            <ArrowLeft size={20} />
-          </button>
-        </div>
-        <div className="flex-1 bg-gray-900 flex items-center justify-center">
-          <div className="text-center text-white">
+      <div className="min-h-screen bg-white flex relative">
+        <button
+          onClick={() => navigate('/works')}
+          className="absolute top-4 left-4 z-50 back-button"
+        >
+          <svg height="16" width="16" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 1024 1024"><path d="M874.690416 495.52477c0 11.2973-9.168824 20.466124-20.466124 20.466124l-604.773963 0 188.083679 188.083679c7.992021 7.992021 7.992021 20.947078 0 28.939099-4.001127 3.990894-9.240455 5.996574-14.46955 5.996574-5.239328 0-10.478655-1.995447-14.479783-5.996574l-223.00912-223.00912c-3.837398-3.837398-5.996574-9.046027-5.996574-14.46955 0-5.433756 2.159176-10.632151 5.996574-14.46955l223.019353-223.029586c7.992021-7.992021 20.957311-7.992021 28.949332 0 7.992021 8.002254 7.992021 20.957311 0 28.949332l-188.073446 188.073446 604.753497 0C865.521592 475.058646 874.690416 484.217237 874.690416 495.52477z"></path></svg>
+        </button>
+        <div className="flex-1 bg-white flex items-center justify-center">
+          <div className="text-center text-gray-900">
             <p className="text-lg mb-4">视频不存在</p>
             <button
               onClick={() => navigate('/works')}
@@ -328,7 +375,7 @@ function CommunityVideoDetail() {
             </button>
           </div>
         </div>
-        <div className="w-80 bg-gray-100"></div>
+        <div className="w-80 bg-white border-l border-gray-200"></div>
       </div>
     )
   }
@@ -337,19 +384,17 @@ function CommunityVideoDetail() {
   const isPortrait = videoAspectRatio !== null && videoAspectRatio < 1
 
   return (
-    <div className="min-h-screen bg-gray-100 flex">
-      {/* 左侧窄边栏：返回按钮 */}
-      <div className="w-16 bg-gray-800 flex flex-col items-center py-4">
-        <button
-          onClick={() => navigate('/works')}
-          className="w-12 h-12 bg-purple-600 text-white rounded-lg active:bg-purple-700 hover:bg-purple-700 flex items-center justify-center gap-1 transition-colors touch-manipulation"
-        >
-          <ArrowLeft size={20} />
-        </button>
-      </div>
+    <div className="min-h-screen bg-white flex relative">
+      {/* 左上角返回按钮 */}
+      <button
+        onClick={() => navigate('/works')}
+        className="absolute top-4 left-4 z-50 back-button"
+      >
+        <svg height="16" width="16" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 1024 1024"><path d="M874.690416 495.52477c0 11.2973-9.168824 20.466124-20.466124 20.466124l-604.773963 0 188.083679 188.083679c7.992021 7.992021 7.992021 20.947078 0 28.939099-4.001127 3.990894-9.240455 5.996574-14.46955 5.996574-5.239328 0-10.478655-1.995447-14.479783-5.996574l-223.00912-223.00912c-3.837398-3.837398-5.996574-9.046027-5.996574-14.46955 0-5.433756 2.159176-10.632151 5.996574-14.46955l223.019353-223.029586c7.992021-7.992021 20.957311-7.992021 28.949332 0 7.992021 8.002254 7.992021 20.957311 0 28.949332l-188.073446 188.073446 604.753497 0C865.521592 475.058646 874.690416 484.217237 874.690416 495.52477z"></path></svg>
+      </button>
 
       {/* 中间：视频播放器 */}
-      <div className="flex-1 bg-gray-900 flex items-center justify-center p-4">
+      <div className="flex-1 bg-white flex items-center justify-center p-4">
         <div 
           className="relative w-full max-w-5xl"
           style={{ 
@@ -420,8 +465,8 @@ function CommunityVideoDetail() {
         </div>
       </div>
 
-      {/* 右侧：视频信息（浅灰色背景） */}
-      <div className="w-80 bg-gray-100 flex flex-col overflow-y-auto">
+      {/* 右侧：视频信息（白色背景） */}
+      <div className="w-80 bg-white flex flex-col overflow-y-auto border-l border-gray-200">
         {/* 用户信息 */}
         <div className="p-4 border-b border-gray-300">
           <div className="flex items-center gap-3 mb-3">
