@@ -118,18 +118,29 @@ function Community() {
       }
 
       const result = await response.json()
-      if (result.success && result.data.ranking && result.data.ranking.length > 0) {
-        // 将API返回的数据转换为前端需要的格式
-        const ranking = result.data.ranking.map((item: any, index: number) => ({
-          id: index + 1,
-          keyword: item.keyword,
-          tag: item.tag || null,
-          rank: item.rank || index + 1,
-          views: item.views,
-        }))
-        setHotSearchList(ranking)
+      console.log('📊 获取榜单数据:', { success: result.success, hasData: !!result.data, hasRanking: !!result.data?.ranking, rankingLength: result.data?.ranking?.length })
+      
+      if (result.success && result.data && result.data.ranking) {
+        // 检查 ranking 是否为数组且不为空
+        if (Array.isArray(result.data.ranking) && result.data.ranking.length > 0) {
+          // 将API返回的数据转换为前端需要的格式
+          const ranking = result.data.ranking.map((item: any, index: number) => ({
+            id: index + 1,
+            keyword: item.keyword || item.title || `榜单项 ${index + 1}`,
+            tag: item.tag || null,
+            rank: item.rank || index + 1,
+            views: item.views || 0,
+          }))
+          console.log('✅ 设置榜单数据:', ranking.length, '条')
+          setHotSearchList(ranking)
+        } else {
+          // 如果没有数据，显示空列表
+          console.warn('⚠️ 榜单数据为空或格式不正确')
+          setHotSearchList([])
+        }
       } else {
-        // 如果没有数据，显示空列表
+        // 如果响应格式不正确，显示空列表
+        console.warn('⚠️ 榜单响应格式不正确:', result)
         setHotSearchList([])
       }
     } catch (error) {
