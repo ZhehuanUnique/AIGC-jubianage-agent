@@ -5,6 +5,7 @@ import { getCommunityVideos, toggleVideoLike, CommunityVideo } from '../services
 import { alertError } from '../utils/alert'
 import { AuthService } from '../services/auth'
 import NavigationBar from '../components/NavigationBar'
+import HamsterLoader from '../components/HamsterLoader'
 
 // 左侧导航菜单项
 const leftMenuItems = [
