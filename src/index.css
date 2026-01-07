@@ -888,4 +888,43 @@ body {
   transform: scale(0.95);
 }
 
+/* 首尾帧上传卡片样式 - 基于 Uiverse.io by SteveBloX */
+.frame-upload-card {
+  box-sizing: border-box;
+  background: rgba(217, 217, 217, 0.58);
+  border: 1px solid white;
+  box-shadow: 12px 17px 51px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(6px);
+  border-radius: 17px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.5s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  font-weight: bolder;
+  color: black;
+  overflow: hidden;
+}
+
+.frame-upload-card:hover {
+  border: 1px solid black;
+  transform: scale(1.05);
+}
+
+.frame-upload-card:active {
+  transform: scale(0.95) rotateZ(1.7deg);
+}
+
+.frame-upload-card.has-image {
+  border: 1px solid rgba(59, 130, 246, 0.5);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.frame-upload-card.has-image:hover {
+  border: 1px solid rgba(59, 130, 246, 0.8);
+  box-shadow: 12px 17px 51px rgba(59, 130, 246, 0.3);
+}
+
 

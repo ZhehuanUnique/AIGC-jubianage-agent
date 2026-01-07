@@ -1937,9 +1937,9 @@ function FirstLastFrameVideo() {
                     ref={firstFrameInputRef}
                   />
                   <div
-                    className={`relative bg-gray-50 border-2 border-dashed rounded-xl flex flex-col items-center justify-center transition-all duration-300 ${
-                      hoveredFrame === 'first' ? 'border-blue-500 shadow-lg transform scale-105' : 'border-gray-300'
-                    } ${firstFramePreview ? 'border-blue-500 bg-white' : ''} ${
+                    className={`frame-upload-card relative ${
+                      firstFramePreview ? 'has-image' : ''
+                    } ${
                       // 根据宽高比动态调整尺寸
                       frameAspectRatio === '16:9' ? 'w-32 aspect-video' : 
                       frameAspectRatio === '9:16' ? 'w-16 aspect-[9/16]' : 
@@ -1955,19 +1955,19 @@ function FirstLastFrameVideo() {
                         <img
                           src={firstFramePreview}
                           alt="首帧"
-                          className={`absolute inset-0 w-full h-full rounded-xl ${
+                          className={`absolute inset-0 w-full h-full rounded-[17px] ${
                             frameAspectRatio === 'other' ? 'object-cover object-top' : 'object-cover'
                           }`}
                         />
                       </div>
                     ) : (
                       <div className="flex flex-col items-center justify-center z-10">
-                        <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center mb-1">
-                          <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div className="w-10 h-10 bg-gray-300 rounded-lg flex items-center justify-center mb-1">
+                          <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
                           </svg>
                         </div>
-                        <span className="text-xs text-gray-600 font-medium">首帧</span>
+                        <span className="text-xs text-gray-700 font-bold">首帧</span>
                       </div>
                     )}
                     {firstFramePreview && (
@@ -2026,11 +2026,9 @@ function FirstLastFrameVideo() {
                       ref={lastFrameInputRef}
                     />
                     <div
-                      className={`relative bg-gray-50 border-2 border-dashed rounded-xl flex flex-col items-center justify-center transition-all duration-300 ${
-                        hoveredFrame === 'last' 
-                          ? 'border-blue-500 shadow-lg transform scale-105' 
-                          : 'border-gray-300'
-                      } ${lastFramePreview ? 'border-blue-500 bg-white' : ''} ${
+                      className={`frame-upload-card relative ${
+                        lastFramePreview ? 'has-image' : ''
+                      } ${
                         // 根据宽高比动态调整尺寸（与首帧保持一致）
                         frameAspectRatio === '16:9' ? 'w-32 aspect-video' : 
                         frameAspectRatio === '9:16' ? 'w-16 aspect-[9/16]' : 
@@ -2046,7 +2044,7 @@ function FirstLastFrameVideo() {
                           <img
                             src={lastFramePreview}
                             alt="尾帧"
-                            className={`absolute inset-0 w-full h-full rounded-xl cursor-pointer ${
+                            className={`absolute inset-0 w-full h-full rounded-[17px] cursor-pointer ${
                               frameAspectRatio === 'other' ? 'object-cover object-top' : 'object-cover'
                             }`}
                             onClick={(e) => {
@@ -2057,12 +2055,12 @@ function FirstLastFrameVideo() {
                         </div>
                       ) : (
                         <div className="flex flex-col items-center justify-center z-10">
-                          <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center mb-1">
-                            <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <div className="w-10 h-10 bg-gray-300 rounded-lg flex items-center justify-center mb-1">
+                            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
                             </svg>
                           </div>
-                          <span className="text-xs text-gray-600 font-medium">尾帧</span>
+                          <span className="text-xs text-gray-700 font-bold">尾帧</span>
                         </div>
                       )}
                       {lastFramePreview && (
