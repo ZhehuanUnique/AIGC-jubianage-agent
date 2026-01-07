@@ -467,7 +467,8 @@ function WorksShowcase() {
         ) : (
           <div 
             ref={containerRef}
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-0"
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
+            style={{ gap: 0 }}
           >
             {/* 视频卡片 */}
             {videos.map((video, index) => {
@@ -482,6 +483,7 @@ function WorksShowcase() {
                   className={`group relative bg-white cursor-grab active:cursor-grabbing transition-all shadow-sm hover:shadow-lg ${
                     draggedVideoId === video.id ? 'opacity-50 cursor-grabbing' : ''
                   } ${dragOverVideoId === video.id ? 'ring-2 ring-purple-500 ring-offset-2' : ''}`}
+                  style={{ overflow: 'visible', position: 'relative' }}
                   onDragStart={(e) => {
                     setDraggedVideoId(video.id)
                     e.dataTransfer.effectAllowed = 'move'
@@ -556,11 +558,12 @@ function WorksShowcase() {
                 >
                   {/* 视频容器 - 根据宽高比自适应 */}
                   <div 
-                    className={`relative bg-gray-100 overflow-hidden ${
+                    className={`relative bg-gray-100 ${
                       isPortrait 
                         ? 'aspect-[9/16]' 
                         : 'aspect-video'
                     }`}
+                    style={{ overflow: 'hidden' }}
                   >
                     {/* 优先显示缩略图（如果存在），悬停时再显示视频 */}
                     {video.thumbnailUrl && video.thumbnailUrl.trim() !== '' ? (
@@ -616,8 +619,9 @@ function WorksShowcase() {
                             }}
                             src={video.videoUrl}
                             className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
-                              hoveredVideoId === video.id ? 'opacity-100 z-10' : 'opacity-0 z-0'
+                              hoveredVideoId === video.id ? 'opacity-100' : 'opacity-0'
                             }`}
+                            style={{ zIndex: hoveredVideoId === video.id ? 1 : 0 }}
                             muted
                             loop
                             preload="metadata"
@@ -694,21 +698,27 @@ function WorksShowcase() {
                     )}
                   </div>
 
-                  {/* 悬停时显示的悬浮窗口 - 显示在视频下方，绝对定位不占用实际尺寸 */}
+                  {/* 悬停时显示的悬浮窗口 - 绝对定位在视频卡片上方，不占用文档流空间 */}
                   {hoveredVideoId === video.id && (
                     <div 
-                      className="absolute top-full left-0 right-0 p-4 bg-white shadow-2xl rounded-b-xl transition-all animate-fadeIn z-30 border-t border-gray-100"
+                      className="hover-window absolute inset-0 bg-white bg-opacity-98 backdrop-blur-sm shadow-2xl z-[100] flex flex-col p-4 pointer-events-auto rounded-lg"
                       style={{
-                        marginTop: '-1px', // 与视频容器无缝连接
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
                       }}
+                      onMouseEnter={() => setHoveredVideoId(video.id)}
+                      onMouseLeave={() => setHoveredVideoId(null)}
                     >
                       {/* 标题 */}
-                      <h3 className="text-sm font-semibold text-gray-900 mb-3 line-clamp-1">
+                      <h3 className="text-sm font-semibold text-gray-900 mb-3 line-clamp-2 flex-shrink-0">
                         {video.title || '未命名视频'}
                       </h3>
                       
                       {/* 用户信息 */}
-                      <div className="flex items-center gap-2 mb-3">
+                      <div className="flex items-center gap-2 mb-3 flex-shrink-0">
                         {video.avatar ? (
                           <img
                             src={video.avatar}
@@ -724,7 +734,7 @@ function WorksShowcase() {
                       </div>
 
                       {/* 互动数据 */}
-                      <div className="flex items-center gap-4 text-xs text-gray-600 mb-3">
+                      <div className="flex items-center gap-4 text-xs text-gray-600 mb-3 flex-shrink-0">
                         <button
                           onClick={(e) => handleLike(video.id, e)}
                           className="flex items-center gap-1 hover:text-red-500 transition-colors"
@@ -737,7 +747,7 @@ function WorksShowcase() {
                       </div>
                       
                       {/* 模型和规格信息 */}
-                      <div className="flex items-center gap-2 mb-3 flex-wrap">
+                      <div className="flex items-center gap-2 mb-3 flex-wrap flex-shrink-0">
                         {video.model ? (
                           <span className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-700">
                             {video.model}
@@ -751,50 +761,55 @@ function WorksShowcase() {
                           <span className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-700">
                             {video.duration}s
                           </span>
-                        ) : (
-                          <span className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-500">
-                            --
-                          </span>
-                        )}
+                        ) : null}
                         {video.resolution ? (
                           <span className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-700">
                             {video.resolution}
                           </span>
-                        ) : (
-                          <span className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-500">
-                            --
-                          </span>
-                        )}
+                        ) : null}
                       </div>
                       
-                      {/* 操作按钮行 */}
-                      <div className="flex items-center gap-2 pt-3 border-t border-gray-200">
+                      {/* 操作按钮行 - 参考海螺AI网站的设计 */}
+                      <div className="flex items-center gap-2 pt-3 border-t border-gray-200 mt-auto flex-shrink-0">
                         <button 
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            // TODO: 实现使用模板功能
+                          }}
                           className="flex-1 bg-purple-600 hover:bg-purple-700 rounded-lg px-4 py-2.5 text-white text-sm font-medium transition-all flex flex-col items-center justify-center gap-0.5 shadow-md"
                         >
-                          <span className="leading-tight">使用</span>
-                          <span className="leading-tight">模板</span>
+                          <Sparkles className="w-4 h-4 mb-0.5" />
+                          <span className="leading-tight text-xs">使用模板</span>
                         </button>
                         <button 
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            // TODO: 实现下载功能
+                          }}
                           className="w-11 h-11 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center text-gray-700 transition-all shadow-sm"
+                          title="下载"
                         >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                          </svg>
+                          <Download className="w-5 h-5" />
                         </button>
                         <button 
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            // TODO: 实现分享功能
+                          }}
                           className="w-11 h-11 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center text-gray-700 transition-all shadow-sm"
+                          title="分享"
                         >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                          </svg>
+                          <Share2 className="w-5 h-5" />
                         </button>
                         <button 
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            // TODO: 实现更多选项
+                          }}
                           className="w-11 h-11 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center text-gray-700 transition-all shadow-sm"
+                          title="更多"
                         >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                          </svg>
+                          <MoreVertical className="w-5 h-5" />
                         </button>
                       </div>
                     </div>
