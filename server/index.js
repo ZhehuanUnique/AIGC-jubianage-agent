@@ -695,10 +695,9 @@ app.post('/api/first-last-frame-video/generate', authenticateToken, uploadImage.
         mode: hasLastFrame ? 'first_last_frame' : 'single_frame',
       })
 
-      // 火山引擎即梦-3.0Pro目前只支持单首帧+提示词模式
-      // 如果有尾帧，暂时忽略尾帧，只使用首帧
+      // 火山引擎即梦-3.0Pro（通过ARK API）支持首尾帧模式
       if (hasLastFrame) {
-        console.log('⚠️  火山引擎即梦-3.0Pro暂不支持首尾帧模式，将使用首帧+提示词模式')
+        console.log('✅ 使用即梦-3.0Pro首尾帧模式生成视频')
       }
 
       const { generateVideoWithVolcengine } = await import('./services/volcengineVideoService.js')

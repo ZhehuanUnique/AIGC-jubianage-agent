@@ -50,7 +50,7 @@ function FirstLastFrameVideo() {
     { value: 'veo3.1-pro', label: 'Veo3.1 Pro', supportsFirstLastFrame: false },
     { value: 'viduq2-turbo', label: 'Vidu Q2 Turbo', supportsFirstLastFrame: false },
     { value: 'viduq2-pro', label: 'Vidu Q2 Pro', supportsFirstLastFrame: false },
-    { value: 'volcengine-video-3.0-pro', label: '即梦-3.0Pro', supportsFirstLastFrame: false },
+    { value: 'volcengine-video-3.0-pro', label: '即梦-3.0Pro', supportsFirstLastFrame: true },
     { value: 'doubao-seedance-1-5-pro-251215', label: '即梦-3.5Pro', supportsFirstLastFrame: true },
     { value: 'minimax-hailuo-02', label: 'MiniMax Hailuo-02', supportsFirstLastFrame: true },
     { value: 'minimax-hailuo-2.3', label: 'MiniMax Hailuo-2.3', supportsFirstLastFrame: true },
