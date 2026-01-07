@@ -7,6 +7,7 @@ import { AuthService } from '../services/auth'
 import NavigationBar from '../components/NavigationBar'
 import { PublishVideoModal } from '../components/PublishVideoModal'
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
+import HamsterLoader from '../components/HamsterLoader'
 
 function WorksShowcase() {
   const navigate = useNavigate()
@@ -290,8 +291,9 @@ function WorksShowcase() {
         </button>
 
         {isLoading ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
+          <div className="flex flex-col items-center justify-center h-full">
+            <HamsterLoader size={10} />
+            <p className="mt-4 text-white">加载中...</p>
           </div>
         ) : videos.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-white">
@@ -431,8 +433,9 @@ function WorksShowcase() {
 
         {/* 视频网格 */}
         {isLoading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+          <div className="flex flex-col items-center justify-center py-20">
+            <HamsterLoader size={10} />
+            <p className="mt-4 text-gray-600">加载中...</p>
           </div>
         ) : videos.length === 0 ? (
           <div className="text-center py-20 text-gray-500">
@@ -539,7 +542,7 @@ function WorksShowcase() {
                         title="删除/下架视频"
                       >
                         {deletingVideoId === video.id ? (
-                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          <HamsterLoader size={3} />
                         ) : (
                           <Trash2 size={18} />
                         )}
