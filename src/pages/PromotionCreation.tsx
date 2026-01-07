@@ -9,6 +9,7 @@ import { alert, alertError, alertWarning, alertInfo, alertSuccess } from '../uti
 import { AuthService } from '../services/auth'
 import { getUserSettings } from '../services/settingsService'
 import { openPhotoshop } from '../services/api'
+import HamsterLoader from '../components/HamsterLoader'
 
 interface Poster {
   id: string
@@ -836,7 +837,7 @@ function PromotionCreation() {
                       </>
                     ) : (
                       <div className="flex items-center gap-2">
-                        <Loader2 className="animate-spin text-purple-600" size={18} />
+                        <HamsterLoader size={3} />
                         <span className="text-xs text-gray-600">
                           {music.generating ? '生成中...' : music.status || '等待中...'}
                         </span>
@@ -861,8 +862,8 @@ function PromotionCreation() {
                 >
                   {loadingSavedMusic ? (
                     <>
-                      <Loader2 className="animate-spin" size={14} />
-                      加载中...
+                      <HamsterLoader size={3} />
+                      <span>加载中...</span>
                     </>
                   ) : (
                     '刷新'

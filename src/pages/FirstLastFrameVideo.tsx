@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Upload, Loader2, Share2, Download, Heart, ThumbsUp, Edit, Sparkles, Zap, Trash2, Eye, X } from 'lucide-react'
 import { alertSuccess, alertError } from '../utils/alert'
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
+import HamsterLoader from '../components/HamsterLoader'
 import { generateFirstLastFrameVideo, getFirstLastFrameVideoStatus, getFirstLastFrameVideos, createVideoProcessingTask } from '../services/api'
 import { calculateVideoGenerationCredit } from '../utils/creditCalculator'
 import { getUserSettings } from '../services/settingsService'
@@ -1202,8 +1203,8 @@ function FirstLastFrameVideo() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* 历史视频网格 - 参考Vue项目，只在首次加载且没有视频时显示加载状态 */}
           {isLoading && isInitialLoad && tasks.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+            <div className="text-center py-12 flex flex-col items-center">
+              <HamsterLoader size={12} />
               <p className="text-gray-500 mt-4">加载中...</p>
             </div>
           ) : tasks.length === 0 ? (
@@ -1420,7 +1421,7 @@ function FirstLastFrameVideo() {
                               // 生成中状态（显示进度）
                               <>
                                 <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center mb-4 mx-auto">
-                                  <Loader2 className="text-white animate-spin" size={32} />
+                                  <HamsterLoader size={8} className="text-white" />
                                 </div>
                                 <div className="bg-yellow-400 border-2 border-yellow-500 rounded-lg px-3 py-1 mb-3 inline-block">
                                   <div className="text-lg font-bold text-gray-800">
@@ -1442,7 +1443,9 @@ function FirstLastFrameVideo() {
                             // 其他状态（pending/processing/failed）
                             <>
                               {(task.status === 'processing' || task.status === 'pending') && (
-                                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-2"></div>
+                                <div className="mb-2 flex justify-center">
+                                  <HamsterLoader size={6} />
+                                </div>
                               )}
                               <p className="text-sm font-medium mb-2">{getStatusText(task.status)}</p>
                               {/* 进度条 */}
@@ -2207,8 +2210,8 @@ function FirstLastFrameVideo() {
                 >
                   {isGenerating ? (
                     <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      生成中...
+                      <HamsterLoader size={4} />
+                      <span>生成中...</span>
                     </>
                   ) : (
                     <>

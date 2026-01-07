@@ -7,6 +7,7 @@ import UserLogsModal from '../components/UserLogsModal'
 import GroupManagement from '../components/GroupManagement'
 import { AuthService } from '../services/auth'
 import { alert, alertError, alertWarning } from '../utils/alert'
+import HamsterLoader from '../components/HamsterLoader'
 
 function Analytics() {
   const [activeTab, setActiveTab] = useState<'users' | 'groups' | 'consumption'>('users')
@@ -294,7 +295,7 @@ function Analytics() {
 
               {loadingUsers ? (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="animate-spin text-purple-600" size={32} />
+                  <HamsterLoader size={10} />
                 </div>
               ) : (
                 <div className="bg-gray-50 border border-gray-200 rounded-lg overflow-hidden">

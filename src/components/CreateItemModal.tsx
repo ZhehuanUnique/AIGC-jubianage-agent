@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { X, Upload, Loader2, Trash2, Eye } from 'lucide-react'
 import { alert } from '../utils/alert'
+import HamsterLoader from './HamsterLoader'
 import { generateImage, getImageTaskStatus, GenerateImageRequest, ImageTaskStatus, uploadAssetImage, getProjectItems, getProjects, getGeneratedAssets } from '../services/api'
 
 interface CreateItemModalProps {
@@ -1209,7 +1210,7 @@ function CreateItemModal({ onClose, onItemSelect, projectName }: CreateItemModal
                       )}
                       {task.status === 'generating' && (
                         <div className="flex items-center gap-2 text-xs text-gray-500">
-                          <Loader2 className="w-3 h-3 animate-spin" />
+                          <HamsterLoader size={2} />
                           <span>生成中...</span>
                         </div>
                       )}
