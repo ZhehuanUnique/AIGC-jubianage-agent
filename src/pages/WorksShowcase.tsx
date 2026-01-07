@@ -410,8 +410,7 @@ function WorksShowcase() {
       
       <div className="max-w-full mx-auto bg-white" style={{ padding: 0, margin: 0 }}>
         {/* 头部：排序选项 */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4 sm:mb-6">
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">作品展示</h1>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-0" style={{ marginBottom: 0 }}>
           <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
             <button
               onClick={() => setShowPublishModal(true)}
@@ -563,7 +562,7 @@ function WorksShowcase() {
                         ? 'aspect-[9/16]' 
                         : 'aspect-video'
                     }`}
-                    style={{ overflow: 'hidden' }}
+                    style={{ overflow: 'hidden', margin: 0, padding: 0 }}
                   >
                     {/* 优先显示缩略图（如果存在），悬停时再显示视频 */}
                     {video.thumbnailUrl && video.thumbnailUrl.trim() !== '' ? (
