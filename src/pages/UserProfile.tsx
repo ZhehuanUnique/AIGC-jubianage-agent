@@ -14,31 +14,7 @@ function UserProfile() {
   const [videos, setVideos] = useState<CommunityVideo[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isFollowing, setIsFollowing] = useState(false)
-
-  // 模拟用户数据（实际应该从API获取）
-  const userProfile = {
-    username: username || '用户',
-    displayName: username || '用户',
-    avatar: '',
-    followers: 647000, // 64.7万
-    following: 12,
-    totalInteractions: 97250000, // 972.5万
-    description: '热门搞笑幽默博主数据飙升',
-    stats: {
-      yesterdayPosts: 5,
-      reads: 100000,
-      interactions: 3173,
-    },
-    verified: username === 'Chiefavefan',
-    verifiedType: '搞笑幽默博主',
-    isRealName: true,
-    ipLocation: '上海',
-    fanGroup: {
-      name: '一杯芝士',
-      members: 955,
-      owner: username || '用户',
-    },
-  }
+  const [userProfile, setUserProfile] = useState<UserProfileType | null>(null)
 
   // 加载用户的视频/帖子
   useEffect(() => {
@@ -303,9 +279,9 @@ function UserProfile() {
                   
                   {/* 统计数据 */}
                   <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
-                    <span><span className="font-semibold text-gray-900">{formatNumber(userProfile.followers)}</span> 粉丝</span>
-                    <span><span className="font-semibold text-gray-900">{userProfile.following}</span> 关注</span>
-                    <span><span className="font-semibold text-gray-900">{formatNumber(userProfile.totalInteractions)}</span> 转评赞</span>
+                    <span><span className="font-semibold text-gray-900">{formatNumber(userProfile?.followers || 0)}</span> 粉丝</span>
+                    <span><span className="font-semibold text-gray-900">{userProfile?.following || 0}</span> 关注</span>
+                    <span><span className="font-semibold text-gray-900">{userProfile?.videos || 0}</span> 视频</span>
                   </div>
 
                   {/* 操作按钮 */}

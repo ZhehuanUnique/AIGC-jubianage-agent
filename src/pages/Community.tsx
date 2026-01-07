@@ -681,11 +681,11 @@ function Community() {
                     )}
                   </div>
                   <div className="text-xs text-gray-500 mb-2">
-                    微博认证: 微博牧场计划合作达人 纪录片博主 微博新知博主
+                    剧变认证: 剧变牧场计划合作达人 纪录片博主 剧变新知博主
                   </div>
                   <div className="flex items-center gap-4 text-sm text-gray-600">
-                    <span>关注 <span className="font-semibold text-gray-900">570</span></span>
-                    <span>粉丝 <span className="font-semibold text-gray-900">528.8万</span></span>
+                    <span>关注 <span className="font-semibold text-gray-900">0</span></span>
+                    <span>粉丝 <span className="font-semibold text-gray-900">0</span></span>
                   </div>
                 </div>
               </div>
