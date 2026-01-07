@@ -208,7 +208,7 @@ function Home() {
               </div>
               <button
                 onClick={handleClick}
-                className="uiverse-button-card px-8 md:px-10 py-4 md:py-5 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-300 shadow-2xl hover:shadow-purple-500/50 relative z-20 transform hover:scale-105 overflow-hidden"
+                className="uiverse-button-card px-8 md:px-10 py-5 md:py-6 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-300 shadow-2xl hover:shadow-purple-500/50 relative z-20 transform hover:scale-105 overflow-hidden"
               >
                 <div className="uiverse-loader">
                   <div className="uiverse-words">

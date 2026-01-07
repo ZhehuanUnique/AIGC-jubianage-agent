@@ -637,7 +637,7 @@ body {
   font-size: 1.25rem;
   -webkit-box-sizing: content-box;
   box-sizing: content-box;
-  height: 40px;
+  height: 80px;
   padding: 0;
   display: -webkit-box;
   display: -ms-flexbox;
@@ -650,7 +650,7 @@ body {
 .uiverse-words {
   overflow: hidden;
   position: relative;
-  height: 72px;
+  height: 80px;
   display: flex;
   flex-direction: column;
 }
@@ -671,11 +671,11 @@ body {
 
 .uiverse-word {
   display: block;
-  height: 72px;
+  height: 80px;
   padding-left: 6px;
   color: #ffffff;
   animation: spin_words 5s infinite linear;
-  line-height: 72px;
+  line-height: 80px;
   flex-shrink: 0;
   font-size: 3rem;
   font-weight: 600;
