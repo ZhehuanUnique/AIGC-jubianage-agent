@@ -37,6 +37,8 @@ function Community() {
   const [activeRankingType, setActiveRankingType] = useState('anime')
   const [hotSearchList, setHotSearchList] = useState<Array<{ id: number; keyword: string; tag: string | null; rank: number; views?: number }>>([])
   const [isLoadingRanking, setIsLoadingRanking] = useState(false)
+  const [hoveredUserId, setHoveredUserId] = useState<string | null>(null)
+  const [hoveredUserPosition, setHoveredUserPosition] = useState<{ x: number; y: number } | null>(null)
 
   useEffect(() => {
     const user = AuthService.getCurrentUser()
@@ -331,10 +333,42 @@ function Community() {
                     className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer p-6"
                   >
                     {/* 用户信息 */}
-                    <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-start justify-between mb-4 relative">
                       <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                          {video.username?.[0]?.toUpperCase() || 'U'}
+                        <div 
+                          className="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-lg cursor-pointer relative"
+                          onMouseEnter={(e) => {
+                            const rect = e.currentTarget.getBoundingClientRect()
+                            const scrollY = window.scrollY || window.pageYOffset
+                            setHoveredUserId(video.username || '')
+                            setHoveredUserPosition({
+                              x: rect.left + rect.width / 2, // 头像中心点
+                              y: rect.bottom + scrollY + 8 // 头像底部 + 滚动位置 + 间距
+                            })
+                          }}
+                          onMouseLeave={() => {
+                            // 延迟隐藏，以便鼠标可以移动到卡片上
+                            setTimeout(() => {
+                              if (!document.querySelector('.user-hover-card:hover')) {
+                                setHoveredUserId(null)
+                                setHoveredUserPosition(null)
+                              }
+                            }, 100)
+                          }}
+                        >
+                          {video.avatar ? (
+                            <img
+                              src={video.avatar}
+                              alt={video.username}
+                              className="w-full h-full rounded-full object-cover"
+                              onError={(e) => {
+                                // 如果头像加载失败，显示默认头像
+                                e.currentTarget.style.display = 'none'
+                              }}
+                            />
+                          ) : (
+                            <span>{video.username?.[0]?.toUpperCase() || 'U'}</span>
+                          )}
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
@@ -427,6 +461,70 @@ function Community() {
               </div>
             )}
           </div>
+
+          {/* 用户信息悬停卡片 */}
+          {hoveredUserId && hoveredUserPosition && (
+            <div
+              className="user-hover-card fixed bg-white rounded-lg shadow-2xl border border-gray-200 z-[200] p-4 min-w-[320px] max-w-[400px]"
+              style={{
+                left: `${hoveredUserPosition.x}px`,
+                top: `${hoveredUserPosition.y}px`,
+                transform: 'translateX(-50%)',
+              }}
+              onMouseEnter={() => {
+                // 保持显示
+              }}
+              onMouseLeave={() => {
+                setHoveredUserId(null)
+                setHoveredUserPosition(null)
+              }}
+            >
+              {/* 用户头部信息 */}
+              <div className="flex items-start gap-3 mb-4">
+                {videos.find(v => v.username === hoveredUserId)?.avatar ? (
+                  <img
+                    src={videos.find(v => v.username === hoveredUserId)?.avatar}
+                    alt={hoveredUserId}
+                    className="w-16 h-16 rounded-full object-cover border-2 border-gray-200"
+                  />
+                ) : (
+                  <div className="w-16 h-16 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-xl border-2 border-gray-200">
+                    {hoveredUserId[0]?.toUpperCase() || 'U'}
+                  </div>
+                )}
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-semibold text-gray-900 text-base">{hoveredUserId}</span>
+                    {hoveredUserId === 'Chiefavefan' && (
+                      <span className="text-xs bg-yellow-400 text-yellow-900 px-1.5 py-0.5 rounded">V</span>
+                    )}
+                  </div>
+                  <div className="text-xs text-gray-500 mb-2">
+                    微博认证: 微博牧场计划合作达人 纪录片博主 微博新知博主
+                  </div>
+                  <div className="flex items-center gap-4 text-sm text-gray-600">
+                    <span>关注 <span className="font-semibold text-gray-900">570</span></span>
+                    <span>粉丝 <span className="font-semibold text-gray-900">528.8万</span></span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 操作按钮 */}
+              <div className="flex items-center gap-2">
+                <button className="flex-1 px-4 py-2 bg-orange-500 text-white text-sm rounded-lg hover:bg-orange-600 transition-colors font-medium">
+                  +关注
+                </button>
+                <button className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-50 transition-colors font-medium">
+                  留言
+                </button>
+                <button className="px-3 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-50 transition-colors">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* 右侧边栏 */}
           <div className="hidden xl:block w-80 flex-shrink-0">
