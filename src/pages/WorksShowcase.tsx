@@ -480,7 +480,7 @@ function WorksShowcase() {
                   key={video.id}
                   id={`video-${video.id}`}
                   draggable
-                  className={`group relative bg-white cursor-grab active:cursor-grabbing transition-all shadow-sm hover:shadow-lg ${
+                  className={`group relative bg-white cursor-grab active:cursor-grabbing transition-all ${
                     draggedVideoId === video.id ? 'opacity-50 cursor-grabbing' : ''
                   } ${dragOverVideoId === video.id ? 'ring-2 ring-purple-500 ring-offset-2' : ''}`}
                   style={{ overflow: 'visible', position: 'relative', margin: 0, padding: 0 }}
