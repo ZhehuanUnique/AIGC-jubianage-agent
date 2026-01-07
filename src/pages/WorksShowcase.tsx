@@ -467,7 +467,7 @@ function WorksShowcase() {
           <div 
             ref={containerRef}
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
-            style={{ gap: 0, rowGap: 0, columnGap: 0 }}
+            style={{ gap: 0, rowGap: 0, columnGap: 0, margin: 0, padding: 0 }}
           >
             {/* 视频卡片 */}
             {videos.map((video, index) => {
@@ -482,7 +482,7 @@ function WorksShowcase() {
                   className={`group relative bg-white cursor-grab active:cursor-grabbing transition-all ${
                     draggedVideoId === video.id ? 'opacity-50 cursor-grabbing' : ''
                   } ${dragOverVideoId === video.id ? 'ring-2 ring-purple-500 ring-offset-2' : ''}`}
-                  style={{ overflow: 'visible', position: 'relative', margin: 0, padding: 0 }}
+                  style={{ overflow: 'visible', position: 'relative', margin: 0, padding: 0, border: 'none' }}
                   onDragStart={(e) => {
                     setDraggedVideoId(video.id)
                     e.dataTransfer.effectAllowed = 'move'
