@@ -42,6 +42,7 @@ function Community() {
   const [hoveredUserFollowStatus, setHoveredUserFollowStatus] = useState<{ [username: string]: boolean }>({})
   const [showSettingsMenu, setShowSettingsMenu] = useState(false)
   const settingsMenuRef = useRef<HTMLDivElement>(null)
+  const [videoAspectRatios, setVideoAspectRatios] = useState<Map<number, number>>(new Map())
 
   useEffect(() => {
     const user = AuthService.getCurrentUser()
