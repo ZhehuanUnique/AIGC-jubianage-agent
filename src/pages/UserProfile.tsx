@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Heart, MessageCircle, Share2, Eye, MoreVertical, Search, Home, Video, Compass, Gamepad2, User, MessageSquare, Settings, Bookmark, Crown, CheckCircle } from 'lucide-react'
-import { getCommunityVideos, CommunityVideo } from '../services/api'
+import { ArrowLeft, Heart, MessageCircle, Share2, Eye, MoreVertical, Search, Home, Video, Compass, Gamepad2, User, MessageSquare, Settings, Bookmark, Crown, CheckCircle, Users, Star, History, FolderOpen } from 'lucide-react'
+import { getCommunityVideos, CommunityVideo, getUserProfile, UserProfile as UserProfileType, followUser } from '../services/api'
+import { AuthService } from '../services/auth'
 import NavigationBar from '../components/NavigationBar'
 import HamsterLoader from '../components/HamsterLoader'
+import { alertError, alertSuccess } from '../utils/alert'
 
 function UserProfile() {
   const { username } = useParams<{ username: string }>()
@@ -87,6 +89,14 @@ function UserProfile() {
   // 获取第一个视频作为顶部视频
   const featuredVideo = videos.find(v => v.videoUrl) || videos[0]
 
+  if (!userProfile) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <HamsterLoader size={8} />
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <NavigationBar activeTab="community" />
@@ -149,6 +159,94 @@ function UserProfile() {
       {/* 主要内容区 */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         <div className="flex gap-6">
+          {/* 左侧导航栏（仅在自己的主页显示） */}
+          {isOwnProfile && (
+            <div className="hidden lg:block w-64 flex-shrink-0">
+              <div className="bg-white rounded-lg shadow-sm p-4 sticky top-24">
+                <h3 className="font-semibold text-gray-900 mb-4">个人主页</h3>
+                <nav className="space-y-1">
+                  <button
+                    onClick={() => setActiveLeftMenu('home')}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                      activeLeftMenu === 'home'
+                        ? 'bg-orange-500 text-white'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <Home className="w-5 h-5" />
+                    <span>我的主页</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveLeftMenu('following')}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                      activeLeftMenu === 'following'
+                        ? 'bg-orange-500 text-white'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <Users className="w-5 h-5" />
+                    <span>我的关注</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveLeftMenu('followers')}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                      activeLeftMenu === 'followers'
+                        ? 'bg-orange-500 text-white'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <Users className="w-5 h-5" />
+                    <span>我的粉丝</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveLeftMenu('visits')}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                      activeLeftMenu === 'visits'
+                        ? 'bg-orange-500 text-white'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <History className="w-5 h-5" />
+                    <span>我的经常访问</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveLeftMenu('collections')}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                      activeLeftMenu === 'collections'
+                        ? 'bg-orange-500 text-white'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <Bookmark className="w-5 h-5" />
+                    <span>我的收藏</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveLeftMenu('likes')}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                      activeLeftMenu === 'likes'
+                        ? 'bg-orange-500 text-white'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <Heart className="w-5 h-5" />
+                    <span>我的赞</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveLeftMenu('creator')}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                      activeLeftMenu === 'creator'
+                        ? 'bg-orange-500 text-white'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <Star className="w-5 h-5" />
+                    <span>创作者中心</span>
+                  </button>
+                </nav>
+              </div>
+            </div>
+          )}
+
           {/* 左侧：主内容 */}
           <div className="flex-1 min-w-0">
             {/* 顶部视频播放器 */}
@@ -220,15 +318,16 @@ function UserProfile() {
                           : 'bg-orange-500 text-white hover:bg-orange-600'
                       }`}
                     >
-                      {isFollowing ? '已关注' : '+关注'}
-                    </button>
-                    <button className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium">
-                      留言
-                    </button>
-                    <button className="px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-                      <MoreVertical className="w-5 h-5" />
-                    </button>
-                  </div>
+                          {isFollowing ? '已关注' : '+关注'}
+                      </button>
+                      <button className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium">
+                        留言
+                      </button>
+                      <button className="px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                        <MoreVertical className="w-5 h-5" />
+                      </button>
+                    </div>
+                  )}
 
                   {/* 用户描述和统计 */}
                   <div className="text-sm text-gray-600 mb-2">

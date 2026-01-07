@@ -39,6 +39,7 @@ function Community() {
   const [isLoadingRanking, setIsLoadingRanking] = useState(false)
   const [hoveredUserId, setHoveredUserId] = useState<string | null>(null)
   const [hoveredUserPosition, setHoveredUserPosition] = useState<{ x: number; y: number } | null>(null)
+  const [hoveredUserFollowStatus, setHoveredUserFollowStatus] = useState<{ [username: string]: boolean }>({})
   const [showSettingsMenu, setShowSettingsMenu] = useState(false)
   const settingsMenuRef = useRef<HTMLDivElement>(null)
 
@@ -487,13 +488,27 @@ function Community() {
                             e.stopPropagation()
                             navigate(`/user/${video.username}`)
                           }}
-                          onMouseEnter={(e) => {
+                          onMouseEnter={async (e) => {
                             const rect = e.currentTarget.getBoundingClientRect()
-                            setHoveredUserId(video.username || '')
+                            const username = video.username || ''
+                            setHoveredUserId(username)
                             setHoveredUserPosition({
                               x: rect.left + rect.width / 2, // 头像中心点（视口坐标）
                               y: rect.bottom + 8 // 头像底部 + 间距（视口坐标）
                             })
+                            
+                            // 检查关注状态
+                            if (username && !hoveredUserFollowStatus.hasOwnProperty(username)) {
+                              try {
+                                const isFollowing = await checkFollowStatus(username)
+                                setHoveredUserFollowStatus(prev => ({
+                                  ...prev,
+                                  [username]: isFollowing,
+                                }))
+                              } catch (error) {
+                                console.error('检查关注状态失败:', error)
+                              }
+                            }
                           }}
                           onMouseLeave={() => {
                             // 延迟隐藏，以便鼠标可以移动到卡片上
@@ -660,8 +675,33 @@ function Community() {
 
               {/* 操作按钮 */}
               <div className="flex items-center gap-2">
-                <button className="flex-1 px-4 py-2 bg-orange-500 text-white text-sm rounded-lg hover:bg-orange-600 transition-colors font-medium">
-                  +关注
+                <button
+                  onClick={async (e) => {
+                    e.stopPropagation()
+                    if (!hoveredUserId) return
+                    
+                    const isCurrentlyFollowing = hoveredUserFollowStatus[hoveredUserId] || false
+                    const action = isCurrentlyFollowing ? 'unfollow' : 'follow'
+                    
+                    try {
+                      const { followUser } = await import('../services/api')
+                      await followUser(hoveredUserId, action)
+                      setHoveredUserFollowStatus(prev => ({
+                        ...prev,
+                        [hoveredUserId]: !isCurrentlyFollowing,
+                      }))
+                    } catch (error) {
+                      console.error('关注操作失败:', error)
+                      alertError(error instanceof Error ? error.message : '操作失败', '错误')
+                    }
+                  }}
+                  className={`flex-1 px-4 py-2 text-sm rounded-lg transition-colors font-medium ${
+                    hoveredUserFollowStatus[hoveredUserId]
+                      ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      : 'bg-orange-500 text-white hover:bg-orange-600'
+                  }`}
+                >
+                  {hoveredUserFollowStatus[hoveredUserId] ? '已关注' : '+关注'}
                 </button>
                 <button className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-50 transition-colors font-medium">
                   留言

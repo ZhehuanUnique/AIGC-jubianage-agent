@@ -7968,10 +7968,12 @@ async function startServer() {
         const { initFirstLastFrameVideosTable, initVideoAnnotationsTable } = await import('./db/initFirstLastFrameVideosTable.js')
         const { initVideoProcessingTasksTable } = await import('./db/initVideoProcessingTasksTable.js')
         const initTrendingRankingTable = (await import('./db/initTrendingRankingTable.js')).default
+        const initUserFollowsTable = (await import('./db/initUserFollowsTable.js')).default
         await initFirstLastFrameVideosTable()
         await initVideoAnnotationsTable()
         await initVideoProcessingTasksTable()
         await initTrendingRankingTable()
+        await initUserFollowsTable()
       } catch (error) {
         console.warn('⚠️  初始化数据库表失败:', error.message)
         console.warn('💡 提示：可以手动运行 node server/db/initFirstLastFrameVideosTable.js 来初始化表')

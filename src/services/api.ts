@@ -2436,6 +2436,115 @@ export async function getCommunityVideoDetail(videoId: number): Promise<Communit
 /**
  * 发布视频到社区
  */
+/**
+ * 关注/取消关注用户
+ */
+export async function followUser(targetUsername: string, action: 'follow' | 'unfollow'): Promise<{ success: boolean; isFollowing: boolean }> {
+  try {
+    const token = AuthService.getToken()
+    if (!token) {
+      throw new Error('未登录，请先登录')
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/user-follows`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ targetUsername, action }),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || '操作失败')
+    }
+
+    const result = await response.json()
+    return result
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('网络错误，请检查服务器连接')
+  }
+}
+
+/**
+ * 检查是否已关注用户
+ */
+export async function checkFollowStatus(targetUsername: string): Promise<boolean> {
+  try {
+    const token = AuthService.getToken()
+    if (!token) {
+      return false
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/user-follows/check?targetUsername=${encodeURIComponent(targetUsername)}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+
+    if (!response.ok) {
+      return false
+    }
+
+    const result = await response.json()
+    return result.isFollowing || false
+  } catch (error) {
+    console.error('检查关注状态失败:', error)
+    return false
+  }
+}
+
+/**
+ * 获取用户信息
+ */
+export interface UserProfile {
+  id: number
+  username: string
+  displayName: string
+  followers: number
+  following: number
+  videos: number
+  isFollowing: boolean
+  isOwnProfile: boolean
+  createdAt: string
+}
+
+export async function getUserProfile(username: string): Promise<UserProfile> {
+  try {
+    const token = AuthService.getToken()
+    if (!token) {
+      throw new Error('未登录，请先登录')
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/users/${encodeURIComponent(username)}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || '获取用户信息失败')
+    }
+
+    const result = await response.json()
+    if (result.success) {
+      return result.data
+    } else {
+      throw new Error(result.error || '获取用户信息失败')
+    }
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('网络错误，请检查服务器连接')
+  }
+}
+
 export async function publishVideoToCommunity(params: {
   videoUrl: string
   title: string
