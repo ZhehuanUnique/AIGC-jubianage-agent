@@ -408,10 +408,18 @@ function WorksShowcase() {
     <div className="min-h-screen bg-white">
       <NavigationBar activeTab="works" />
       
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 bg-white">
         {/* 头部：排序选项 */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4 sm:mb-6">
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">作品展示</h1>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/')}
+              className="back-button"
+            >
+              <svg height="16" width="16" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 1024 1024"><path d="M874.690416 495.52477c0 11.2973-9.168824 20.466124-20.466124 20.466124l-604.773963 0 188.083679 188.083679c7.992021 7.992021 7.992021 20.947078 0 28.939099-4.001127 3.990894-9.240455 5.996574-14.46955 5.996574-5.239328 0-10.478655-1.995447-14.479783-5.996574l-223.00912-223.00912c-3.837398-3.837398-5.996574-9.046027-5.996574-14.46955 0-5.433756 2.159176-10.632151 5.996574-14.46955l223.019353-223.029586c7.992021-7.992021 20.957311-7.992021 28.949332 0 7.992021 8.002254 7.992021 20.957311 0 28.949332l-188.073446 188.073446 604.753497 0C865.521592 475.058646 874.690416 484.217237 874.690416 495.52477z"></path></svg>
+            </button>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">作品展示</h1>
+          </div>
           <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
             <button
               onClick={() => setShowPublishModal(true)}
@@ -562,135 +570,6 @@ function WorksShowcase() {
                         : 'aspect-video'
                     }`}
                   >
-                    {/* 悬停时显示的悬浮窗口 - 绝对定位，只覆盖视频部分，不占用实际尺寸 */}
-                    {hoveredVideoId === video.id && (
-                      <div 
-                        className="absolute inset-0 p-4 bg-white bg-opacity-25 backdrop-blur-xl border border-white border-opacity-40 shadow-2xl rounded-xl transition-all animate-fadeIn pointer-events-none z-30"
-                        style={{
-                          background: 'rgba(255, 255, 255, 0.15)',
-                          backdropFilter: 'blur(20px) saturate(180%)',
-                          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-                        }}
-                      >
-                        <div className="pointer-events-auto h-full flex flex-col justify-end">
-                        {/* 标题 */}
-                        <h3 className="text-sm font-semibold text-white mb-3 line-clamp-1">
-                          {video.title}
-                        </h3>
-                        
-                        {/* 用户信息 */}
-                        <div className="flex items-center gap-2 mb-3">
-                          {video.avatar ? (
-                            <img
-                              src={video.avatar}
-                              alt={video.username}
-                              className="w-6 h-6 rounded-full object-cover border border-white border-opacity-30"
-                            />
-                          ) : (
-                            <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center text-white text-xs border border-white border-opacity-30">
-                              {video.username.charAt(0).toUpperCase()}
-                            </div>
-                          )}
-                          <span className="text-xs text-white text-opacity-90 truncate">{video.username}</span>
-                        </div>
-
-                        {/* 互动数据 */}
-                        <div className="flex items-center gap-4 text-xs text-white text-opacity-90 mb-3">
-                          <button
-                            onClick={(e) => handleLike(video.id, e)}
-                            className="flex items-center gap-1 hover:text-red-300 transition-colors"
-                          >
-                            <Heart className={`w-4 h-4 ${video.isLiked ? 'fill-current' : ''}`} />
-                            <span>{formatNumber(video.likesCount)}</span>
-                          </button>
-                          <span>{formatNumber(video.viewsCount)}次观看</span>
-                          <span className="ml-auto">{formatTime(video.publishedAt)}</span>
-                        </div>
-                        
-                        {/* 模型和规格信息 */}
-                        <div className="flex items-center gap-2 mb-3 flex-wrap">
-                          {video.model ? (
-                            <span className="px-2 py-1 bg-white bg-opacity-30 backdrop-blur-md rounded text-xs text-white text-opacity-90">
-                              {video.model}
-                            </span>
-                          ) : (
-                            <span className="px-2 py-1 bg-white bg-opacity-20 backdrop-blur-md rounded text-xs text-white text-opacity-70">
-                              未知模型
-                            </span>
-                          )}
-                          {video.duration ? (
-                            <span className="px-2 py-1 bg-white bg-opacity-30 backdrop-blur-md rounded text-xs text-white text-opacity-90">
-                              {video.duration}s
-                            </span>
-                          ) : (
-                            <span className="px-2 py-1 bg-white bg-opacity-20 backdrop-blur-md rounded text-xs text-white text-opacity-70">
-                              --
-                            </span>
-                          )}
-                          {video.resolution ? (
-                            <span className="px-2 py-1 bg-white bg-opacity-30 backdrop-blur-md rounded text-xs text-white text-opacity-90">
-                              {video.resolution}
-                            </span>
-                          ) : (
-                            <span className="px-2 py-1 bg-white bg-opacity-20 backdrop-blur-md rounded text-xs text-white text-opacity-70">
-                              --
-                            </span>
-                          )}
-                        </div>
-                        
-                        {/* 操作按钮行 */}
-                        <div className="flex items-center gap-2 pt-3 border-t border-white border-opacity-20">
-                          <button 
-                            className="flex-1 bg-white bg-opacity-40 backdrop-blur-md rounded-lg px-4 py-2.5 text-white text-sm font-medium hover:bg-opacity-50 transition-all flex flex-col items-center justify-center gap-0.5 shadow-md"
-                            style={{
-                              background: 'rgba(255, 255, 255, 0.3)',
-                              backdropFilter: 'blur(10px)',
-                              WebkitBackdropFilter: 'blur(10px)',
-                            }}
-                          >
-                            <span className="leading-tight">使用</span>
-                            <span className="leading-tight">模板</span>
-                          </button>
-                          <button 
-                            className="w-11 h-11 bg-white bg-opacity-30 backdrop-blur-md rounded-lg flex items-center justify-center text-white hover:bg-opacity-40 transition-all shadow-md"
-                            style={{
-                              background: 'rgba(255, 255, 255, 0.25)',
-                              backdropFilter: 'blur(10px)',
-                              WebkitBackdropFilter: 'blur(10px)',
-                            }}
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                            </svg>
-                          </button>
-                          <button 
-                            className="w-11 h-11 bg-white bg-opacity-30 backdrop-blur-md rounded-lg flex items-center justify-center text-white hover:bg-opacity-40 transition-all shadow-md"
-                            style={{
-                              background: 'rgba(255, 255, 255, 0.25)',
-                              backdropFilter: 'blur(10px)',
-                              WebkitBackdropFilter: 'blur(10px)',
-                            }}
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                            </svg>
-                          </button>
-                          <button 
-                            className="w-11 h-11 bg-white bg-opacity-30 backdrop-blur-md rounded-lg flex items-center justify-center text-white hover:bg-opacity-40 transition-all shadow-md"
-                            style={{
-                              background: 'rgba(255, 255, 255, 0.25)',
-                              backdropFilter: 'blur(10px)',
-                              WebkitBackdropFilter: 'blur(10px)',
-                            }}
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                            </svg>
-                          </button>
-                        </div>
-                        </div>
-                      </div>
-                    )}
                     {/* 优先显示缩略图（如果存在），悬停时再显示视频 */}
                     {video.thumbnailUrl && video.thumbnailUrl.trim() !== '' ? (
                       <>
@@ -822,6 +701,112 @@ function WorksShowcase() {
                       </button>
                     )}
                   </div>
+
+                  {/* 悬停时显示的悬浮窗口 - 显示在视频下方，绝对定位不占用实际尺寸 */}
+                  {hoveredVideoId === video.id && (
+                    <div 
+                      className="absolute top-full left-0 right-0 p-4 bg-white shadow-2xl rounded-b-xl transition-all animate-fadeIn z-30 border-t border-gray-100"
+                      style={{
+                        marginTop: '-1px', // 与视频容器无缝连接
+                      }}
+                    >
+                      {/* 标题 */}
+                      <h3 className="text-sm font-semibold text-gray-900 mb-3 line-clamp-1">
+                        {video.title || '未命名视频'}
+                      </h3>
+                      
+                      {/* 用户信息 */}
+                      <div className="flex items-center gap-2 mb-3">
+                        {video.avatar ? (
+                          <img
+                            src={video.avatar}
+                            alt={video.username}
+                            className="w-6 h-6 rounded-full object-cover border border-gray-200"
+                          />
+                        ) : (
+                          <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center text-white text-xs border border-gray-200">
+                            {video.username.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <span className="text-xs text-gray-700 truncate">{video.username}</span>
+                      </div>
+
+                      {/* 互动数据 */}
+                      <div className="flex items-center gap-4 text-xs text-gray-600 mb-3">
+                        <button
+                          onClick={(e) => handleLike(video.id, e)}
+                          className="flex items-center gap-1 hover:text-red-500 transition-colors"
+                        >
+                          <Heart className={`w-4 h-4 ${video.isLiked ? 'fill-current text-red-500' : ''}`} />
+                          <span>{formatNumber(video.likesCount)}</span>
+                        </button>
+                        <span>{formatNumber(video.viewsCount)}次观看</span>
+                        <span className="ml-auto">{formatTime(video.publishedAt)}</span>
+                      </div>
+                      
+                      {/* 模型和规格信息 */}
+                      <div className="flex items-center gap-2 mb-3 flex-wrap">
+                        {video.model ? (
+                          <span className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-700">
+                            {video.model}
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-500">
+                            未知模型
+                          </span>
+                        )}
+                        {video.duration ? (
+                          <span className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-700">
+                            {video.duration}s
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-500">
+                            --
+                          </span>
+                        )}
+                        {video.resolution ? (
+                          <span className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-700">
+                            {video.resolution}
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-500">
+                            --
+                          </span>
+                        )}
+                      </div>
+                      
+                      {/* 操作按钮行 */}
+                      <div className="flex items-center gap-2 pt-3 border-t border-gray-200">
+                        <button 
+                          className="flex-1 bg-purple-600 hover:bg-purple-700 rounded-lg px-4 py-2.5 text-white text-sm font-medium transition-all flex flex-col items-center justify-center gap-0.5 shadow-md"
+                        >
+                          <span className="leading-tight">使用</span>
+                          <span className="leading-tight">模板</span>
+                        </button>
+                        <button 
+                          className="w-11 h-11 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center text-gray-700 transition-all shadow-sm"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                          </svg>
+                        </button>
+                        <button 
+                          className="w-11 h-11 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center text-gray-700 transition-all shadow-sm"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                          </svg>
+                        </button>
+                        <button 
+                          className="w-11 h-11 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center text-gray-700 transition-all shadow-sm"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                 </div>
               )
