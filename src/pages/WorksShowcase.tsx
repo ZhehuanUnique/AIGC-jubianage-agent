@@ -408,7 +408,7 @@ function WorksShowcase() {
     <div className="min-h-screen bg-white">
       <NavigationBar activeTab="works" />
       
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 bg-white">
+      <div className="max-w-full mx-auto bg-white" style={{ padding: 0, margin: 0 }}>
         {/* 头部：排序选项 */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4 sm:mb-6">
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900">作品展示</h1>
