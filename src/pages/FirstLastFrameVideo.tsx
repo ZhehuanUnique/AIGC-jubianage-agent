@@ -281,11 +281,11 @@ function FirstLastFrameVideo() {
           }
         })
         
-        // 转换为数组并按时间排序
+        // 转换为数组并按时间排序（旧的在上面，新的在下面）
         const mergedTasks = Array.from(taskMap.values()).sort((a, b) => {
           const timeA = new Date(a.createdAt).getTime()
           const timeB = new Date(b.createdAt).getTime()
-          return timeB - timeA // 最新的在前
+          return timeA - timeB // 旧的在前面，新的在后面
         })
         
         // 保存到缓存
@@ -585,10 +585,10 @@ function FirstLastFrameVideo() {
         isUltraHd: false
       }
       
-      // 立即添加到任务列表（显示在历史记录中）
-      setAllTasks(prev => [tempTask, ...prev])
-      setTasks(prev => [tempTask, ...prev])
-      allTasksRef.current = [tempTask, ...allTasksRef.current]
+      // 立即添加到任务列表（显示在历史记录中，新任务添加到末尾）
+      setAllTasks(prev => [...prev, tempTask])
+      setTasks(prev => [...prev, tempTask])
+      allTasksRef.current = [...allTasksRef.current, tempTask]
       
       // 设置生成任务状态（用于显示"加速中"和进度）
       setGeneratingTask({
@@ -1244,19 +1244,20 @@ function FirstLastFrameVideo() {
                 return groups
               }, {} as Record<string, VideoTask[]>)
 
-              // 按日期排序（最新的在前）
-              // 特殊处理：今天和昨天始终在最前面
+              // 按日期排序（旧的在上面，新的在下面）
+              // 特殊处理：今天在最下面，昨天在倒数第二
               const sortedDates = Object.keys(groupedTasks).sort((a, b) => {
-                // 今天和昨天优先
-                if (a === '今天') return -1
-                if (b === '今天') return 1
-                if (a === '昨天') return -1
-                if (b === '昨天') return 1
+                // 今天始终在最下面
+                if (a === '今天') return 1
+                if (b === '今天') return -1
+                // 昨天在倒数第二（今天上面）
+                if (a === '昨天') return 1
+                if (b === '昨天') return -1
                 
-                // 其他日期按时间排序
+                // 其他日期按时间排序（旧的在前面，新的在后面）
                 const dateA = new Date(groupedTasks[a][0].createdAt).getTime()
                 const dateB = new Date(groupedTasks[b][0].createdAt).getTime()
-                return dateB - dateA
+                return dateA - dateB
               })
 
               return (
