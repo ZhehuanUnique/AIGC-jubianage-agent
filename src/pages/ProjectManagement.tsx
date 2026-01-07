@@ -497,29 +497,54 @@ function ProjectManagement() {
       )}
 
       <div className="max-w-7xl mx-auto p-6">
-        {/* 加载状态 */}
-        {isLoadingProjects && apiProjects.length === 0 && (
-          <div className="flex items-center justify-center py-12">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
-            <span className="ml-4 text-gray-600">加载中...</span>
-          </div>
-        )}
-        
         {/* 项目网格 */}
         <div className="grid grid-cols-5 gap-4 mt-6">
-          {/* 添加项目卡片 */}
-          <div
-            onClick={() => setShowCreateModal(true)}
-            className="aspect-[4/3] bg-gray-50 border-2 border-dashed border-purple-500 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 transition-all group"
-          >
-            <div className="w-16 h-16 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-              <Plus size={32} className="text-white" />
-            </div>
-            <span className="text-purple-600 font-medium">添加项目</span>
-          </div>
+          {/* 加载状态 - 骨架屏 */}
+          {isLoadingProjects && apiProjects.length === 0 ? (
+            <>
+              {/* 添加项目卡片（加载时也显示） */}
+              <div className="aspect-[4/3] bg-gray-50 border-2 border-dashed border-purple-500 rounded-lg flex flex-col items-center justify-center opacity-50">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 flex items-center justify-center mb-4">
+                  <Plus size={32} className="text-white" />
+                </div>
+                <span className="text-purple-600 font-medium">添加项目</span>
+              </div>
+              
+              {/* 骨架屏占位符 */}
+              {[...Array(4)].map((_, index) => (
+                <div
+                  key={`skeleton-${index}`}
+                  className="aspect-[4/3] bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden animate-pulse"
+                >
+                  <div className="h-full flex flex-col">
+                    {/* 封面图占位符 */}
+                    <div className="flex-1 bg-gradient-to-br from-gray-200 via-gray-100 to-gray-200 relative">
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer"></div>
+                    </div>
+                    {/* 底部信息占位符 */}
+                    <div className="p-3 space-y-2">
+                      <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                      <div className="h-3 bg-gray-100 rounded w-1/2"></div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </>
+          ) : (
+            <>
+              {/* 添加项目卡片 */}
+              <div
+                onClick={() => setShowCreateModal(true)}
+                className="aspect-[4/3] bg-gray-50 border-2 border-dashed border-purple-500 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 transition-all group"
+              >
+                <div className="w-16 h-16 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                  <Plus size={32} className="text-white" />
+                </div>
+                <span className="text-purple-600 font-medium">添加项目</span>
+              </div>
 
-          {/* 项目文件夹卡片 - 优先显示API项目 */}
-          {apiProjects.map((project) => {
+              {/* 项目文件夹卡片 - 优先显示API项目 */}
+              {apiProjects.map((project) => {
             // 安全地获取 projectId
             let projectId: number | string
             if (typeof project.id === 'number') {
@@ -653,6 +678,8 @@ function ProjectManagement() {
               </div>
             )
           })}
+            </>
+          )}
         </div>
 
         {/* 分页 */}
