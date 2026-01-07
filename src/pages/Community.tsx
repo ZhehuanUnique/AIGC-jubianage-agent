@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Heart, MessageCircle, Eye, Share2, Plus, Home, Clock, TrendingUp, Flame, Bell, User, ChevronDown, Settings } from 'lucide-react'
+import { Search, Heart, MessageCircle, Eye, Share2, Plus, Home, Clock, TrendingUp, Flame, Bell, User, ChevronDown, Settings, Play } from 'lucide-react'
 import { getCommunityVideos, toggleVideoLike, CommunityVideo } from '../services/api'
 import { alertError } from '../utils/alert'
 import { AuthService } from '../services/auth'
