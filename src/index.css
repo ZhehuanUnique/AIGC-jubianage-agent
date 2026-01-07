@@ -365,8 +365,9 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 4.5rem;
+  min-height: 5.5rem;
   overflow: visible;
+  padding-bottom: 0.5rem;
 }
 
 .glitch-text {
@@ -380,8 +381,9 @@ body {
   animation: shift 1s ease-in-out infinite alternate;
   text-align: center;
   white-space: nowrap;
-  padding: 0.5rem 0;
+  padding: 0.5rem 0 1rem 0;
   overflow: visible;
+  min-height: 4.5rem;
 }
 
 .glitch-text:before,
@@ -672,7 +674,7 @@ body {
   height: 72px;
   padding-left: 6px;
   color: #ffffff;
-  animation: spin_words 5s infinite;
+  animation: spin_words 5s infinite linear;
   line-height: 72px;
   flex-shrink: 0;
   font-size: 3rem;

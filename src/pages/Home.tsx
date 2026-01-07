@@ -11,8 +11,8 @@ function Home() {
   const [showLoginModal, setShowLoginModal] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
   
-  // 按钮文本轮播
-  const buttonTexts = ['做真人剧', '做爆款剧', '做动态漫剧', '做高能打斗', '高效产出']
+  // 按钮文本轮播 - 添加第一个文本到末尾以实现无缝循环
+  const buttonTexts = ['做真人剧', '做爆款剧', '做动态漫剧', '做高能打斗', '高效产出', '做真人剧']
 
   useEffect(() => {
     // 检查是否已登录
