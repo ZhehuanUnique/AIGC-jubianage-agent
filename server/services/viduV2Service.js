@@ -199,15 +199,17 @@ export async function generateVideoWithViduV2(imageUrl, options = {}) {
     
     console.log('✅ Vidu V2 API响应:', JSON.stringify(data, null, 2))
 
-    // 返回任务ID（Vidu V2 API 返回的是 task_id）
-    if (data.task_id || data.id) {
+    // 返回任务ID（Vidu V2 API 返回的可能是 task_id, id, taskId 等）
+    const taskId = data.task_id || data.id || data.taskId || data.data
+    if (taskId) {
       return {
-        taskId: data.task_id || data.id,
-        status: data.state || 'pending',
-        message: '视频生成任务已提交',
+        taskId: taskId,
+        status: data.state || data.status || 'pending',
+        message: data.message || '视频生成任务已提交',
       }
     } else {
-      throw new Error('API响应中未找到任务ID')
+      console.error('❌ Vidu V2 API响应格式异常:', JSON.stringify(data, null, 2))
+      throw new Error(`API响应中未找到任务ID。响应内容: ${JSON.stringify(data)}`)
     }
   } catch (error) {
     console.error('❌ Vidu V2 API调用错误:', error)

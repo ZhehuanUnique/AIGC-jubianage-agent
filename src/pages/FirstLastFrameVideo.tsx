@@ -329,6 +329,25 @@ function FirstLastFrameVideo() {
     allTasksRef.current = allTasks
   }, [allTasks])
 
+  // 当加载历史记录后，自动恢复正在处理的任务的轮询
+  useEffect(() => {
+    if (!isInitialLoad && allTasks.length > 0) {
+      // 查找所有pending或processing状态的任务
+      const processingTasks = allTasks.filter(t => 
+        (t.status === 'pending' || t.status === 'processing') && 
+        !polledTasksRef.current.has(t.id)
+      )
+      
+      // 为这些任务启动轮询
+      processingTasks.forEach(task => {
+        if (task.id && !task.id.startsWith('temp_')) {
+          console.log(`🔄 恢复任务 ${task.id} 的轮询`)
+          pollTaskStatus(task.id)
+        }
+      })
+    }
+  }, [allTasks, isInitialLoad])
+
   // 当筛选条件改变时，重新应用筛选
   useEffect(() => {
     applyFilters(allTasks)
@@ -708,84 +727,99 @@ function FirstLastFrameVideo() {
       pollIntervalRef.current = null
     }
 
-    // 记录任务开始时间（用于超时检查）
-    const taskStartTime = Date.now()
-    const TIMEOUT_MS = 5 * 60 * 1000 // 5分钟超时
-
     pollIntervalRef.current = setInterval(async () => {
       try {
-        // 检查是否超时
-        const elapsedTime = Date.now() - taskStartTime
-        if (elapsedTime > TIMEOUT_MS) {
-          console.warn(`任务 ${taskId} 生成超时（超过5分钟），判定为失败`)
-          
-          // 停止轮询
-          clearInterval(pollIntervalRef.current!)
-          pollIntervalRef.current = null
-          polledTasksRef.current.delete(taskId)
-          
-          // 更新任务状态为失败
-          const errorMessage = '视频生成超时，超过5分钟未完成'
-          setAllTasks(prev => prev.map(t => 
-            t.id === taskId 
-              ? { ...t, status: 'failed', errorMessage }
-              : t
-          ))
-          setTasks(prev => prev.map(t => 
-            t.id === taskId 
-              ? { ...t, status: 'failed', errorMessage }
-              : t
-          ))
-          
-          // 清除生成任务状态
-          if (generatingTask && generatingTask.taskId === taskId) {
-            setGeneratingTask(null)
-          }
-          
-          // 显示错误提示
-          alertError(errorMessage, '生成超时')
-          return
-        }
-
         const result = await getFirstLastFrameVideoStatus(taskId, projectId, selectedModel)
         if (result.success && result.data) {
           const task = result.data
           
           // 更新生成进度模态框
-          if (generatingTask && generatingTask.taskId === taskId) {
-            // 从"加速中"切换到"生成中"
-            if (generatingTask.status === 'accelerating') {
+          // 如果任务正在处理中，需要显示进度（即使没有generatingTask，也要为pending/processing状态的任务显示进度）
+          if (task.status === 'pending' || task.status === 'processing') {
+            // 计算进度（基于任务创建时间）
+            const taskCreatedAt = task.createdAt ? new Date(task.createdAt).getTime() : Date.now()
+            const elapsedMinutes = (Date.now() - taskCreatedAt) / 60000
+            
+            // 如果任务超过5分钟，标记为失败
+            if (elapsedMinutes > 5) {
+              console.warn(`任务 ${taskId} 生成超时（超过5分钟），判定为失败`)
+              
+              // 更新任务状态为失败
+              const errorMessage = '视频生成超时，超过5分钟未完成'
+              setAllTasks(prev => prev.map(t => 
+                t.id === taskId 
+                  ? { ...t, status: 'failed', errorMessage }
+                  : t
+              ))
+              setTasks(prev => prev.map(t => 
+                t.id === taskId 
+                  ? { ...t, status: 'failed', errorMessage }
+                  : t
+              ))
+              
+              // 停止轮询
+              clearInterval(pollIntervalRef.current!)
+              pollIntervalRef.current = null
+              polledTasksRef.current.delete(taskId)
+              
+              // 清除生成任务状态
+              if (generatingTask && generatingTask.taskId === taskId) {
+                setGeneratingTask(null)
+              }
+              
+              alertError(errorMessage, '生成超时')
+              return
+            }
+            
+            // 更保守的进度计算，避免刷新后立即跳到95%
+            let progress = 0
+            if (elapsedMinutes < 0.5) {
+              progress = Math.min(20, 5 + elapsedMinutes * 30)
+            } else if (elapsedMinutes < 1) {
+              progress = Math.min(40, 20 + (elapsedMinutes - 0.5) * 40)
+            } else if (elapsedMinutes < 2) {
+              progress = Math.min(60, 40 + (elapsedMinutes - 1) * 20)
+            } else if (elapsedMinutes < 3) {
+              progress = Math.min(75, 60 + (elapsedMinutes - 2) * 15)
+            } else if (elapsedMinutes < 4) {
+              progress = Math.min(85, 75 + (elapsedMinutes - 3) * 10)
+            } else if (elapsedMinutes < 5) {
+              progress = Math.min(90, 85 + (elapsedMinutes - 4) * 5)
+            } else {
+              // 超过5分钟，保持90%，等待超时检测
+              progress = 90
+            }
+            
+            // 更新generatingTask（如果存在）
+            if (generatingTask && generatingTask.taskId === taskId) {
+              // 从"加速中"切换到"生成中"
+              if (generatingTask.status === 'accelerating') {
+                setGeneratingTask({
+                  taskId,
+                  progress: Math.round(progress),
+                  status: 'generating',
+                  startTime: generatingTask.startTime
+                })
+              } else {
+                setGeneratingTask(prev => prev ? {
+                  ...prev,
+                  progress: Math.round(progress)
+                } : null)
+              }
+            } else if (task.status === 'processing' || task.status === 'pending') {
+              // 如果没有generatingTask但任务正在处理，创建一个（用于显示进度）
               setGeneratingTask({
                 taskId,
-                progress: 0,
+                progress: Math.round(progress),
                 status: 'generating',
-                startTime: generatingTask.startTime
+                startTime: taskCreatedAt
               })
             }
-            
-            // 计算进度
-            let progress = 0
-            if (task.status === 'completed') {
-              progress = 100
-            } else if (task.status === 'processing' || task.status === 'pending') {
-              // 根据任务创建时间估算进度（从generatingTask创建时间开始计算）
-              const elapsedMinutes = (Date.now() - generatingTask.startTime) / 60000
-              
-              if (elapsedMinutes < 1) {
-                progress = Math.min(30, 10 + elapsedMinutes * 20)
-              } else if (elapsedMinutes < 2) {
-                progress = Math.min(70, 30 + (elapsedMinutes - 1) * 40)
-              } else if (elapsedMinutes < 5) {
-                progress = Math.min(95, 70 + (elapsedMinutes - 2) * 8.33)
-              } else {
-                progress = 95
-              }
+          } else if (task.status === 'completed') {
+            // 任务完成，清除generatingTask
+            if (generatingTask && generatingTask.taskId === taskId) {
+              setGeneratingTask(null)
             }
-            
-            setGeneratingTask(prev => prev ? {
-              ...prev,
-              progress: Math.round(progress)
-            } : null)
           }
           
           setTasks(prev => prev.map(t => 
@@ -925,7 +959,7 @@ function FirstLastFrameVideo() {
     return statusMap[status] || status
   }
 
-  // 获取估算进度
+  // 获取估算进度（与轮询中的进度计算保持一致）
   const getEstimatedProgress = (task: VideoTask): number => {
     if (task.status === 'completed') return 100
     if (task.status === 'failed') return 0
@@ -936,6 +970,28 @@ function FirstLastFrameVideo() {
       const createdTime = new Date(task.createdAt).getTime()
       const now = Date.now()
       const elapsedMinutes = (now - createdTime) / 60000
+      
+      // 如果超过5分钟，返回90%（等待超时检测）
+      if (elapsedMinutes > 5) {
+        return 90
+      }
+      
+      // 使用与轮询中相同的进度计算逻辑
+      if (elapsedMinutes < 0.5) {
+        return Math.min(20, 5 + elapsedMinutes * 30)
+      } else if (elapsedMinutes < 1) {
+        return Math.min(40, 20 + (elapsedMinutes - 0.5) * 40)
+      } else if (elapsedMinutes < 2) {
+        return Math.min(60, 40 + (elapsedMinutes - 1) * 20)
+      } else if (elapsedMinutes < 3) {
+        return Math.min(75, 60 + (elapsedMinutes - 2) * 15)
+      } else if (elapsedMinutes < 4) {
+        return Math.min(85, 75 + (elapsedMinutes - 3) * 10)
+      } else if (elapsedMinutes < 5) {
+        return Math.min(90, 85 + (elapsedMinutes - 4) * 5)
+      }
+      
+      return 90
       
       if (elapsedMinutes < 1) {
         return Math.min(40, 10 + (elapsedMinutes / 1) * 30)
@@ -1645,7 +1701,8 @@ function FirstLastFrameVideo() {
                                               videoTaskId: task.id,
                                               processingType: 'super_resolution'
                                             })
-                                            alertSuccess('超分辨率任务已创建，请稍后查看结果', '任务创建成功')
+                                            // 刷新历史记录，显示新的超分辨率任务
+                                            loadHistory(true) // 静默模式刷新
                                           } catch (error) {
                                             console.error('创建超分辨率任务失败:', error)
                                             alertError(error instanceof Error ? error.message : '创建超分辨率任务失败，请稍后重试', '操作失败')
@@ -1782,7 +1839,8 @@ function FirstLastFrameVideo() {
                                 <button
                                   onClick={async (e) => {
                                     e.stopPropagation()
-                                    // 再次生成：直接使用当前任务的首帧图和提示词生成新视频
+                                    // 再次生成：使用当前任务的首帧图、尾帧图和提示词生成新视频
+                                    // 和"生成视频"按钮使用相同的逻辑
                                     if (!task.firstFrameUrl) {
                                       alertError('首帧图片不存在，无法再次生成', '错误')
                                       return
@@ -1793,108 +1851,98 @@ function FirstLastFrameVideo() {
                                       return
                                     }
                                     
-                                    // 开始生成视频（直接使用URL，避免CORS问题）
+                                    // 使用URL方式，避免CORS问题（和"生成视频"一致）
                                     setIsGenerating(true)
                                     try {
                                       const formData = new FormData()
                                       
-                                      // 尝试下载图片文件（如果失败，使用URL）
-                                      let useUrlForFirstFrame = false
-                                      let useUrlForLastFrame = false
-                                      
-                                      // 处理首帧图片
-                                      if (task.firstFrameUrl.startsWith('data:image/')) {
-                                        // data URL，直接转换
-                                        try {
-                                          const response = await fetch(task.firstFrameUrl)
-                                          const blob = await response.blob()
-                                          const file = new File([blob], 'first-frame.jpg', { type: blob.type || 'image/jpeg' })
-                                          formData.append('firstFrame', file)
-                                        } catch (err) {
-                                          console.warn('无法转换data URL，使用URL方式:', err)
-                                          useUrlForFirstFrame = true
-                                        }
-                                      } else {
-                                        // HTTP URL，尝试下载（可能遇到CORS问题）
-                                        try {
-                                          const response = await fetch(task.firstFrameUrl, { mode: 'cors' })
-                                          if (response.ok) {
-                                            const blob = await response.blob()
-                                            const file = new File([blob], 'first-frame.jpg', { type: blob.type || 'image/jpeg' })
-                                            formData.append('firstFrame', file)
-                                          } else {
-                                            useUrlForFirstFrame = true
-                                          }
-                                        } catch (err) {
-                                          console.warn('无法下载首帧图片（CORS限制），使用URL方式:', err)
-                                          useUrlForFirstFrame = true
-                                        }
-                                      }
-                                      
-                                      // 如果无法下载，使用URL
-                                      if (useUrlForFirstFrame) {
-                                        formData.append('firstFrameUrl', task.firstFrameUrl)
-                                      }
+                                      // 直接使用URL，避免下载图片的CORS问题
+                                      formData.append('firstFrameUrl', task.firstFrameUrl)
                                       
                                       // 处理尾帧图片（如果有）
                                       const taskModelSupportsFirstLastFrame = supportedModels.find(m => m.value === task.model)?.supportsFirstLastFrame || false
                                       if (task.lastFrameUrl && taskModelSupportsFirstLastFrame) {
-                                        if (task.lastFrameUrl.startsWith('data:image/')) {
-                                          try {
-                                            const response = await fetch(task.lastFrameUrl)
-                                            const blob = await response.blob()
-                                            const file = new File([blob], 'last-frame.jpg', { type: blob.type || 'image/jpeg' })
-                                            formData.append('lastFrame', file)
-                                          } catch (err) {
-                                            console.warn('无法转换尾帧data URL，使用URL方式:', err)
-                                            useUrlForLastFrame = true
-                                          }
-                                        } else {
-                                          try {
-                                            const response = await fetch(task.lastFrameUrl, { mode: 'cors' })
-                                            if (response.ok) {
-                                              const blob = await response.blob()
-                                              const file = new File([blob], 'last-frame.jpg', { type: blob.type || 'image/jpeg' })
-                                              formData.append('lastFrame', file)
-                                            } else {
-                                              useUrlForLastFrame = true
-                                            }
-                                          } catch (err) {
-                                            console.warn('无法下载尾帧图片（CORS限制），使用URL方式:', err)
-                                            useUrlForLastFrame = true
-                                          }
-                                        }
-                                        
-                                        if (useUrlForLastFrame) {
-                                          formData.append('lastFrameUrl', task.lastFrameUrl)
-                                        }
+                                        formData.append('lastFrameUrl', task.lastFrameUrl)
                                       }
                                       
                                       formData.append('projectId', projectId)
                                       formData.append('model', task.model)
                                       formData.append('resolution', task.resolution)
-                                      formData.append('ratio', '16:9')
+                                      formData.append('ratio', task.ratio || '16:9')
                                       formData.append('duration', task.duration.toString())
                                       if (task.text && task.text.trim()) {
                                         formData.append('text', task.text.trim())
                                       }
                                       
+                                      // 立即创建一个临时任务并添加到历史记录（显示"加速中"）
+                                      const tempTaskId = `temp_${Date.now()}`
+                                      const tempTask: VideoTask = {
+                                        id: tempTaskId,
+                                        status: 'pending',
+                                        firstFrameUrl: task.firstFrameUrl,
+                                        lastFrameUrl: task.lastFrameUrl,
+                                        model: task.model,
+                                        resolution: task.resolution,
+                                        ratio: task.ratio || '16:9',
+                                        duration: task.duration,
+                                        text: task.text,
+                                        createdAt: new Date().toISOString(),
+                                        isLiked: false,
+                                        isFavorited: false,
+                                        isUltraHd: false
+                                      }
+                                      
+                                      // 立即添加到任务列表
+                                      setAllTasks(prev => [...prev, tempTask])
+                                      setTasks(prev => [...prev, tempTask])
+                                      allTasksRef.current = [...allTasksRef.current, tempTask]
+                                      
+                                      // 设置生成任务状态
+                                      setGeneratingTask({
+                                        taskId: tempTaskId,
+                                        progress: 0,
+                                        status: 'accelerating',
+                                        startTime: Date.now()
+                                      })
+                                      
+                                      // 滚动到历史记录区域
+                                      setTimeout(() => {
+                                        const historySection = document.querySelector('.history-section')
+                                        if (historySection) {
+                                          historySection.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                                        }
+                                      }, 100)
+                                      
                                       const result = await generateFirstLastFrameVideo(formData)
                                       
                                       if (result.success && result.data?.taskId) {
-                                        // 立即显示生成进度模态框（显示"加速中"）
-                                        setGeneratingTask({
-                                          taskId: result.data.taskId,
-                                          progress: 0,
-                                          status: 'accelerating',
-                                          startTime: Date.now()
-                                        })
+                                        // 更新临时任务ID为真实任务ID
+                                        const realTaskId = result.data.taskId
+                                        setGeneratingTask(prev => prev ? {
+                                          ...prev,
+                                          taskId: realTaskId
+                                        } : null)
+                                        
+                                        // 更新任务列表中的临时任务ID
+                                        setAllTasks(prev => prev.map(t => 
+                                          t.id === tempTaskId ? { ...t, id: realTaskId } : t
+                                        ))
+                                        setTasks(prev => prev.map(t => 
+                                          t.id === tempTaskId ? { ...t, id: realTaskId } : t
+                                        ))
+                                        allTasksRef.current = allTasksRef.current.map(t => 
+                                          t.id === tempTaskId ? { ...t, id: realTaskId } : t
+                                        )
                                         
                                         // 开始轮询任务状态
-                                        pollTaskStatus(result.data.taskId)
+                                        pollTaskStatus(realTaskId)
                                       } else {
                                         alertError(result.error || '生成视频失败', '错误')
                                         setIsGenerating(false)
+                                        // 移除临时任务
+                                        setAllTasks(prev => prev.filter(t => t.id !== tempTaskId))
+                                        setTasks(prev => prev.filter(t => t.id !== tempTaskId))
+                                        allTasksRef.current = allTasksRef.current.filter(t => t.id !== tempTaskId)
                                       }
                                     } catch (error) {
                                       console.error('再次生成视频失败:', error)
@@ -2316,7 +2364,10 @@ function FirstLastFrameVideo() {
               targetFps: targetFps,
               method: method,
             })
-            alertSuccess('补帧任务已创建，请稍后查看结果', '任务创建成功')
+            // 关闭弹窗
+            setFrameInterpolationModal({ isOpen: false, taskId: null })
+            // 刷新历史记录，显示新的补帧任务
+            loadHistory(true) // 静默模式刷新
           } catch (error) {
             console.error('创建补帧任务失败:', error)
             alertError(error instanceof Error ? error.message : '创建补帧任务失败，请稍后重试', '操作失败')

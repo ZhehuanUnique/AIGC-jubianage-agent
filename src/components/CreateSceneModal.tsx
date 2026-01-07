@@ -494,33 +494,55 @@ function CreateSceneModal({ onClose, onSceneSelect, projectName }: CreateSceneMo
                   <label className="block text-sm mb-2">
                     <span className="text-red-500">*</span> 选择模型
                   </label>
-                  <div className="grid grid-cols-7 gap-2">
+                  <div className="grid grid-cols-7 gap-4">
                     {IMAGE_MODELS.map((model) => {
                       const logoPath = getModelLogo(model.id)
                       return (
-                        <button
-                          key={model.id}
-                          type="button"
-                          onClick={() => setSelectedModel(model.id)}
-                          className={`flex flex-col items-center justify-center px-2 py-3 rounded-lg text-sm font-medium transition-all w-full ${
-                            selectedModel === model.id
-                              ? 'bg-purple-600 text-white border-2 border-purple-600'
-                              : 'bg-white text-gray-700 border border-gray-300 hover:border-purple-500 hover:bg-purple-50'
-                          }`}
-                        >
-                          {logoPath && (
-                            <img
-                              src={logoPath}
-                              alt={model.name}
-                              className="w-12 h-12 object-contain mb-2"
-                              onError={(e) => {
-                                // 如果图片加载失败，隐藏图片
-                                e.currentTarget.style.display = 'none'
-                              }}
-                            />
-                          )}
-                          <span className="text-xs text-center leading-tight">{model.name}</span>
-                        </button>
+                        <div key={model.id} className="flex flex-col">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedModel(model.id)}
+                            className={`relative w-full rounded-lg overflow-hidden transition-all ${
+                              selectedModel === model.id
+                                ? 'ring-2 ring-purple-600 ring-offset-2'
+                                : 'hover:ring-2 hover:ring-purple-300 hover:ring-offset-1'
+                            }`}
+                            style={{ aspectRatio: '16/9' }}
+                          >
+                            {logoPath ? (
+                              <img
+                                src={logoPath}
+                                alt={model.name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  // 如果图片加载失败，显示占位符
+                                  e.currentTarget.style.display = 'none'
+                                  const parent = e.currentTarget.parentElement
+                                  if (parent && !parent.querySelector('.placeholder')) {
+                                    const placeholder = document.createElement('div')
+                                    placeholder.className = 'placeholder w-full h-full bg-gray-200 flex items-center justify-center text-gray-500 text-xs'
+                                    placeholder.textContent = model.name
+                                    parent.appendChild(placeholder)
+                                  }
+                                }}
+                              />
+                            ) : (
+                              <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500 text-xs">
+                                {model.name}
+                              </div>
+                            )}
+                            {selectedModel === model.id && (
+                              <div className="absolute inset-0 bg-purple-600 bg-opacity-20 flex items-center justify-center">
+                                <div className="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center">
+                                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                </div>
+                              </div>
+                            )}
+                          </button>
+                          <span className="text-xs text-center mt-1 text-gray-700 leading-tight">{model.name}</span>
+                        </div>
                       )
                     })}
                   </div>

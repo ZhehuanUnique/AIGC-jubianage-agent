@@ -162,14 +162,19 @@ export async function generateVideoWithHailuo(imageUrl, options = {}) {
       throw new Error(`MiniMax Hailuo API 错误: ${errorMsg}`)
     }
 
-    if (!result.task_id) {
-      throw new Error('MiniMax Hailuo API 返回数据格式错误：缺少 task_id')
+    // 尝试多种可能的任务ID字段名
+    const taskId = result.task_id || result.id || result.taskId || result.data
+    if (!taskId) {
+      console.error('❌ MiniMax Hailuo API响应格式异常:', JSON.stringify(result, null, 2))
+      throw new Error(`MiniMax Hailuo API 返回数据格式错误：缺少任务ID。响应内容: ${JSON.stringify(result)}`)
     }
 
     return {
-      taskId: result.task_id,
+      taskId: taskId,
       provider: 'hailuo',
       model: model,
+      status: result.status || 'pending',
+      message: result.message || '视频生成任务已提交',
     }
   } catch (error) {
     console.error('❌ MiniMax Hailuo 视频生成失败:', error)

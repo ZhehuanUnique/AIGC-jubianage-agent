@@ -715,6 +715,33 @@ function WorksShowcase() {
                     )}
                   </div>
 
+                  {/* 底部信息栏 - 始终显示（类似模板卡片） */}
+                  <div className="p-3 bg-white border-t border-gray-100">
+                    {/* 标题 */}
+                    <h3 className="text-sm font-semibold text-gray-900 mb-1 line-clamp-1">
+                      {video.title || '未命名视频'}
+                    </h3>
+                    
+                    {/* 模型和规格信息 - 类似模板卡片的底部标签 */}
+                    <div className="flex items-center gap-2 mt-2">
+                      {video.model && (
+                        <span className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-700">
+                          {video.model}
+                        </span>
+                      )}
+                      {video.duration && (
+                        <span className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-700">
+                          {video.duration}s
+                        </span>
+                      )}
+                      {video.resolution && (
+                        <span className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-700">
+                          {video.resolution}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
                   {/* 悬停时显示的操作栏和信息 - 在视频下方，透明毛玻璃效果 */}
                   {hoveredVideoId === video.id && (
                     <div 

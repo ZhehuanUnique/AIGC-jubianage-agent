@@ -1786,8 +1786,33 @@ async function processVideoTask(taskId, sourceVideoUrl, processingType, userId, 
         }
       }
     } else if (processingType === 'super_resolution') {
-      // 超分辨率处理（TODO: 实现超分辨率服务）
-      throw new Error('超分辨率功能暂未实现')
+      // 超分辨率处理
+      const { upscaleVideoWithRealESRGAN } = await import('./services/realESRGANService.js')
+      
+      // 从metadata中获取放大倍数（如果前端传递了）
+      let metadata = {}
+      let scale = 2 // 默认2倍放大
+      try {
+        const taskMetaResult = await db.query(
+          'SELECT metadata FROM video_processing_tasks WHERE id = $1',
+          [taskId]
+        )
+        if (taskMetaResult.rows.length > 0 && taskMetaResult.rows[0].metadata) {
+          metadata = taskMetaResult.rows[0].metadata
+          if (metadata.scale) {
+            scale = metadata.scale
+          }
+        }
+      } catch (metaError) {
+        console.warn('⚠️ 读取任务metadata失败:', metaError.message)
+      }
+      
+      result = await upscaleVideoWithRealESRGAN(sourceVideoUrl, {
+        scale: scale,
+        model: 'RealESRGAN_x4plus', // 支持2x和4x的模型
+        tileSize: 0, // 自动分块
+        tilePad: 10,
+      })
     } else {
       throw new Error(`不支持的处理类型: ${processingType}`)
     }
@@ -1805,9 +1830,13 @@ async function processVideoTask(taskId, sourceVideoUrl, processingType, userId, 
         result.videoUrl,
         result.cosKey,
         JSON.stringify({ 
-          multiplier: result.multiplier, 
-          targetFps: result.targetFps,
-          method: result.method || 'rife' 
+          ...(result.multiplier && { multiplier: result.multiplier }),
+          ...(result.targetFps && { targetFps: result.targetFps }),
+          ...(result.method && { method: result.method || 'rife' }),
+          ...(result.scale && { scale: result.scale }),
+          ...(result.sourceResolution && { sourceResolution: result.sourceResolution }),
+          ...(result.targetResolution && { targetResolution: result.targetResolution }),
+          ...(result.model && { model: result.model }),
         }),
         taskId
       ]
@@ -1834,7 +1863,7 @@ async function processVideoTask(taskId, sourceVideoUrl, processingType, userId, 
 // 创建视频处理任务（补帧、超分辨率等）
 app.post('/api/video-processing-tasks', authenticateToken, async (req, res) => {
   try {
-    const { videoTaskId, processingType, targetFps, method } = req.body
+    const { videoTaskId, processingType, targetFps, method, scale } = req.body
     const userId = req.user?.id
     
     if (!userId) {
@@ -1876,10 +1905,11 @@ app.post('/api/video-processing-tasks', authenticateToken, async (req, res) => {
     
     const sourceVideo = sourceVideoResult.rows[0]
     
-    // 创建处理任务（包含metadata，存储目标帧率和技术选择）
-    const metadata = (targetFps || method) ? JSON.stringify({ 
-      targetFps: targetFps ? parseInt(targetFps) : null,
-      method: method || 'rife'
+    // 创建处理任务（包含metadata，存储目标帧率、技术选择或放大倍数）
+    const metadata = (targetFps || method || scale) ? JSON.stringify({ 
+      ...(targetFps && { targetFps: parseInt(targetFps) }),
+      ...(method && { method: method }),
+      ...(scale && { scale: parseInt(scale) })
     }) : null
     const taskResult = await db.query(
       `INSERT INTO video_processing_tasks 

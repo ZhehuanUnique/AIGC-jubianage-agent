@@ -159,15 +159,17 @@ export async function generateVideoWithVeo3(imageUrl, options = {}) {
     
     console.log('✅ Veo3.1 API响应:', JSON.stringify(data, null, 2))
 
-    // 返回任务ID
-    if (data.data) {
+    // 返回任务ID（根据302.ai API文档，响应格式可能是 { data: "task_id" } 或 { task_id: "..." } 或 { id: "..." }）
+    const taskId = data.data || data.task_id || data.id || data.taskId
+    if (taskId) {
       return {
-        taskId: data.data,
-        status: data.code === 'IN_PROGRESS' ? 'processing' : 'pending',
+        taskId: taskId,
+        status: data.status === 'IN_PROGRESS' || data.code === 'IN_PROGRESS' ? 'processing' : 'pending',
         message: data.message || '视频生成任务已提交',
       }
     } else {
-      throw new Error('API响应中未找到任务ID')
+      console.error('❌ Veo3.1 API响应格式异常:', JSON.stringify(data, null, 2))
+      throw new Error(`API响应中未找到任务ID。响应内容: ${JSON.stringify(data)}`)
     }
   } catch (error) {
     console.error('❌ Veo3.1 API调用错误:', error)

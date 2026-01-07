@@ -157,8 +157,8 @@ export async function generateVideoFromImage(imageUrl, options = {}) {
     })
   }
 
-  // 如果是豆包 Seedance 模型，使用专门的服务
-  if (model === 'doubao-seedance-1-5-pro-251215') {
+  // 如果是豆包 Seedance 模型，使用专门的服务（支持所有 doubao-seedance 开头的模型）
+  if (model && model.startsWith('doubao-seedance')) {
     // 豆包 Seedance 需要可访问的HTTP/HTTPS URL，不能是base64
     let finalImageUrl = imageUrl
     
@@ -540,8 +540,8 @@ export async function getVideoTaskStatus(taskId, model = 'doubao-seedance-1-5-pr
     return await getViduV2TaskStatus(taskId)
   }
 
-  // 如果是豆包 Seedance 模型，使用专门的服务
-  if (model === 'doubao-seedance-1-5-pro-251215') {
+  // 如果是豆包 Seedance 模型，使用专门的服务（支持所有 doubao-seedance 开头的模型）
+  if (model && model.startsWith('doubao-seedance')) {
     const { getSeedanceTaskStatus } = await import('./doubaoSeedanceService.js')
     return await getSeedanceTaskStatus(taskId)
   }
