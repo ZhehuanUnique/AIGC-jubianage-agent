@@ -49,18 +49,31 @@ const VOLCENGINE_SERVICE = 'cv' // Visual API 服务名
  * @param {string} model - 模型名称
  * @returns {string} 模型ID（req_key）
  */
-function getModelId(model) {
-  const modelMap = {
-    'volcengine-video-3.0-pro': 'jimeng_ti2v_v30_pro', // 根据文档：https://www.volcengine.com/docs/85621/1777001?lang=zh
-    // 兼容旧名称
-    'doubao-seedance-3.0-pro': 'jimeng_ti2v_v30_pro',
+function getModelId(model, useArkApi = false) {
+  // ARK API和Visual API使用不同的模型标识符
+  if (useArkApi) {
+    // ARK API：根据模型列表，使用doubao-seedance-1-0-pro-250528（支持首尾帧）
+    // 用户已开通的是 Doubao-Seedance-1.0-pro，对应模型ID是 doubao-seedance-1-0-pro-250528
+    const arkModelMap = {
+      'volcengine-video-3.0-pro': 'doubao-seedance-1-0-pro-250528', // 使用1-0-pro（支持首尾帧）
+      'doubao-seedance-3.0-pro': 'doubao-seedance-1-0-pro-250528',
+    }
+    if (arkModelMap[model]) {
+      return arkModelMap[model]
+    }
+    // 如果映射不存在，尝试直接使用模型名称
+    return model
+  } else {
+    // Visual API使用固定的模型ID
+    const visualModelMap = {
+      'volcengine-video-3.0-pro': 'jimeng_ti2v_v30_pro',
+      'doubao-seedance-3.0-pro': 'jimeng_ti2v_v30_pro',
+    }
+    if (!visualModelMap[model]) {
+      throw new Error(`不支持的火山引擎模型: ${model}。支持的模型: volcengine-video-3.0-pro`)
+    }
+    return visualModelMap[model]
   }
-  
-  if (!modelMap[model]) {
-    throw new Error(`不支持的火山引擎模型: ${model}。支持的模型: volcengine-video-3.0-pro`)
-  }
-  
-  return modelMap[model]
 }
 
 /**
@@ -217,7 +230,7 @@ export async function generateVideoWithVolcengine(imageUrl, options = {}) {
     throw new Error('VOLCENGINE_AK 和 VOLCENGINE_SK 环境变量未设置，或未设置 VOLCENGINE_ARK_API_KEY，请检查 .env 文件')
   }
 
-  const modelId = getModelId(model)
+  const modelId = getModelId(model, useArkApi)
 
   try {
     console.log(`🎬 调用火山引擎即梦 ${model} 图生视频API (${useArkApi ? 'ARK API' : 'Visual API'}):`, {
@@ -276,7 +289,12 @@ export async function generateVideoWithVolcengine(imageUrl, options = {}) {
       requestBody = {
         model: modelId, // 使用模型ID
         content: content,
-        generate_audio: generateAudio,
+      }
+      
+      // 只有 seedance-1-5-pro 支持 generate_audio 参数
+      // doubao-seedance-1-0-pro-250528 不支持此参数
+      if (modelId.includes('seedance-1-5-pro') && generateAudio) {
+        requestBody.generate_audio = true
       }
       
       headers = {
@@ -499,13 +517,60 @@ export async function generateVideoWithVolcengine(imageUrl, options = {}) {
  * @returns {Promise<Object>} 返回任务状态和视频信息
  */
 export async function getVolcengineTaskStatus(taskId, model = 'volcengine-video-3.0-pro') {
-  if (!VOLCENGINE_AK || !VOLCENGINE_SK) {
-    throw new Error('VOLCENGINE_AK 和 VOLCENGINE_SK 环境变量未设置，请检查 .env 文件')
+  // 检查认证方式：优先使用ARK API Key（Bearer Token），否则使用AK/SK（签名认证）
+  const useArkApi = !!VOLCENGINE_ARK_API_KEY
+  
+  if (!useArkApi && (!VOLCENGINE_AK || !VOLCENGINE_SK)) {
+    throw new Error('VOLCENGINE_AK 和 VOLCENGINE_SK 环境变量未设置，或未设置 VOLCENGINE_ARK_API_KEY，请检查 .env 文件')
   }
 
   try {
-    console.log(`🔍 查询火山引擎任务状态: ${taskId} (模型: ${model})`)
+    console.log(`🔍 查询火山引擎任务状态: ${taskId} (模型: ${model}, API: ${useArkApi ? 'ARK' : 'Visual'})`)
 
+    if (useArkApi) {
+      // 使用ARK API查询任务状态
+      const apiUrl = `${VOLCENGINE_ARK_API_HOST}/api/v3/contents/generations/tasks/${taskId}`
+      
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${VOLCENGINE_ARK_API_KEY}`,
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(`火山引擎ARK API查询失败: ${JSON.stringify(errorData)}`)
+      }
+
+      const data = await response.json()
+      
+      // 解析ARK API响应格式
+      if (data.status === 'completed' || data.status === 'succeeded') {
+        return {
+          status: 'completed',
+          videoUrl: data.video_url || data.output?.video_url || data.result?.video_url,
+          progress: 100,
+        }
+      } else if (data.status === 'processing' || data.status === 'running') {
+        return {
+          status: 'processing',
+          progress: data.progress || 0,
+        }
+      } else if (data.status === 'failed' || data.status === 'error') {
+        return {
+          status: 'failed',
+          errorMessage: data.error?.message || data.message || '视频生成失败',
+        }
+      } else {
+        return {
+          status: data.status || 'processing',
+          progress: data.progress || 0,
+        }
+      }
+    }
+
+    // 使用Visual API查询任务状态
     // 根据即梦-3.0Pro接口文档：https://www.volcengine.com/docs/85621/1777001?lang=zh
     // 接口地址：https://visual.volcengineapi.com
     // 查询任务状态：使用POST方法，在Body中传递req_key和task_id
@@ -513,7 +578,7 @@ export async function getVolcengineTaskStatus(taskId, model = 'volcengine-video-
     const queryParams = {} // Visual API所有参数在Body中
     
     // 构建查询请求体
-    const modelId = getModelId(model)
+    const modelId = getModelId(model, false)
     const requestBody = {
       req_key: modelId,
       task_id: taskId,

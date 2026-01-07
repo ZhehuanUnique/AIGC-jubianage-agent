@@ -31,6 +31,10 @@ function getApiKeyForModel(model) {
     return process.env.DOUBAO_SEEDANCE_1_5_PRO_API_KEY || 
            process.env.DOUBAO_SEEDANCE_API_KEY || 
            process.env.MIDJOURNEY_API_KEY
+  } else if (model === 'doubao-seedance-1-0-pro-250528' || model === 'doubao-seedance-1-0-pro') {
+    return process.env.DOUBAO_SEEDANCE_1_0_PRO_API_KEY || 
+           process.env.DOUBAO_SEEDANCE_API_KEY || 
+           process.env.MIDJOURNEY_API_KEY
   } else {
     // 默认使用通用 API Key
     return process.env.DOUBAO_SEEDANCE_API_KEY || 
