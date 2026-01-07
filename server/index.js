@@ -8491,22 +8491,26 @@ app.post('/api/trending-rankings/update', authenticateToken, async (req, res) =>
     const db = pool.default
     const today = new Date().toISOString().split('T')[0]
     
-    await db.query(
+    const insertResult = await db.query(
       `INSERT INTO trending_rankings (ranking_type, ranking_data, date, updated_at)
        VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
        ON CONFLICT (ranking_type, date) 
        DO UPDATE SET 
          ranking_data = EXCLUDED.ranking_data,
-         updated_at = CURRENT_TIMESTAMP`,
+         updated_at = CURRENT_TIMESTAMP
+       RETURNING ranking_data, date, updated_at`,
       [type, JSON.stringify(ranking), today]
     )
+    
+    // 确保数据已保存，返回保存的数据
+    const savedData = insertResult.rows[0]
     
     res.json({
       success: true,
       data: {
-        ranking,
-        date: today,
-        updatedAt: new Date().toISOString(),
+        ranking: savedData.ranking_data || ranking,
+        date: savedData.date || today,
+        updatedAt: savedData.updated_at || new Date().toISOString(),
       },
     })
   } catch (error) {

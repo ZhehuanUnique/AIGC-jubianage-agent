@@ -84,7 +84,7 @@ function Community() {
         return isProduction ? '' : 'http://localhost:3002'
       })()
 
-      // 如果强制更新，先调用更新API
+      // 如果强制更新，先调用更新API并等待完成
       if (forceUpdate) {
         try {
           const updateResponse = await fetch(`${apiBaseUrl}/api/trending-rankings/update`, {
@@ -98,6 +98,9 @@ function Community() {
           
           if (!updateResponse.ok) {
             console.warn('更新榜单失败，使用缓存数据')
+          } else {
+            // 等待一小段时间确保数据库写入完成
+            await new Promise(resolve => setTimeout(resolve, 500))
           }
         } catch (error) {
           console.warn('更新榜单失败:', error)
