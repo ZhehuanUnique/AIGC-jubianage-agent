@@ -445,7 +445,7 @@ function WorksShowcase() {
         ) : (
           <div 
             ref={containerRef}
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6"
           >
             {videos.map((video, index) => {
               const aspectRatio = videoAspectRatios.get(video.id)
@@ -455,7 +455,7 @@ function WorksShowcase() {
                 <div
                   key={video.id}
                   id={`video-${video.id}`}
-                  className="group relative bg-white rounded-lg overflow-hidden cursor-pointer transition-all"
+                  className="group relative bg-white rounded-xl overflow-hidden cursor-pointer transition-all shadow-sm hover:shadow-lg"
                   onMouseEnter={() => {
                     setHoveredVideoId(video.id)
                     if (window.innerWidth >= 640) {
@@ -550,10 +550,10 @@ function WorksShowcase() {
                     )}
                   </div>
 
-                  {/* 悬停时显示的操作栏 - 在视频下方，透明毛玻璃效果 */}
+                  {/* 悬停时显示的操作栏和信息 - 在视频下方，透明毛玻璃效果 */}
                   {hoveredVideoId === video.id && (
                     <div 
-                      className="p-3 bg-white bg-opacity-25 backdrop-blur-xl border-t border-white border-opacity-40 shadow-lg transition-all animate-fadeIn"
+                      className="p-4 bg-white bg-opacity-25 backdrop-blur-xl border-t border-white border-opacity-40 shadow-lg transition-all animate-fadeIn"
                       style={{
                         background: 'rgba(255, 255, 255, 0.15)',
                         backdropFilter: 'blur(20px) saturate(180%)',
@@ -561,8 +561,42 @@ function WorksShowcase() {
                       }}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      {/* 操作按钮行 */}
+                      {/* 标题 */}
+                      <h3 className="text-sm font-semibold text-white mb-3 line-clamp-1">
+                        {video.title}
+                      </h3>
+                      
+                      {/* 用户信息 */}
                       <div className="flex items-center gap-2 mb-3">
+                        {video.avatar ? (
+                          <img
+                            src={video.avatar}
+                            alt={video.username}
+                            className="w-6 h-6 rounded-full object-cover border border-white border-opacity-30"
+                          />
+                        ) : (
+                          <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center text-white text-xs border border-white border-opacity-30">
+                            {video.username.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <span className="text-xs text-white text-opacity-90 truncate">{video.username}</span>
+                      </div>
+
+                      {/* 互动数据 */}
+                      <div className="flex items-center gap-4 text-xs text-white text-opacity-90 mb-3">
+                        <button
+                          onClick={(e) => handleLike(video.id, e)}
+                          className="flex items-center gap-1 hover:text-red-300 transition-colors"
+                        >
+                          <Heart className={`w-4 h-4 ${video.isLiked ? 'fill-current' : ''}`} />
+                          <span>{formatNumber(video.likesCount)}</span>
+                        </button>
+                        <span>{formatNumber(video.viewsCount)}次观看</span>
+                        <span className="ml-auto">{formatTime(video.publishedAt)}</span>
+                      </div>
+                      
+                      {/* 操作按钮行 */}
+                      <div className="flex items-center gap-2 pt-3 border-t border-white border-opacity-20">
                         <button 
                           className="flex-1 bg-white bg-opacity-40 backdrop-blur-md rounded-lg px-4 py-2.5 text-white text-sm font-medium hover:bg-opacity-50 transition-all flex flex-col items-center justify-center gap-0.5 shadow-md"
                           style={{
@@ -611,54 +645,8 @@ function WorksShowcase() {
                           </svg>
                         </button>
                       </div>
-                      
-                      {/* 视频描述 */}
-                      <div className="text-white">
-                        <p className="font-medium text-sm mb-1">{video.title}</p>
-                        {video.description && (
-                          <p className="text-xs text-white text-opacity-90 line-clamp-2 mb-2">{video.description}</p>
-                        )}
-                        <div className="flex items-center gap-2 text-xs text-white text-opacity-80">
-                          <span>00:{Math.floor((video.duration || 0) / 10).toString().padStart(2, '0')}</span>
-                          <span className="px-2 py-0.5 bg-white bg-opacity-20 rounded">模板</span>
-                        </div>
-                      </div>
                     </div>
                   )}
-
-                  {/* 视频信息 - 默认显示（图2样式） */}
-                  <div className="p-3 bg-white">
-                    <h3 className="text-sm font-semibold text-gray-900 mb-2 line-clamp-1">
-                      {video.title}
-                    </h3>
-                    
-                    <div className="flex items-center gap-2 mb-2">
-                      {video.avatar ? (
-                        <img
-                          src={video.avatar}
-                          alt={video.username}
-                          className="w-6 h-6 rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center text-white text-xs">
-                          {video.username.charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                      <span className="text-xs text-gray-600 truncate">{video.username}</span>
-                    </div>
-
-                    <div className="flex items-center gap-3 text-xs text-gray-500">
-                      <button
-                        onClick={(e) => handleLike(video.id, e)}
-                        className="flex items-center gap-1 hover:text-red-500 transition-colors"
-                      >
-                        <Heart className="w-4 h-4" />
-                        <span>{formatNumber(video.likesCount)}</span>
-                      </button>
-                      <span>{formatNumber(video.viewsCount)}次观看</span>
-                      <span className="ml-auto">{formatTime(video.publishedAt)}</span>
-                    </div>
-                  </div>
                 </div>
               )
             })}
