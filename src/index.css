@@ -991,6 +991,7 @@ select.text-center::-ms-expand {
   gap: 0 !important;
   row-gap: 0 !important;
   column-gap: 0 !important;
+  grid-auto-rows: auto;
 }
 
 .works-grid > * {
@@ -998,6 +999,11 @@ select.text-center::-ms-expand {
   padding: 0 !important;
   border: none !important;
   line-height: 0;
+  font-size: 0;
+}
+
+.works-grid > * > * {
+  font-size: 1rem;
 }
 
 .works-grid img,
@@ -1006,4 +1012,6 @@ select.text-center::-ms-expand {
   margin: 0;
   padding: 0;
   border: none;
+  line-height: 0;
+  font-size: 0;
 }
