@@ -26,6 +26,8 @@ function WorksShowcase() {
   const [deletingVideoId, setDeletingVideoId] = useState<number | null>(null)
   const [showPublishModal, setShowPublishModal] = useState(false)
   const [deleteConfirmState, setDeleteConfirmState] = useState<{ isOpen: boolean; videoId: number | null }>({ isOpen: false, videoId: null })
+  const [draggedVideoId, setDraggedVideoId] = useState<number | null>(null)
+  const [dragOverVideoId, setDragOverVideoId] = useState<number | null>(null)
 
   // 检查用户权限
   useEffect(() => {
@@ -50,7 +52,27 @@ function WorksShowcase() {
     try {
       setIsLoading(true)
       const result = await getCommunityVideos({ page, limit, sortBy })
-      setVideos(result.videos)
+      let loadedVideos = result.videos
+      
+      // 尝试从本地存储恢复排序
+      const savedOrder = localStorage.getItem('worksShowcaseOrder')
+      if (savedOrder) {
+        try {
+          const sortedIds = JSON.parse(savedOrder) as number[]
+          // 按照保存的顺序重新排列
+          const sortedVideos = sortedIds
+            .map(id => loadedVideos.find(v => v.id === id))
+            .filter((v): v is CommunityVideo => v !== undefined)
+          // 添加不在排序列表中的新视频
+          const existingIds = new Set(sortedIds)
+          const newVideos = loadedVideos.filter(v => !existingIds.has(v.id))
+          loadedVideos = [...sortedVideos, ...newVideos]
+        } catch (e) {
+          console.error('恢复排序失败:', e)
+        }
+      }
+      
+      setVideos(loadedVideos)
       setTotal(result.total)
     } catch (error) {
       console.error('加载视频失败:', error)
@@ -445,103 +467,9 @@ function WorksShowcase() {
         ) : (
           <div 
             ref={containerRef}
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6"
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-0"
           >
-            {/* 第一个卡片：模板卡片 */}
-            <div
-              className="group relative rounded-xl overflow-hidden cursor-pointer transition-all shadow-sm hover:shadow-lg"
-              style={{
-                background: 'linear-gradient(135deg, rgba(107, 114, 128, 0.1) 0%, rgba(156, 163, 175, 0.1) 100%)',
-              }}
-              onClick={() => {
-                // 点击模板卡片，可以导航到模板页面或触发模板使用功能
-                console.log('使用模板')
-              }}
-            >
-              {/* 背景模糊层 */}
-              <div 
-                className="absolute inset-0 bg-white bg-opacity-60 backdrop-blur-md"
-                style={{
-                  background: 'rgba(255, 255, 255, 0.7)',
-                  backdropFilter: 'blur(20px)',
-                  WebkitBackdropFilter: 'blur(20px)',
-                }}
-              />
-              
-              {/* 内容层 */}
-              <div className="relative z-10 min-h-[280px] flex flex-col">
-                {/* 顶部操作栏 */}
-                <div className="flex items-center justify-between p-3">
-                  {/* 左侧：使用模板按钮 */}
-                  <button
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium text-gray-900 transition-colors shadow-sm"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      console.log('使用模板')
-                    }}
-                  >
-                    <Sparkles className="w-4 h-4" />
-                    <span>使用模板</span>
-                  </button>
-                  
-                  {/* 右侧：三个操作按钮 */}
-                  <div className="flex items-center gap-2">
-                    <button
-                      className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center transition-colors shadow-sm"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        console.log('下载')
-                      }}
-                    >
-                      <Download className="w-4 h-4 text-gray-700" />
-                    </button>
-                    <button
-                      className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center transition-colors shadow-sm"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        console.log('分享')
-                      }}
-                    >
-                      <Share2 className="w-4 h-4 text-gray-700" />
-                    </button>
-                    <button
-                      className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center transition-colors shadow-sm"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        console.log('更多')
-                      }}
-                    >
-                      <MoreVertical className="w-4 h-4 text-gray-700" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* 内容区域 */}
-                <div className="flex-1 px-4 pb-4 flex flex-col justify-center">
-                  {/* 标题 */}
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    老己的生活片段
-                  </h3>
-                  
-                  {/* 副标题 */}
-                  <p className="text-sm text-gray-600">
-                    上传照片,生成老己的生活片段
-                  </p>
-                </div>
-
-                {/* 底部信息栏 */}
-                <div className="px-4 pb-4 flex items-center gap-2">
-                  <span className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-700">
-                    00:11
-                  </span>
-                  <span className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-700">
-                    模板
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* 其他视频卡片 */}
+            {/* 视频卡片 */}
             {videos.map((video, index) => {
               const aspectRatio = videoAspectRatios.get(video.id)
               const isPortrait = aspectRatio !== undefined && aspectRatio < 1
@@ -550,27 +478,78 @@ function WorksShowcase() {
                 <div
                   key={video.id}
                   id={`video-${video.id}`}
-                  className="group relative bg-white rounded-xl overflow-hidden cursor-pointer transition-all shadow-sm hover:shadow-lg"
+                  draggable
+                  className={`group relative bg-white overflow-hidden cursor-grab active:cursor-grabbing transition-all shadow-sm hover:shadow-lg ${
+                    draggedVideoId === video.id ? 'opacity-50 cursor-grabbing' : ''
+                  } ${dragOverVideoId === video.id ? 'ring-2 ring-purple-500 ring-offset-2' : ''}`}
+                  onDragStart={(e) => {
+                    setDraggedVideoId(video.id)
+                    e.dataTransfer.effectAllowed = 'move'
+                    e.dataTransfer.setData('text/plain', video.id.toString())
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault()
+                    e.dataTransfer.dropEffect = 'move'
+                    if (dragOverVideoId !== video.id && draggedVideoId !== video.id) {
+                      setDragOverVideoId(video.id)
+                    }
+                  }}
+                  onDragLeave={() => {
+                    setDragOverVideoId(null)
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    const draggedId = parseInt(e.dataTransfer.getData('text/plain'))
+                    if (draggedId !== video.id && draggedId !== null) {
+                      // 重新排序视频
+                      const draggedIndex = videos.findIndex(v => v.id === draggedId)
+                      const dropIndex = videos.findIndex(v => v.id === video.id)
+                      if (draggedIndex !== -1 && dropIndex !== -1) {
+                        const newVideos = [...videos]
+                        const [removed] = newVideos.splice(draggedIndex, 1)
+                        newVideos.splice(dropIndex, 0, removed)
+                        setVideos(newVideos)
+                        // 保存排序到本地存储
+                        const sortedIds = newVideos.map(v => v.id)
+                        localStorage.setItem('worksShowcaseOrder', JSON.stringify(sortedIds))
+                      }
+                    }
+                    setDraggedVideoId(null)
+                    setDragOverVideoId(null)
+                  }}
+                  onDragEnd={() => {
+                    setDraggedVideoId(null)
+                    setDragOverVideoId(null)
+                  }}
                   onMouseEnter={() => {
-                    setHoveredVideoId(video.id)
-                    if (window.innerWidth >= 640) {
-                      const videoEl = videoRefs.current.get(video.id)
-                      if (videoEl) {
-                        videoEl.play().catch(() => {})
+                    if (!draggedVideoId) {
+                      setHoveredVideoId(video.id)
+                      if (window.innerWidth >= 640) {
+                        const videoEl = videoRefs.current.get(video.id)
+                        if (videoEl) {
+                          videoEl.play().catch(() => {})
+                        }
                       }
                     }
                   }}
                   onMouseLeave={() => {
-                    setHoveredVideoId(null)
-                    if (window.innerWidth >= 640) {
-                      const videoEl = videoRefs.current.get(video.id)
-                      if (videoEl) {
-                        videoEl.pause()
-                        videoEl.currentTime = 0
+                    if (!draggedVideoId) {
+                      setHoveredVideoId(null)
+                      if (window.innerWidth >= 640) {
+                        const videoEl = videoRefs.current.get(video.id)
+                        if (videoEl) {
+                          videoEl.pause()
+                          videoEl.currentTime = 0
+                        }
                       }
                     }
                   }}
-                  onClick={() => {
+                  onClick={(e) => {
+                    // 如果正在拖拽，不触发点击事件
+                    if (draggedVideoId) {
+                      e.preventDefault()
+                      return
+                    }
                     recordVideoView(video.id)
                     navigate(`/works/${video.id}`)
                   }}
@@ -583,6 +562,135 @@ function WorksShowcase() {
                         : 'aspect-video'
                     }`}
                   >
+                    {/* 悬停时显示的悬浮窗口 - 绝对定位，只覆盖视频部分，不占用实际尺寸 */}
+                    {hoveredVideoId === video.id && (
+                      <div 
+                        className="absolute inset-0 p-4 bg-white bg-opacity-25 backdrop-blur-xl border border-white border-opacity-40 shadow-2xl rounded-xl transition-all animate-fadeIn pointer-events-none z-30"
+                        style={{
+                          background: 'rgba(255, 255, 255, 0.15)',
+                          backdropFilter: 'blur(20px) saturate(180%)',
+                          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+                        }}
+                      >
+                        <div className="pointer-events-auto h-full flex flex-col justify-end">
+                        {/* 标题 */}
+                        <h3 className="text-sm font-semibold text-white mb-3 line-clamp-1">
+                          {video.title}
+                        </h3>
+                        
+                        {/* 用户信息 */}
+                        <div className="flex items-center gap-2 mb-3">
+                          {video.avatar ? (
+                            <img
+                              src={video.avatar}
+                              alt={video.username}
+                              className="w-6 h-6 rounded-full object-cover border border-white border-opacity-30"
+                            />
+                          ) : (
+                            <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center text-white text-xs border border-white border-opacity-30">
+                              {video.username.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                          <span className="text-xs text-white text-opacity-90 truncate">{video.username}</span>
+                        </div>
+
+                        {/* 互动数据 */}
+                        <div className="flex items-center gap-4 text-xs text-white text-opacity-90 mb-3">
+                          <button
+                            onClick={(e) => handleLike(video.id, e)}
+                            className="flex items-center gap-1 hover:text-red-300 transition-colors"
+                          >
+                            <Heart className={`w-4 h-4 ${video.isLiked ? 'fill-current' : ''}`} />
+                            <span>{formatNumber(video.likesCount)}</span>
+                          </button>
+                          <span>{formatNumber(video.viewsCount)}次观看</span>
+                          <span className="ml-auto">{formatTime(video.publishedAt)}</span>
+                        </div>
+                        
+                        {/* 模型和规格信息 */}
+                        <div className="flex items-center gap-2 mb-3 flex-wrap">
+                          {video.model ? (
+                            <span className="px-2 py-1 bg-white bg-opacity-30 backdrop-blur-md rounded text-xs text-white text-opacity-90">
+                              {video.model}
+                            </span>
+                          ) : (
+                            <span className="px-2 py-1 bg-white bg-opacity-20 backdrop-blur-md rounded text-xs text-white text-opacity-70">
+                              未知模型
+                            </span>
+                          )}
+                          {video.duration ? (
+                            <span className="px-2 py-1 bg-white bg-opacity-30 backdrop-blur-md rounded text-xs text-white text-opacity-90">
+                              {video.duration}s
+                            </span>
+                          ) : (
+                            <span className="px-2 py-1 bg-white bg-opacity-20 backdrop-blur-md rounded text-xs text-white text-opacity-70">
+                              --
+                            </span>
+                          )}
+                          {video.resolution ? (
+                            <span className="px-2 py-1 bg-white bg-opacity-30 backdrop-blur-md rounded text-xs text-white text-opacity-90">
+                              {video.resolution}
+                            </span>
+                          ) : (
+                            <span className="px-2 py-1 bg-white bg-opacity-20 backdrop-blur-md rounded text-xs text-white text-opacity-70">
+                              --
+                            </span>
+                          )}
+                        </div>
+                        
+                        {/* 操作按钮行 */}
+                        <div className="flex items-center gap-2 pt-3 border-t border-white border-opacity-20">
+                          <button 
+                            className="flex-1 bg-white bg-opacity-40 backdrop-blur-md rounded-lg px-4 py-2.5 text-white text-sm font-medium hover:bg-opacity-50 transition-all flex flex-col items-center justify-center gap-0.5 shadow-md"
+                            style={{
+                              background: 'rgba(255, 255, 255, 0.3)',
+                              backdropFilter: 'blur(10px)',
+                              WebkitBackdropFilter: 'blur(10px)',
+                            }}
+                          >
+                            <span className="leading-tight">使用</span>
+                            <span className="leading-tight">模板</span>
+                          </button>
+                          <button 
+                            className="w-11 h-11 bg-white bg-opacity-30 backdrop-blur-md rounded-lg flex items-center justify-center text-white hover:bg-opacity-40 transition-all shadow-md"
+                            style={{
+                              background: 'rgba(255, 255, 255, 0.25)',
+                              backdropFilter: 'blur(10px)',
+                              WebkitBackdropFilter: 'blur(10px)',
+                            }}
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                          </button>
+                          <button 
+                            className="w-11 h-11 bg-white bg-opacity-30 backdrop-blur-md rounded-lg flex items-center justify-center text-white hover:bg-opacity-40 transition-all shadow-md"
+                            style={{
+                              background: 'rgba(255, 255, 255, 0.25)',
+                              backdropFilter: 'blur(10px)',
+                              WebkitBackdropFilter: 'blur(10px)',
+                            }}
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                            </svg>
+                          </button>
+                          <button 
+                            className="w-11 h-11 bg-white bg-opacity-30 backdrop-blur-md rounded-lg flex items-center justify-center text-white hover:bg-opacity-40 transition-all shadow-md"
+                            style={{
+                              background: 'rgba(255, 255, 255, 0.25)',
+                              backdropFilter: 'blur(10px)',
+                              WebkitBackdropFilter: 'blur(10px)',
+                            }}
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                            </svg>
+                          </button>
+                        </div>
+                        </div>
+                      </div>
+                    )}
                     {/* 优先显示缩略图（如果存在），悬停时再显示视频 */}
                     {video.thumbnailUrl && video.thumbnailUrl.trim() !== '' ? (
                       <>
@@ -715,130 +823,6 @@ function WorksShowcase() {
                     )}
                   </div>
 
-                  {/* 底部信息栏 - 始终显示（类似模板卡片） */}
-                  <div className="p-3 bg-white border-t border-gray-100">
-                    {/* 标题 */}
-                    <h3 className="text-sm font-semibold text-gray-900 mb-1 line-clamp-1">
-                      {video.title || '未命名视频'}
-                    </h3>
-                    
-                    {/* 模型和规格信息 - 类似模板卡片的底部标签 */}
-                    <div className="flex items-center gap-2 mt-2">
-                      {video.model && (
-                        <span className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-700">
-                          {video.model}
-                        </span>
-                      )}
-                      {video.duration && (
-                        <span className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-700">
-                          {video.duration}s
-                        </span>
-                      )}
-                      {video.resolution && (
-                        <span className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-700">
-                          {video.resolution}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* 悬停时显示的操作栏和信息 - 在视频下方，透明毛玻璃效果 */}
-                  {hoveredVideoId === video.id && (
-                    <div 
-                      className="p-4 bg-white bg-opacity-25 backdrop-blur-xl border-t border-white border-opacity-40 shadow-lg transition-all animate-fadeIn"
-                      style={{
-                        background: 'rgba(255, 255, 255, 0.15)',
-                        backdropFilter: 'blur(20px) saturate(180%)',
-                        WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {/* 标题 */}
-                      <h3 className="text-sm font-semibold text-white mb-3 line-clamp-1">
-                        {video.title}
-                      </h3>
-                      
-                      {/* 用户信息 */}
-                      <div className="flex items-center gap-2 mb-3">
-                        {video.avatar ? (
-                          <img
-                            src={video.avatar}
-                            alt={video.username}
-                            className="w-6 h-6 rounded-full object-cover border border-white border-opacity-30"
-                          />
-                        ) : (
-                          <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center text-white text-xs border border-white border-opacity-30">
-                            {video.username.charAt(0).toUpperCase()}
-                          </div>
-                        )}
-                        <span className="text-xs text-white text-opacity-90 truncate">{video.username}</span>
-                      </div>
-
-                      {/* 互动数据 */}
-                      <div className="flex items-center gap-4 text-xs text-white text-opacity-90 mb-3">
-                        <button
-                          onClick={(e) => handleLike(video.id, e)}
-                          className="flex items-center gap-1 hover:text-red-300 transition-colors"
-                        >
-                          <Heart className={`w-4 h-4 ${video.isLiked ? 'fill-current' : ''}`} />
-                          <span>{formatNumber(video.likesCount)}</span>
-                        </button>
-                        <span>{formatNumber(video.viewsCount)}次观看</span>
-                        <span className="ml-auto">{formatTime(video.publishedAt)}</span>
-                      </div>
-                      
-                      {/* 操作按钮行 */}
-                      <div className="flex items-center gap-2 pt-3 border-t border-white border-opacity-20">
-                        <button 
-                          className="flex-1 bg-white bg-opacity-40 backdrop-blur-md rounded-lg px-4 py-2.5 text-white text-sm font-medium hover:bg-opacity-50 transition-all flex flex-col items-center justify-center gap-0.5 shadow-md"
-                          style={{
-                            background: 'rgba(255, 255, 255, 0.3)',
-                            backdropFilter: 'blur(10px)',
-                            WebkitBackdropFilter: 'blur(10px)',
-                          }}
-                        >
-                          <span className="leading-tight">使用</span>
-                          <span className="leading-tight">模板</span>
-                        </button>
-                        <button 
-                          className="w-11 h-11 bg-white bg-opacity-30 backdrop-blur-md rounded-lg flex items-center justify-center text-white hover:bg-opacity-40 transition-all shadow-md"
-                          style={{
-                            background: 'rgba(255, 255, 255, 0.25)',
-                            backdropFilter: 'blur(10px)',
-                            WebkitBackdropFilter: 'blur(10px)',
-                          }}
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                          </svg>
-                        </button>
-                        <button 
-                          className="w-11 h-11 bg-white bg-opacity-30 backdrop-blur-md rounded-lg flex items-center justify-center text-white hover:bg-opacity-40 transition-all shadow-md"
-                          style={{
-                            background: 'rgba(255, 255, 255, 0.25)',
-                            backdropFilter: 'blur(10px)',
-                            WebkitBackdropFilter: 'blur(10px)',
-                          }}
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                          </svg>
-                        </button>
-                        <button 
-                          className="w-11 h-11 bg-white bg-opacity-30 backdrop-blur-md rounded-lg flex items-center justify-center text-white hover:bg-opacity-40 transition-all shadow-md"
-                          style={{
-                            background: 'rgba(255, 255, 255, 0.25)',
-                            backdropFilter: 'blur(10px)',
-                            WebkitBackdropFilter: 'blur(10px)',
-                          }}
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                  )}
                 </div>
               )
             })}
