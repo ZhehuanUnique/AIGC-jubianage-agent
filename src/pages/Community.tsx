@@ -473,132 +473,149 @@ function Community() {
                   <p className="text-gray-600">暂无内容</p>
                 </div>
               ) : (
-                videos.map((video) => (
-                  <div
-                    key={video.id}
-                    onClick={() => navigate(`/works/${video.id}`)}
-                    className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer p-6"
-                  >
-                    {/* 用户信息 */}
-                    <div className="flex items-start justify-between mb-4 relative">
-                      <div className="flex items-center gap-3">
-                        <div 
-                          className="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-lg cursor-pointer relative"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            navigate(`/user/${video.username}`)
-                          }}
-                          onMouseEnter={async (e) => {
-                            const rect = e.currentTarget.getBoundingClientRect()
-                            const username = video.username || ''
-                            setHoveredUserId(username)
-                            setHoveredUserPosition({
-                              x: rect.left + rect.width / 2, // 头像中心点（视口坐标）
-                              y: rect.bottom + 8 // 头像底部 + 间距（视口坐标）
-                            })
-                            
-                            // 检查关注状态
-                            if (username && !hoveredUserFollowStatus.hasOwnProperty(username)) {
-                              try {
-                                const isFollowing = await checkFollowStatus(username)
-                                setHoveredUserFollowStatus(prev => ({
-                                  ...prev,
-                                  [username]: isFollowing,
-                                }))
-                              } catch (error) {
-                                console.error('检查关注状态失败:', error)
-                              }
-                            }
-                          }}
-                          onMouseLeave={() => {
-                            // 延迟隐藏，以便鼠标可以移动到卡片上
-                            setTimeout(() => {
-                              if (!document.querySelector('.user-hover-card:hover')) {
-                                setHoveredUserId(null)
-                                setHoveredUserPosition(null)
-                              }
-                            }, 100)
-                          }}
-                        >
-                          {video.avatar ? (
-                            <img
-                              src={video.avatar}
-                              alt={video.username}
-                              className="w-full h-full rounded-full object-cover"
-                              onError={(e) => {
-                                // 如果头像加载失败，显示默认头像
-                                e.currentTarget.style.display = 'none'
-                              }}
-                            />
-                          ) : (
-                            <span>{video.username?.[0]?.toUpperCase() || 'U'}</span>
-                          )}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-gray-900">{video.username || '匿名用户'}</span>
-                            {video.username === 'Chiefavefan' && (
-                              <span className="text-xs bg-yellow-400 text-yellow-900 px-1.5 py-0.5 rounded">V</span>
-                            )}
-                            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">已实名</span>
-                          </div>
-                          <div className="text-xs text-gray-500 mt-1">{formatTimeAgo(video.publishedAt)}</div>
-                        </div>
-                      </div>
-                      <button className="px-4 py-1.5 bg-orange-500 text-white text-sm rounded-lg hover:bg-orange-600 transition-colors">
-                        +关注
-                      </button>
-                    </div>
+                videos.map((video) => {
+                  // 格式化时长
+                  const formatDuration = (seconds?: number): string => {
+                    if (!seconds) return '00:00'
+                    const mins = Math.floor(seconds / 60)
+                    const secs = Math.floor(seconds % 60)
+                    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+                  }
 
-                    {/* 内容 */}
-                    <div className="mb-4">
-                      <h3 className="text-base font-medium text-gray-900 mb-2 leading-relaxed">{video.title}</h3>
-                      {video.description && (
-                        <p className="text-gray-700 text-sm leading-relaxed">{video.description}</p>
-                      )}
-                    </div>
+                  // 格式化观看次数
+                  const formatViews = (count: number): string => {
+                    if (count >= 10000) {
+                      return `${(count / 10000).toFixed(1)} 万次观看`
+                    }
+                    return `${count} 次观看`
+                  }
 
-                    {/* 视频/图片 */}
-                    {video.thumbnailUrl && (
-                      <div className="mb-4 rounded-lg overflow-hidden">
-                        <img
-                          src={video.thumbnailUrl}
-                          alt={video.title}
-                          className="w-full h-auto object-cover"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement
-                            target.style.display = 'none'
-                          }}
-                        />
-                      </div>
-                    )}
-
-                    {/* 互动数据 */}
-                    <div className="flex items-center gap-6 pt-4 border-t border-gray-100 text-gray-600">
-                      <button
-                        onClick={(e) => handleToggleLike(video.id, e)}
-                        className={`flex items-center gap-1 transition-colors ${
-                          video.isLiked ? 'text-red-600' : 'hover:text-red-600'
-                        }`}
+                  return (
+                    <div
+                      key={video.id}
+                      className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden"
+                    >
+                      {/* 视频播放器 */}
+                      <div 
+                        className="relative bg-black cursor-pointer"
+                        style={{ aspectRatio: '16/9' }}
+                        onClick={() => navigate(`/works/${video.id}`)}
                       >
-                        <Heart className={`w-5 h-5 ${video.isLiked ? 'fill-current' : ''}`} />
-                        <span className="text-sm">{video.likesCount || 0}</span>
-                      </button>
-                      <button className="flex items-center gap-1 hover:text-blue-600 transition-colors">
-                        <MessageCircle className="w-5 h-5" />
-                        <span className="text-sm">0</span>
-                      </button>
-                      <button className="flex items-center gap-1 hover:text-green-600 transition-colors">
-                        <Share2 className="w-5 h-5" />
-                        <span className="text-sm">0</span>
-                      </button>
-                      <div className="flex items-center gap-1 text-gray-500">
-                        <Eye className="w-5 h-5" />
-                        <span className="text-sm">{video.viewsCount || 0}</span>
+                        {video.videoUrl ? (
+                          <video
+                            src={video.videoUrl}
+                            className="w-full h-full object-contain"
+                            muted
+                            preload="metadata"
+                            onLoadedMetadata={(e) => {
+                              const videoEl = e.currentTarget
+                              const duration = videoEl.duration
+                              // 可以在这里设置时长显示
+                            }}
+                          />
+                        ) : video.thumbnailUrl ? (
+                          <img
+                            src={video.thumbnailUrl}
+                            alt={video.title}
+                            className="w-full h-full object-contain"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement
+                              target.style.display = 'none'
+                            }}
+                          />
+                        ) : null}
+                        
+                        {/* 播放按钮覆盖层 */}
+                        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 opacity-0 hover:opacity-100 transition-opacity">
+                          <div className="w-16 h-16 bg-white bg-opacity-90 rounded-full flex items-center justify-center">
+                            <Play className="w-8 h-8 text-gray-900 ml-1" />
+                          </div>
+                        </div>
+
+                        {/* 视频底部信息（观看次数和时长） */}
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent p-3">
+                          <div className="flex items-center justify-between text-white text-sm">
+                            <span>{formatViews(video.viewsCount || 0)}</span>
+                            <span>{formatDuration(video.duration)}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 视频下方信息 */}
+                      <div className="p-4">
+                        {/* 发布时间 */}
+                        <div className="text-sm text-gray-500 mb-3">
+                          {formatTimeAgo(video.publishedAt)}
+                        </div>
+
+                        {/* 互动数据（多行显示） */}
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-6 text-gray-600">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleToggleLike(video.id, e)
+                              }}
+                              className={`flex items-center gap-2 transition-colors ${
+                                video.isLiked ? 'text-red-600' : 'hover:text-red-600'
+                              }`}
+                            >
+                              <Share2 className="w-5 h-5" />
+                              <span className="text-sm">{video.likesCount || 0}</span>
+                            </button>
+                            <button 
+                              className="flex items-center gap-2 hover:text-blue-600 transition-colors"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MessageCircle className="w-5 h-5" />
+                              <span className="text-sm">0</span>
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleToggleLike(video.id, e)
+                              }}
+                              className={`flex items-center gap-2 transition-colors ${
+                                video.isLiked ? 'text-red-600' : 'hover:text-red-600'
+                              }`}
+                            >
+                              <Heart className={`w-5 h-5 ${video.isLiked ? 'fill-current' : ''}`} />
+                              <span className="text-sm">{video.likesCount || 0}</span>
+                            </button>
+                          </div>
+                          <div className="flex items-center gap-6 text-gray-600">
+                            <button 
+                              className="flex items-center gap-2 hover:text-green-600 transition-colors"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Share2 className="w-5 h-5" />
+                              <span className="text-sm">0</span>
+                            </button>
+                            <button 
+                              className="flex items-center gap-2 hover:text-blue-600 transition-colors"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MessageCircle className="w-5 h-5" />
+                              <span className="text-sm">0</span>
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleToggleLike(video.id, e)
+                              }}
+                              className={`flex items-center gap-2 transition-colors ${
+                                video.isLiked ? 'text-red-600' : 'hover:text-red-600'
+                              }`}
+                            >
+                              <Heart className={`w-5 h-5 ${video.isLiked ? 'fill-current' : ''}`} />
+                              <span className="text-sm">{video.likesCount || 0}</span>
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))
+                  )
+                })
               )}
             </div>
 
