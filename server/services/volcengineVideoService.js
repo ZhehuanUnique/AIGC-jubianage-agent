@@ -32,9 +32,13 @@ if (existsSync(envPath)) {
 // 支持多种环境变量名称（兼容火山引擎 SDK 标准和自定义名称）
 const VOLCENGINE_AK = process.env.VOLCENGINE_AK || process.env.VOLCENGINE_ACCESS_KEY || process.env.VOLC_ACCESSKEY
 const VOLCENGINE_SK = process.env.VOLCENGINE_SK || process.env.VOLCENGINE_SECRET_KEY || process.env.VOLC_SECRETKEY
+// ARK API Key（用于Bearer Token认证，如果提供则优先使用）
+const VOLCENGINE_ARK_API_KEY = process.env.VOLCENGINE_ARK_API_KEY || process.env.VOLCENGINE_API_KEY
 // 根据即梦-3.0Pro接口文档：https://www.volcengine.com/docs/85621/1777001?lang=zh
-// 接口地址：https://visual.volcengineapi.com
+// Visual API接口地址：https://visual.volcengineapi.com
+// ARK API接口地址：https://ark.cn-beijing.volces.com
 const VOLCENGINE_API_HOST = process.env.VOLCENGINE_API_HOST || 'https://visual.volcengineapi.com'
+const VOLCENGINE_ARK_API_HOST = process.env.VOLCENGINE_ARK_API_HOST || 'https://ark.cn-beijing.volces.com'
 
 // 火山引擎服务配置
 const VOLCENGINE_REGION = 'cn-north-1' // 默认区域
@@ -312,128 +316,175 @@ export async function generateVideoWithVolcengine(imageUrl, options = {}) {
     }
 
     const requestBodyJson = JSON.stringify(requestBody)
-    // 根据即梦-3.0Pro接口文档：https://www.volcengine.com/docs/85621/1777001?lang=zh
-    // 接口地址：https://visual.volcengineapi.com
-    // 请求方式：POST
-    // 根据Visual API的调用方式，直接POST到根路径
-    const uri = '/'
-    const queryParams = {} // Visual API所有参数在Body中
-    
-    // 解析API Host（从Base URL中提取host，不包含路径）
-    const urlObj = new URL(VOLCENGINE_API_HOST)
-    const host = urlObj.host
-    
-    // 生成签名（根据官方Python示例）
-    const contentType = 'application/json'
-    const signatureInfo = generateVolcengineSignature(
-      'POST',
-      uri,
-      queryParams,
-      host,
-      contentType,
-      requestBodyJson,
-      VOLCENGINE_AK,
-      VOLCENGINE_SK,
-      VOLCENGINE_REGION,
-      VOLCENGINE_SERVICE
-    )
-    
-    // 构建完整URL（包含查询参数）
-    // 确保Base URL和URI正确拼接（避免双斜杠）
-    const baseUrl = VOLCENGINE_API_HOST.endsWith('/') ? VOLCENGINE_API_HOST.slice(0, -1) : VOLCENGINE_API_HOST
-    const uriPath = uri.startsWith('/') ? uri : `/${uri}`
-    const queryString = normalizeQueryString(queryParams)
-    const fullUrl = queryString ? `${baseUrl}${uriPath}?${queryString}` : `${baseUrl}${uriPath}`
-    
-    console.log('📤 发送请求到:', fullUrl)
-    console.log('📤 查询参数:', JSON.stringify(queryParams, null, 2))
-    console.log('📤 请求体:', JSON.stringify(requestBody, null, 2))
+    let response
 
-    // 使用签名发送请求（必须包含所有签名相关的header）
-    const response = await fetch(fullUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': contentType,
-        'Host': host,
-        'X-Content-Sha256': signatureInfo.xContentSha256,
-        'X-Date': signatureInfo.timestamp,
-        'Authorization': signatureInfo.authorization,
-      },
-      body: requestBodyJson,
-    })
+    if (useArkApi) {
+      // ARK API：直接使用Bearer Token
+      console.log('📤 发送请求到:', apiUrl)
+      console.log('📤 请求体:', JSON.stringify(requestBody, null, 2))
 
-    if (!response.ok) {
-      let errorMessage = `HTTP ${response.status}`
-      try {
-        const errorData = await response.json()
-        console.error('❌ 火山引擎API错误响应:', JSON.stringify(errorData, null, 2))
-        
-        // 尝试从不同位置提取错误信息
-        if (errorData.message) {
-          errorMessage = typeof errorData.message === 'string' ? errorData.message : JSON.stringify(errorData.message)
-        } else if (errorData.error) {
-          errorMessage = typeof errorData.error === 'string' ? errorData.error : JSON.stringify(errorData.error)
-        } else if (errorData.ResponseMetadata && errorData.ResponseMetadata.Error) {
-          const error = errorData.ResponseMetadata.Error
-          errorMessage = error.Message || error.Code || JSON.stringify(error)
-        } else if (errorData.Result && errorData.Result.error) {
-          errorMessage = typeof errorData.Result.error === 'string' ? errorData.Result.error : JSON.stringify(errorData.Result.error)
-        } else {
-          errorMessage = JSON.stringify(errorData)
-        }
-      } catch (parseError) {
-        // 如果无法解析JSON，尝试读取文本
+      response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: headers,
+        body: requestBodyJson,
+      })
+      
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status}`
         try {
-          const text = await response.text()
-          errorMessage = text || `HTTP ${response.status} ${response.statusText}`
-        } catch (textError) {
-          errorMessage = `HTTP ${response.status} ${response.statusText}`
+          const errorData = await response.json()
+          console.error('❌ 火山引擎ARK API错误响应:', JSON.stringify(errorData, null, 2))
+          errorMessage = errorData.message || errorData.error || JSON.stringify(errorData)
+        } catch (parseError) {
+          try {
+            const text = await response.text()
+            errorMessage = text || `HTTP ${response.status} ${response.statusText}`
+          } catch (textError) {
+            errorMessage = `HTTP ${response.status} ${response.statusText}`
+          }
         }
+        throw new Error(`火山引擎ARK API调用失败: ${errorMessage}`)
       }
-      throw new Error(`火山引擎视频生成API调用失败: ${errorMessage}`)
-    }
 
-    const result = await response.json()
-    console.log('✅ 火山引擎API响应:', JSON.stringify(result, null, 2))
+      const result = await response.json()
+      console.log('✅ 火山引擎ARK API响应:', JSON.stringify(result, null, 2))
 
-    // 解析响应（根据火山引擎Visual API响应格式）
-    // 响应格式可能是：{ ResponseMetadata: {...}, Result: {...} }
-    const responseData = result.Result || result
-    
-    // 检查是否有错误
-    if (result.ResponseMetadata && result.ResponseMetadata.Error) {
-      const error = result.ResponseMetadata.Error
-      throw new Error(`火山引擎API错误: ${error.Message || error.Code || '未知错误'}`)
-    }
-    
-    // 解析任务ID和状态
-    if (responseData.task_id || responseData.taskId) {
-      return {
-        taskId: responseData.task_id || responseData.taskId,
-        status: responseData.status || 'processing',
-        provider: 'volcengine',
-        model: modelId,
-      }
-    } else if (responseData.data && responseData.data.task_id) {
-      // 某些API可能返回嵌套的data结构
-      return {
-        taskId: responseData.data.task_id,
-        status: responseData.data.status || 'processing',
-        provider: 'volcengine',
-        model: modelId,
-      }
-    } else {
-      // 如果是在线推理，可能直接返回视频URL
-      if (responseData.video_url || responseData.videoUrl) {
+      // 解析ARK API响应格式
+      if (result.id || result.task_id || result.taskId) {
         return {
-          taskId: null,
-          status: 'completed',
-          videoUrl: responseData.video_url || responseData.videoUrl,
+          taskId: result.id || result.task_id || result.taskId,
+          status: result.status || 'processing',
           provider: 'volcengine',
           model: modelId,
         }
+      } else {
+        throw new Error('火山引擎ARK API返回数据格式错误：缺少任务ID')
       }
-      throw new Error('火山引擎API返回数据格式错误：缺少 task_id 或 video_url')
+    } else {
+      // Visual API：使用签名认证
+      // 根据即梦-3.0Pro接口文档：https://www.volcengine.com/docs/85621/1777001?lang=zh
+      // 接口地址：https://visual.volcengineapi.com
+      // 请求方式：POST
+      // 根据Visual API的调用方式，直接POST到根路径
+      const uri = '/'
+      const queryParams = {} // Visual API所有参数在Body中
+      
+      // 解析API Host（从Base URL中提取host，不包含路径）
+      const urlObj = new URL(VOLCENGINE_API_HOST)
+      const host = urlObj.host
+      
+      // 生成签名（根据官方Python示例）
+      const contentType = 'application/json'
+      const signatureInfo = generateVolcengineSignature(
+        'POST',
+        uri,
+        queryParams,
+        host,
+        contentType,
+        requestBodyJson,
+        VOLCENGINE_AK,
+        VOLCENGINE_SK,
+        VOLCENGINE_REGION,
+        VOLCENGINE_SERVICE
+      )
+      
+      // 构建完整URL（包含查询参数）
+      // 确保Base URL和URI正确拼接（避免双斜杠）
+      const baseUrl = VOLCENGINE_API_HOST.endsWith('/') ? VOLCENGINE_API_HOST.slice(0, -1) : VOLCENGINE_API_HOST
+      const uriPath = uri.startsWith('/') ? uri : `/${uri}`
+      const queryString = normalizeQueryString(queryParams)
+      const fullUrl = queryString ? `${baseUrl}${uriPath}?${queryString}` : `${baseUrl}${uriPath}`
+      
+      console.log('📤 发送请求到:', fullUrl)
+      console.log('📤 查询参数:', JSON.stringify(queryParams, null, 2))
+      console.log('📤 请求体:', JSON.stringify(requestBody, null, 2))
+
+      // 使用签名发送请求（必须包含所有签名相关的header）
+      response = await fetch(fullUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': contentType,
+          'Host': host,
+          'X-Content-Sha256': signatureInfo.xContentSha256,
+          'X-Date': signatureInfo.timestamp,
+          'Authorization': signatureInfo.authorization,
+        },
+        body: requestBodyJson,
+      })
+
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status}`
+        try {
+          const errorData = await response.json()
+          console.error('❌ 火山引擎Visual API错误响应:', JSON.stringify(errorData, null, 2))
+          
+          // 尝试从不同位置提取错误信息
+          if (errorData.message) {
+            errorMessage = typeof errorData.message === 'string' ? errorData.message : JSON.stringify(errorData.message)
+          } else if (errorData.error) {
+            errorMessage = typeof errorData.error === 'string' ? errorData.error : JSON.stringify(errorData.error)
+          } else if (errorData.ResponseMetadata && errorData.ResponseMetadata.Error) {
+            const error = errorData.ResponseMetadata.Error
+            errorMessage = error.Message || error.Code || JSON.stringify(error)
+          } else if (errorData.Result && errorData.Result.error) {
+            errorMessage = typeof errorData.Result.error === 'string' ? errorData.Result.error : JSON.stringify(errorData.Result.error)
+          } else {
+            errorMessage = JSON.stringify(errorData)
+          }
+        } catch (parseError) {
+          // 如果无法解析JSON，尝试读取文本
+          try {
+            const text = await response.text()
+            errorMessage = text || `HTTP ${response.status} ${response.statusText}`
+          } catch (textError) {
+            errorMessage = `HTTP ${response.status} ${response.statusText}`
+          }
+        }
+        throw new Error(`火山引擎Visual API调用失败: ${errorMessage}`)
+      }
+
+      const result = await response.json()
+      console.log('✅ 火山引擎Visual API响应:', JSON.stringify(result, null, 2))
+
+      // 解析响应（根据火山引擎Visual API响应格式）
+      // 响应格式可能是：{ ResponseMetadata: {...}, Result: {...} }
+      const responseData = result.Result || result
+      
+      // 检查是否有错误
+      if (result.ResponseMetadata && result.ResponseMetadata.Error) {
+        const error = result.ResponseMetadata.Error
+        throw new Error(`火山引擎API错误: ${error.Message || error.Code || '未知错误'}`)
+      }
+      
+      // 解析任务ID和状态
+      if (responseData.task_id || responseData.taskId) {
+        return {
+          taskId: responseData.task_id || responseData.taskId,
+          status: responseData.status || 'processing',
+          provider: 'volcengine',
+          model: modelId,
+        }
+      } else if (responseData.data && responseData.data.task_id) {
+        // 某些API可能返回嵌套的data结构
+        return {
+          taskId: responseData.data.task_id,
+          status: responseData.data.status || 'processing',
+          provider: 'volcengine',
+          model: modelId,
+        }
+      } else {
+        // 如果是在线推理，可能直接返回视频URL
+        if (responseData.video_url || responseData.videoUrl) {
+          return {
+            taskId: null,
+            status: 'completed',
+            videoUrl: responseData.video_url || responseData.videoUrl,
+            provider: 'volcengine',
+            model: modelId,
+          }
+        }
+        throw new Error('火山引擎Visual API返回数据格式错误：缺少 task_id 或 video_url')
+      }
     }
   } catch (error) {
     console.error('❌ 火山引擎视频生成失败:', error)
