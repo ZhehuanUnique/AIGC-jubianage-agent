@@ -31,6 +31,7 @@ import RankingDetail from './pages/RankingDetail'
 import UserAgreement from './pages/UserAgreement'
 import PrivacyPolicy from './pages/PrivacyPolicy'
 import Verification from './pages/Verification'
+import UserProfile from './pages/UserProfile'
 import { useAlert } from './hooks/useAlert.tsx'
 
 // 受保护的路由组件
@@ -294,6 +295,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Verification />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/user/:username"
+          element={
+            <ProtectedRoute>
+              <UserProfile />
             </ProtectedRoute>
           }
         />
