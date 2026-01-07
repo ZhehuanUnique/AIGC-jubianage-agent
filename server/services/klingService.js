@@ -80,29 +80,37 @@ export async function generateVideoWithKling26(imageUrl, options = {}) {
     const FormData = (await import('form-data')).default
     const formData = new FormData()
 
-    // 处理首帧图片
-    if (imageUrl) {
-      let imageBuffer
-      if (imageUrl.startsWith('data:image/')) {
-        // base64 图片
-        const base64Data = imageUrl.split(',')[1] || imageUrl
-        imageBuffer = Buffer.from(base64Data, 'base64')
-      } else if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-        // HTTP URL，需要下载
-        const response = await fetch(imageUrl)
-        if (!response.ok) {
-          throw new Error(`下载首帧图片失败: ${response.status} ${response.statusText}`)
-        }
-        imageBuffer = Buffer.from(await response.arrayBuffer())
-      } else {
-        // 假设是 base64 字符串（没有 data: 前缀）
-        imageBuffer = Buffer.from(imageUrl, 'base64')
-      }
-      formData.append('input_image', imageBuffer, {
-        filename: 'first_frame.jpg',
-        contentType: 'image/jpeg',
-      })
+    // 处理首帧图片（必需参数）
+    if (!imageUrl) {
+      throw new Error('首帧图片不能为空')
     }
+    
+    let imageBuffer
+    if (imageUrl.startsWith('data:image/')) {
+      // base64 图片
+      const base64Data = imageUrl.split(',')[1] || imageUrl
+      imageBuffer = Buffer.from(base64Data, 'base64')
+    } else if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+      // HTTP URL，需要下载
+      const response = await fetch(imageUrl)
+      if (!response.ok) {
+        throw new Error(`下载首帧图片失败: ${response.status} ${response.statusText}`)
+      }
+      imageBuffer = Buffer.from(await response.arrayBuffer())
+    } else {
+      // 假设是 base64 字符串（没有 data: 前缀）
+      imageBuffer = Buffer.from(imageUrl, 'base64')
+    }
+    
+    // 验证图片大小（不超过10MB）
+    if (imageBuffer.length > 10 * 1024 * 1024) {
+      throw new Error(`首帧图片大小超过10MB限制: ${(imageBuffer.length / 1024 / 1024).toFixed(2)}MB`)
+    }
+    
+    formData.append('input_image', imageBuffer, {
+      filename: 'first_frame.jpg',
+      contentType: 'image/jpeg',
+    })
 
     // 处理尾帧图片（如果提供且未开启音频）
     if (lastFrameImage && !enableAudio) {
@@ -119,6 +127,12 @@ export async function generateVideoWithKling26(imageUrl, options = {}) {
       } else {
         tailImageBuffer = Buffer.from(lastFrameImage, 'base64')
       }
+      
+      // 验证尾帧图片大小（不超过10MB）
+      if (tailImageBuffer.length > 10 * 1024 * 1024) {
+        throw new Error(`尾帧图片大小超过10MB限制: ${(tailImageBuffer.length / 1024 / 1024).toFixed(2)}MB`)
+      }
+      
       formData.append('tail_image', tailImageBuffer, {
         filename: 'last_frame.jpg',
         contentType: 'image/jpeg',
