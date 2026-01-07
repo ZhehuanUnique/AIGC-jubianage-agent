@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Heart, MessageCircle, Eye, Share2, Plus, Home, Clock, TrendingUp, Flame, Bell, User, ChevronDown, Settings, Play } from 'lucide-react'
+import { Search, Heart, MessageCircle, Eye, Share2, Plus, Home, Clock, TrendingUp, Flame, Bell, User, ChevronDown, Settings, Play, Crown } from 'lucide-react'
 import { getCommunityVideos, toggleVideoLike, CommunityVideo } from '../services/api'
 import { alertError } from '../utils/alert'
 import { AuthService } from '../services/auth'
@@ -496,6 +496,97 @@ function Community() {
                       key={video.id}
                       className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden"
                     >
+                      {/* 用户信息（顶部） */}
+                      <div className="p-4 pb-3">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-3 flex-1">
+                            <div 
+                              className="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-lg cursor-pointer relative flex-shrink-0"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                navigate(`/user/${video.username}`)
+                              }}
+                              onMouseEnter={async (e) => {
+                                const rect = e.currentTarget.getBoundingClientRect()
+                                const username = video.username || ''
+                                setHoveredUserId(username)
+                                setHoveredUserPosition({
+                                  x: rect.left + rect.width / 2,
+                                  y: rect.bottom + 8
+                                })
+                                
+                                // 检查关注状态
+                                if (username && !hoveredUserFollowStatus.hasOwnProperty(username)) {
+                                  try {
+                                    const { checkFollowStatus } = await import('../services/api')
+                                    const isFollowing = await checkFollowStatus(username)
+                                    setHoveredUserFollowStatus(prev => ({
+                                      ...prev,
+                                      [username]: isFollowing,
+                                    }))
+                                  } catch (error) {
+                                    console.error('检查关注状态失败:', error)
+                                  }
+                                }
+                              }}
+                              onMouseLeave={() => {
+                                setTimeout(() => {
+                                  if (!document.querySelector('.user-hover-card:hover')) {
+                                    setHoveredUserId(null)
+                                    setHoveredUserPosition(null)
+                                  }
+                                }, 100)
+                              }}
+                            >
+                              {video.avatar ? (
+                                <img
+                                  src={video.avatar}
+                                  alt={video.username}
+                                  className="w-full h-full rounded-full object-cover"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none'
+                                  }}
+                                />
+                              ) : (
+                                <span>{video.username?.[0]?.toUpperCase() || 'U'}</span>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="font-semibold text-gray-900 text-base">{video.username || '匿名用户'}</span>
+                                {video.username === 'Chiefavefan' && (
+                                  <div className="flex items-center gap-1">
+                                    <Crown className="w-4 h-4 text-yellow-500" />
+                                    <span className="text-xs bg-yellow-400 text-yellow-900 px-1.5 py-0.5 rounded">II</span>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 text-xs text-gray-500">
+                                <span>{formatTimeAgo(video.publishedAt)}</span>
+                                {video.model && (
+                                  <>
+                                    <span>·</span>
+                                    <span>来自{video.model}</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 文本内容 */}
+                      {(video.title || video.description) && (
+                        <div className="px-4 pb-3">
+                          {video.title && (
+                            <p className="text-gray-900 text-base leading-relaxed mb-1">{video.title}</p>
+                          )}
+                          {video.description && (
+                            <p className="text-gray-700 text-sm leading-relaxed">{video.description}</p>
+                          )}
+                        </div>
+                      )}
+
                       {/* 视频播放器 */}
                       <div 
                         className="relative bg-black cursor-pointer"
