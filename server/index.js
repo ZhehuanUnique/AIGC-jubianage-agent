@@ -1728,10 +1728,113 @@ app.post('/api/first-last-frame-videos/:videoTaskId/favorite', authenticateToken
   }
 })
 
+// 异步处理视频任务的函数
+async function processVideoTask(taskId, sourceVideoUrl, processingType, userId, projectId, sourceVideoTaskId) {
+  const pool = await import('./db/connection.js')
+  const db = pool.default
+  
+  try {
+    // 更新任务状态为处理中
+    await db.query(
+      `UPDATE video_processing_tasks 
+       SET status = 'processing', updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $1`,
+      [taskId]
+    )
+    
+    let result
+    
+    if (processingType === 'frame_interpolation') {
+      // 补帧处理
+      const { interpolateVideoWithRife, interpolateVideoWithFfmpeg } = await import('./services/rifeService.js')
+      
+      // 从metadata中获取目标帧率和技术选择（如果前端传递了）
+      let metadata = {}
+      try {
+        const taskMetaResult = await db.query(
+          'SELECT metadata FROM video_processing_tasks WHERE id = $1',
+          [taskId]
+        )
+        if (taskMetaResult.rows.length > 0 && taskMetaResult.rows[0].metadata) {
+          metadata = taskMetaResult.rows[0].metadata
+        }
+      } catch (metaError) {
+        console.warn('⚠️ 读取任务metadata失败:', metaError.message)
+      }
+      
+      const finalTargetFps = targetFps || metadata.targetFps || null
+      const preferredMethod = method || metadata.method || 'rife' // 默认使用RIFE
+      
+      // 如果用户明确选择FFmpeg，直接使用FFmpeg
+      if (preferredMethod === 'ffmpeg') {
+        result = await interpolateVideoWithFfmpeg(sourceVideoUrl, {
+          targetFps: finalTargetFps,
+        })
+      } else {
+        // 否则优先使用RIFE，失败时回退到FFmpeg
+        try {
+          result = await interpolateVideoWithRife(sourceVideoUrl, {
+            targetFps: finalTargetFps,
+            model: '4.6',
+            uhd: false,
+          })
+        } catch (rifeError) {
+          console.warn('⚠️ RIFE补帧失败，尝试使用FFmpeg:', rifeError.message)
+          result = await interpolateVideoWithFfmpeg(sourceVideoUrl, {
+            targetFps: finalTargetFps,
+          })
+        }
+      }
+    } else if (processingType === 'super_resolution') {
+      // 超分辨率处理（TODO: 实现超分辨率服务）
+      throw new Error('超分辨率功能暂未实现')
+    } else {
+      throw new Error(`不支持的处理类型: ${processingType}`)
+    }
+    
+    // 更新任务状态为完成
+    await db.query(
+      `UPDATE video_processing_tasks 
+       SET status = 'completed', 
+           result_video_url = $1, 
+           result_cos_key = $2,
+           metadata = $3,
+           updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $4`,
+      [
+        result.videoUrl,
+        result.cosKey,
+        JSON.stringify({ 
+          multiplier: result.multiplier, 
+          targetFps: result.targetFps,
+          method: result.method || 'rife' 
+        }),
+        taskId
+      ]
+    )
+    
+    console.log(`✅ 视频处理任务 ${taskId} 完成:`, result.videoUrl)
+  } catch (error) {
+    console.error(`❌ 视频处理任务 ${taskId} 失败:`, error)
+    
+    // 更新任务状态为失败
+    await db.query(
+      `UPDATE video_processing_tasks 
+       SET status = 'failed', 
+           error_message = $1, 
+           updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $2`,
+      [error.message || '处理失败', taskId]
+    )
+    
+    throw error
+  }
+}
+
 // 创建视频处理任务（补帧、超分辨率等）
 app.post('/api/video-processing-tasks', authenticateToken, async (req, res) => {
   try {
-    const { videoTaskId, processingType } = req.body
+    const { videoTaskId, processingType, targetFps, method } = req.body
     const userId = req.user?.id
     
     if (!userId) {
@@ -1773,19 +1876,36 @@ app.post('/api/video-processing-tasks', authenticateToken, async (req, res) => {
     
     const sourceVideo = sourceVideoResult.rows[0]
     
-    // 创建处理任务
+    // 创建处理任务（包含metadata，存储目标帧率和技术选择）
+    const metadata = (targetFps || method) ? JSON.stringify({ 
+      targetFps: targetFps ? parseInt(targetFps) : null,
+      method: method || 'rife'
+    }) : null
     const taskResult = await db.query(
       `INSERT INTO video_processing_tasks 
-       (user_id, project_id, source_video_task_id, source_video_url, source_cos_key, processing_type, status)
-       VALUES ($1, $2, $3, $4, $5, $6, 'pending')
+       (user_id, project_id, source_video_task_id, source_video_url, source_cos_key, processing_type, status, metadata)
+       VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7)
        RETURNING id`,
-      [userId, sourceVideo.project_id, videoTaskId, sourceVideo.video_url, sourceVideo.cos_key, processingType]
+      [userId, sourceVideo.project_id, videoTaskId, sourceVideo.video_url, sourceVideo.cos_key, processingType, metadata]
     )
     
     const taskId = taskResult.rows[0].id
     
-    // TODO: 这里应该调用实际的视频处理服务（补帧或超分辨率）
-    // 目前先返回任务ID，后续可以异步处理
+    // 异步处理视频（不阻塞响应）
+    processVideoTask(taskId, sourceVideo.video_url, processingType, userId, sourceVideo.project_id, videoTaskId)
+      .catch(error => {
+        console.error(`❌ 视频处理任务 ${taskId} 失败:`, error)
+        // 更新任务状态为失败
+        db.query(
+          `UPDATE video_processing_tasks 
+           SET status = 'failed', error_message = $1, updated_at = CURRENT_TIMESTAMP 
+           WHERE id = $2`,
+          [error.message || '处理失败', taskId]
+        ).catch(updateError => {
+          console.error('更新任务状态失败:', updateError)
+        })
+      })
+    
     console.log(`📹 创建视频处理任务: ${processingType} for video ${videoTaskId}, taskId: ${taskId}`)
     
     res.json({

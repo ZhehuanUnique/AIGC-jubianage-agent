@@ -5,6 +5,7 @@ import { alertSuccess, alertError } from '../utils/alert'
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
 import HamsterLoader from '../components/HamsterLoader'
 import { generateFirstLastFrameVideo, getFirstLastFrameVideoStatus, getFirstLastFrameVideos, createVideoProcessingTask } from '../services/api'
+import { FrameInterpolationModal } from '../components/FrameInterpolationModal'
 import { calculateVideoGenerationCredit } from '../utils/creditCalculator'
 import { getUserSettings } from '../services/settingsService'
 
@@ -125,6 +126,7 @@ function FirstLastFrameVideo() {
   const [hoveredVideoId, setHoveredVideoId] = useState<string | null>(null)
   const videoRefs = useRef<Map<string, HTMLVideoElement>>(new Map())
   const [deleteConfirmState, setDeleteConfirmState] = useState<{ isOpen: boolean; taskId: string | null }>({ isOpen: false, taskId: null })
+  const [frameInterpolationModal, setFrameInterpolationModal] = useState<{ isOpen: boolean; taskId: string | null; currentFps?: number }>({ isOpen: false, taskId: null })
   const [previewImage, setPreviewImage] = useState<{ url: string; type: 'first' | 'last' } | null>(null)
   const [generatingTask, setGeneratingTask] = useState<{ taskId: string; progress: number; status: 'accelerating' | 'generating'; startTime: number } | null>(null)
   
@@ -1318,6 +1320,34 @@ function FirstLastFrameVideo() {
                           e.stopPropagation()
                           setPreviewImage({ url: task.videoUrl!, type: 'first' })
                         }}
+                        onError={(e) => {
+                          // 视频加载失败，显示首帧图片或占位符
+                          console.error('视频加载失败:', task.videoUrl, e)
+                          const video = e.currentTarget
+                          video.style.display = 'none'
+                          const parent = video.parentElement
+                          if (parent && task.firstFrameUrl) {
+                            // 如果有首帧图片，显示首帧
+                            const img = document.createElement('img')
+                            img.src = task.firstFrameUrl
+                            img.className = 'w-full h-full object-cover cursor-pointer'
+                            img.alt = '视频加载失败，显示首帧'
+                            parent.appendChild(img)
+                          } else if (parent && !parent.querySelector('.video-error-placeholder')) {
+                            // 如果没有首帧，显示错误占位符
+                            const placeholder = document.createElement('div')
+                            placeholder.className = 'w-full h-full flex items-center justify-center bg-gray-200 video-error-placeholder'
+                            placeholder.innerHTML = '<div class="text-center"><svg class="w-12 h-12 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg><p class="text-xs text-gray-500">视频加载失败</p></div>'
+                            parent.appendChild(placeholder)
+                          }
+                        }}
+                        onLoadedData={(e) => {
+                          // 视频加载成功，确保显示
+                          const video = e.currentTarget
+                          if (video) {
+                            video.style.display = 'block'
+                          }
+                        }}
                       />
                     ) : task.firstFrameUrl ? (
                       <img
@@ -1586,18 +1616,10 @@ function FirstLastFrameVideo() {
                                   {task.status === 'completed' && (
                                     <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between z-20">
                                       <button
-                                        onClick={async (e) => {
+                                        onClick={(e) => {
                                           e.stopPropagation()
-                                          try {
-                                            await createVideoProcessingTask({
-                                              videoTaskId: task.id,
-                                              processingType: 'frame_interpolation'
-                                            })
-                                            alertSuccess('补帧任务已创建，请稍后查看结果', '任务创建成功')
-                                          } catch (error) {
-                                            console.error('创建补帧任务失败:', error)
-                                            alertError(error instanceof Error ? error.message : '创建补帧任务失败，请稍后重试', '操作失败')
-                                          }
+                                          // 打开补帧弹窗，默认使用24 FPS（可以从视频元数据获取，这里先用默认值）
+                                          setFrameInterpolationModal({ isOpen: true, taskId: task.id, currentFps: 24 })
                                         }}
                                         className="px-3 py-1.5 bg-black bg-opacity-60 hover:bg-opacity-80 text-white rounded-lg text-sm transition-all flex items-center gap-2"
                                         title="补帧"
@@ -2266,6 +2288,29 @@ function FirstLastFrameVideo() {
           }
         }}
         message="确定要删除这个视频吗？"
+      />
+
+      {/* 补帧弹窗 */}
+      <FrameInterpolationModal
+        isOpen={frameInterpolationModal.isOpen}
+        onClose={() => setFrameInterpolationModal({ isOpen: false, taskId: null })}
+        currentFps={frameInterpolationModal.currentFps || 24}
+        onConfirm={async (targetFps, method) => {
+          if (!frameInterpolationModal.taskId) return
+          
+          try {
+            await createVideoProcessingTask({
+              videoTaskId: frameInterpolationModal.taskId,
+              processingType: 'frame_interpolation',
+              targetFps: targetFps,
+              method: method,
+            })
+            alertSuccess('补帧任务已创建，请稍后查看结果', '任务创建成功')
+          } catch (error) {
+            console.error('创建补帧任务失败:', error)
+            alertError(error instanceof Error ? error.message : '创建补帧任务失败，请稍后重试', '操作失败')
+          }
+        }}
       />
 
       {/* 图片预览模态框 */}

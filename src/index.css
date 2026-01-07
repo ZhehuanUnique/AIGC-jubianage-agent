@@ -677,7 +677,7 @@ body {
   animation: spin_words 5s infinite linear;
   line-height: 72px;
   flex-shrink: 0;
-  font-size: 3rem;
+  font-size: 2.5rem;
   font-weight: 600;
   white-space: nowrap;
 }

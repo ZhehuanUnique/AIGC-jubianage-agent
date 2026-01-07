@@ -488,7 +488,81 @@ function WorksShowcase() {
                         : 'aspect-video'
                     }`}
                   >
-                    {video.videoUrl ? (
+                    {/* 优先显示缩略图（如果存在），悬停时再显示视频 */}
+                    {video.thumbnailUrl && video.thumbnailUrl.trim() !== '' ? (
+                      <>
+                        {/* 缩略图 - 始终显示 */}
+                        <img
+                          src={video.thumbnailUrl}
+                          alt={video.title}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            // 如果缩略图加载失败，尝试显示视频或占位符
+                            const target = e.currentTarget
+                            target.style.display = 'none'
+                            const parent = target.parentElement
+                            if (parent && video.videoUrl && video.videoUrl.trim() !== '') {
+                              // 如果有视频URL，创建视频元素
+                              const videoEl = document.createElement('video')
+                              videoEl.src = video.videoUrl
+                              videoEl.className = 'w-full h-full object-cover'
+                              videoEl.muted = true
+                              videoEl.loop = true
+                              videoEl.playsInline = true
+                              videoEl.preload = 'metadata'
+                              videoEl.onerror = () => {
+                                // 视频也加载失败，显示占位符
+                                videoEl.style.display = 'none'
+                                if (parent && !parent.querySelector('.placeholder')) {
+                                  const placeholder = document.createElement('div')
+                                  placeholder.className = 'w-full h-full flex items-center justify-center bg-gray-200 placeholder'
+                                  placeholder.innerHTML = '<svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>'
+                                  parent.appendChild(placeholder)
+                                }
+                              }
+                              parent.appendChild(videoEl)
+                            } else if (parent && !parent.querySelector('.placeholder')) {
+                              // 没有视频URL，显示占位符
+                              const placeholder = document.createElement('div')
+                              placeholder.className = 'w-full h-full flex items-center justify-center bg-gray-200 placeholder'
+                              placeholder.innerHTML = '<svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>'
+                              parent.appendChild(placeholder)
+                            }
+                          }}
+                        />
+                        {/* 视频 - 悬停时显示并播放 */}
+                        {video.videoUrl && video.videoUrl.trim() !== '' && (
+                          <video
+                            ref={(el) => {
+                              if (el) {
+                                videoRefs.current.set(video.id, el)
+                              } else {
+                                videoRefs.current.delete(video.id)
+                              }
+                            }}
+                            src={video.videoUrl}
+                            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
+                              hoveredVideoId === video.id ? 'opacity-100 z-10' : 'opacity-0 z-0'
+                            }`}
+                            muted
+                            loop
+                            preload="metadata"
+                            playsInline
+                            onLoadedMetadata={(e) => {
+                              const videoEl = e.currentTarget
+                              const ratio = videoEl.videoWidth / videoEl.videoHeight
+                              setVideoAspectRatios(prev => new Map(prev).set(video.id, ratio))
+                            }}
+                            onError={(e) => {
+                              // 视频加载失败，隐藏视频，保持显示缩略图
+                              console.error('视频加载失败:', video.videoUrl, video.id)
+                              e.currentTarget.style.display = 'none'
+                            }}
+                          />
+                        )}
+                      </>
+                    ) : video.videoUrl && video.videoUrl.trim() !== '' ? (
+                      // 没有缩略图，直接显示视频
                       <video
                         ref={(el) => {
                           if (el) {
@@ -508,17 +582,12 @@ function WorksShowcase() {
                           const ratio = videoEl.videoWidth / videoEl.videoHeight
                           setVideoAspectRatios(prev => new Map(prev).set(video.id, ratio))
                         }}
-                      />
-                    ) : video.thumbnailUrl && video.thumbnailUrl.trim() !== '' ? (
-                      <img
-                        src={video.thumbnailUrl}
-                        alt={video.title}
-                        className="w-full h-full object-cover"
                         onError={(e) => {
-                          // 如果缩略图加载失败，显示占位符
-                          const target = e.currentTarget
-                          target.style.display = 'none'
-                          const parent = target.parentElement
+                          // 视频加载失败，显示占位符
+                          console.error('视频加载失败:', video.videoUrl, video.id)
+                          const videoEl = e.currentTarget
+                          videoEl.style.display = 'none'
+                          const parent = videoEl.parentElement
                           if (parent && !parent.querySelector('.placeholder')) {
                             const placeholder = document.createElement('div')
                             placeholder.className = 'w-full h-full flex items-center justify-center bg-gray-200 placeholder'
@@ -528,6 +597,7 @@ function WorksShowcase() {
                         }}
                       />
                     ) : (
+                      // 既没有缩略图也没有视频，显示占位符
                       <div className="w-full h-full flex items-center justify-center bg-gray-200">
                         <Play className="w-12 h-12 text-gray-400" />
                       </div>

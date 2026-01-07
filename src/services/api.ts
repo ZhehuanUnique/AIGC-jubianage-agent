@@ -2152,6 +2152,8 @@ export async function toggleFirstLastFrameVideoFavorite(videoTaskId: string): Pr
 export async function createVideoProcessingTask(params: {
   videoTaskId: string
   processingType: 'frame_interpolation' | 'super_resolution'
+  targetFps?: number // 目标帧率（如30或60），仅用于补帧
+  method?: 'rife' | 'ffmpeg' // 技术选择，仅用于补帧
 }): Promise<{ success: boolean; taskId: string }> {
   try {
     const token = AuthService.getToken()
