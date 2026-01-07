@@ -1323,7 +1323,11 @@ function FirstLastFrameVideo() {
                       <img
                         src={task.firstFrameUrl}
                         alt="首帧"
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setPreviewImage({ url: task.firstFrameUrl, type: 'first' })
+                        }}
                         onError={(e) => {
                           // 如果首帧图片加载失败，尝试从视频URL提取第一帧
                           const img = e.currentTarget
