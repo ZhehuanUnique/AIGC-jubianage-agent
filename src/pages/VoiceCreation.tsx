@@ -8,6 +8,7 @@ import {
 import { getVoices, generateSpeech, checkIndexTtsHealth, type Voice } from '../services/indexTtsApi'
 import { alert, alertError, alertWarning } from '../utils/alert'
 import AudioWaveform from '../components/AudioWaveform'
+import HamsterLoader from '../components/HamsterLoader'
 
 // 情感控制方式
 type EmotionControlMethod = 0 | 1 | 2 | 3 // 0: 与参考音频相同, 1: 单独情感参考音频, 2: 情感向量, 3: 情感描述文本
@@ -545,8 +546,8 @@ function VoiceCreation() {
               >
                 {isGenerating ? (
                   <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    生成中...
+                    <HamsterLoader size={4} />
+                    <span>生成中...</span>
                   </>
                 ) : (
                   '生成语音'

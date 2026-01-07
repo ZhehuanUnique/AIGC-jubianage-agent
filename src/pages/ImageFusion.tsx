@@ -6,6 +6,7 @@ import VideoPromptModelSelectionModal from '../components/VideoPromptModelSelect
 import VideoEditingDrawer from '../components/VideoEditingDrawer'
 import { generateVideoFromImage, getVideoTaskStatus, generateVideoMotionPrompt, exportImagesToDesktop } from '../services/api'
 import { getUserSettings } from '../services/settingsService'
+import HamsterLoader from '../components/HamsterLoader'
 
 interface FusionItem {
   id: number
@@ -1644,7 +1645,7 @@ function ImageFusion() {
                     : 'bg-blue-600 hover:bg-blue-700'
                 }`}
               >
-                {isGenerating && <Loader2 className="animate-spin" size={18} />}
+                {isGenerating && <HamsterLoader size={4} />}
                 {isGenerating ? `生成中... (${progress}%)` : '开始生成视频'}
               </button>
             </div>

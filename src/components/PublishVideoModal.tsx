@@ -3,6 +3,7 @@ import { X, Upload, Folder, Video, Loader2 } from 'lucide-react'
 import { getProjects, getProjectFragments, publishVideoToCommunity, uploadVideo } from '../services/api'
 import { UploadToCommunityModal } from './UploadToCommunityModal'
 import { alertError, alertSuccess } from '../utils/alert'
+import HamsterLoader from './HamsterLoader'
 
 interface Project {
   id: number
@@ -244,7 +245,7 @@ export function PublishVideoModal({ isOpen, onClose, onSuccess }: PublishVideoMo
                 {/* 项目列表 */}
                 {isLoadingProjects ? (
                   <div className="flex items-center justify-center py-8">
-                    <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
+                    <HamsterLoader size={6} />
                   </div>
                 ) : projects.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
@@ -280,7 +281,7 @@ export function PublishVideoModal({ isOpen, onClose, onSuccess }: PublishVideoMo
                     <label className="block text-sm font-medium text-gray-700 mb-2">选择视频：</label>
                     {isLoadingFragments ? (
                       <div className="flex items-center justify-center py-4">
-                        <Loader2 className="w-5 h-5 animate-spin text-purple-600" />
+                        <HamsterLoader size={5} />
                       </div>
                     ) : fragments.length === 0 ? (
                       <div className="text-center py-4 text-gray-500 text-sm">
@@ -344,9 +345,9 @@ export function PublishVideoModal({ isOpen, onClose, onSuccess }: PublishVideoMo
 
                 {/* 上传区域 */}
                 {isUploading ? (
-                  <div className="py-12 text-center">
-                    <Loader2 className="w-12 h-12 animate-spin text-purple-600 mx-auto mb-4" />
-                    <p className="text-gray-600 mb-2">上传中... {uploadProgress}%</p>
+                  <div className="py-12 text-center flex flex-col items-center">
+                    <HamsterLoader size={10} />
+                    <p className="text-gray-600 mb-2 mt-4">上传中... {uploadProgress}%</p>
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div
                         className="bg-purple-600 h-2 rounded-full transition-all duration-300"

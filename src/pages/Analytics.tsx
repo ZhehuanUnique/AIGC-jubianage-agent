@@ -419,7 +419,7 @@ function Analytics() {
                 <h3 className="text-lg font-semibold mb-4">成员消耗排名</h3>
                 {loadingRanking ? (
                   <div className="flex items-center justify-center py-8">
-                    <Loader2 className="animate-spin text-purple-600" size={32} />
+                    <HamsterLoader size={10} />
                   </div>
                 ) : (
                   <div className="bg-gray-50 border border-gray-200 rounded-lg overflow-hidden">
@@ -610,8 +610,8 @@ function Analytics() {
                 >
                   {deleting ? (
                     <>
-                      <Loader2 className="animate-spin" size={16} />
-                      删除中...
+                      <HamsterLoader size={3} />
+                      <span>删除中...</span>
                     </>
                   ) : (
                     '确认删除'

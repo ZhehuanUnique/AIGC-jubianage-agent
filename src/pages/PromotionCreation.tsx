@@ -718,8 +718,8 @@ function PromotionCreation() {
                 >
                   {generatingLyrics ? (
                     <>
-                      <Loader2 className="animate-spin" size={18} />
-                      生成中...
+                      <HamsterLoader size={4} />
+                      <span>生成中...</span>
                     </>
                   ) : (
                     '生成歌词'
@@ -733,8 +733,8 @@ function PromotionCreation() {
               >
                 {generatingMusic ? (
                   <>
-                    <Loader2 className="animate-spin" size={18} />
-                    生成中...
+                    <HamsterLoader size={4} />
+                    <span>生成中...</span>
                   </>
                 ) : (
                   '生成音乐'
@@ -872,9 +872,9 @@ function PromotionCreation() {
               </div>
               
               {loadingSavedMusic ? (
-                <div className="text-center text-gray-500 py-8">
-                  <Loader2 className="animate-spin mx-auto mb-2" size={24} />
-                  加载中...
+                <div className="text-center text-gray-500 py-8 flex flex-col items-center">
+                  <HamsterLoader size={8} />
+                  <span className="mt-2">加载中...</span>
                 </div>
               ) : savedMusicList.length === 0 ? (
                 <div className="text-center text-gray-500 py-8 bg-gray-50 rounded-lg border border-gray-200">
