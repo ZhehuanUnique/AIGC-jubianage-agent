@@ -639,76 +639,38 @@ function Community() {
                         </div>
                       </div>
 
-                      {/* 视频下方信息 */}
-                      <div className="p-4">
-                        {/* 发布时间 */}
-                        <div className="text-sm text-gray-500 mb-3">
-                          {formatTimeAgo(video.publishedAt)}
-                        </div>
-
-                        {/* 互动数据（多行显示） */}
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-6 text-gray-600">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleToggleLike(video.id, e)
-                              }}
-                              className={`flex items-center gap-2 transition-colors ${
-                                video.isLiked ? 'text-red-600' : 'hover:text-red-600'
-                              }`}
-                            >
-                              <Share2 className="w-5 h-5" />
-                              <span className="text-sm">{video.likesCount || 0}</span>
-                            </button>
-                            <button 
-                              className="flex items-center gap-2 hover:text-blue-600 transition-colors"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <MessageCircle className="w-5 h-5" />
-                              <span className="text-sm">0</span>
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleToggleLike(video.id, e)
-                              }}
-                              className={`flex items-center gap-2 transition-colors ${
-                                video.isLiked ? 'text-red-600' : 'hover:text-red-600'
-                              }`}
-                            >
-                              <Heart className={`w-5 h-5 ${video.isLiked ? 'fill-current' : ''}`} />
-                              <span className="text-sm">{video.likesCount || 0}</span>
-                            </button>
-                          </div>
-                          <div className="flex items-center gap-6 text-gray-600">
-                            <button 
-                              className="flex items-center gap-2 hover:text-green-600 transition-colors"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <Share2 className="w-5 h-5" />
-                              <span className="text-sm">0</span>
-                            </button>
-                            <button 
-                              className="flex items-center gap-2 hover:text-blue-600 transition-colors"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <MessageCircle className="w-5 h-5" />
-                              <span className="text-sm">0</span>
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleToggleLike(video.id, e)
-                              }}
-                              className={`flex items-center gap-2 transition-colors ${
-                                video.isLiked ? 'text-red-600' : 'hover:text-red-600'
-                              }`}
-                            >
-                              <Heart className={`w-5 h-5 ${video.isLiked ? 'fill-current' : ''}`} />
-                              <span className="text-sm">{video.likesCount || 0}</span>
-                            </button>
-                          </div>
+                      {/* 视频下方互动数据 */}
+                      <div className="px-4 py-3 border-t border-gray-100">
+                        <div className="flex items-center gap-6 text-gray-600">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              // TODO: 实现转发功能
+                            }}
+                            className="flex items-center gap-2 hover:text-green-600 transition-colors"
+                          >
+                            <Share2 className="w-5 h-5" />
+                            <span className="text-sm">转发</span>
+                          </button>
+                          <button 
+                            className="flex items-center gap-2 hover:text-blue-600 transition-colors"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MessageCircle className="w-5 h-5" />
+                            <span className="text-sm">评论</span>
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleToggleLike(video.id, e)
+                            }}
+                            className={`flex items-center gap-2 transition-colors ${
+                              video.isLiked ? 'text-red-600' : 'hover:text-red-600'
+                            }`}
+                          >
+                            <Heart className={`w-5 h-5 ${video.isLiked ? 'fill-current' : ''}`} />
+                            <span className="text-sm">{video.likesCount || 0}</span>
+                          </button>
                         </div>
                       </div>
                     </div>
