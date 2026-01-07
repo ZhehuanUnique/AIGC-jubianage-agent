@@ -125,13 +125,14 @@ export async function generateVideoWithKling26(imageUrl, options = {}) {
       })
     }
 
-    // 添加提示词
-    if (prompt) {
+    // 添加提示词（即使为空也传递，确保API接受）
+    if (prompt || prompt === '') {
       formData.append('prompt', prompt)
     }
 
-    // 添加音频选项
-    formData.append('enable_audio', enableAudio.toString())
+    // 添加音频选项（根据 API 文档，enable_audio 是 boolean 类型）
+    // 在 multipart/form-data 中，布尔值需要转换为字符串
+    formData.append('enable_audio', String(enableAudio))
 
     console.log('📤 发送请求到:', `${API_BASE_URL}${apiEndpoint}`)
 
