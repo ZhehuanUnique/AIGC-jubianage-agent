@@ -285,16 +285,31 @@ function UserProfile() {
                   </div>
 
                   {/* 操作按钮 */}
-                  <div className="flex items-center gap-2 mb-3">
-                    <button
-                      onClick={() => setIsFollowing(!isFollowing)}
-                      className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-                        isFollowing
-                          ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                          : 'bg-orange-500 text-white hover:bg-orange-600'
-                      }`}
-                    >
-                          {isFollowing ? '已关注' : '+关注'}
+                  {!isOwnProfile && (
+                    <div className="flex items-center gap-2 mb-3">
+                      <button
+                        onClick={async () => {
+                          if (!username) return
+                          const action = isFollowing ? 'unfollow' : 'follow'
+                          try {
+                            await followUser(username, action)
+                            setIsFollowing(!isFollowing)
+                            // 重新加载用户信息以更新粉丝数
+                            const profile = await getUserProfile(username)
+                            setUserProfile(profile)
+                            alertSuccess(isFollowing ? '取消关注成功' : '关注成功', '成功')
+                          } catch (error) {
+                            console.error('关注操作失败:', error)
+                            alertError(error instanceof Error ? error.message : '操作失败', '错误')
+                          }
+                        }}
+                        className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+                          isFollowing
+                            ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            : 'bg-orange-500 text-white hover:bg-orange-600'
+                        }`}
+                      >
+                        {isFollowing ? '已关注' : '+关注'}
                       </button>
                       <button className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium">
                         留言
@@ -305,10 +320,9 @@ function UserProfile() {
                     </div>
                   )}
 
-                  {/* 用户描述和统计 */}
+                  {/* 用户描述 */}
                   <div className="text-sm text-gray-600 mb-2">
-                    <p>{userProfile.description}</p>
-                    <p className="mt-1">昨日发博{userProfile.stats.yesterdayPosts}, 阅读数{formatNumber(userProfile.stats.reads)}+, 互动数{userProfile.stats.interactions}</p>
+                    <p>暂无简介</p>
                   </div>
 
                   {/* 认证信息 */}
