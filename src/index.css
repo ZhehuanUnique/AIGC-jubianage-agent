@@ -984,3 +984,26 @@ select.text-center::-ms-expand {
 }
 
 
+
+/* 作品展示网格 - 视频紧贴无间隙 */
+.works-grid {
+  display: grid;
+  gap: 0 !important;
+  row-gap: 0 !important;
+  column-gap: 0 !important;
+}
+
+.works-grid > * {
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  line-height: 0;
+}
+
+.works-grid img,
+.works-grid video {
+  display: block;
+  margin: 0;
+  padding: 0;
+  border: none;
+}

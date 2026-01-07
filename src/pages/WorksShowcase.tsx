@@ -466,8 +466,7 @@ function WorksShowcase() {
         ) : (
           <div 
             ref={containerRef}
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
-            style={{ gap: 0, rowGap: 0, columnGap: 0, margin: 0, padding: 0 }}
+            className="works-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
           >
             {/* 视频卡片 */}
             {videos.map((video, index) => {
@@ -479,10 +478,10 @@ function WorksShowcase() {
                   key={video.id}
                   id={`video-${video.id}`}
                   draggable
-                  className={`group relative bg-white cursor-grab active:cursor-grabbing transition-all ${
+                  className={`group cursor-grab active:cursor-grabbing ${
                     draggedVideoId === video.id ? 'opacity-50 cursor-grabbing' : ''
-                  } ${dragOverVideoId === video.id ? 'ring-2 ring-purple-500 ring-offset-2' : ''}`}
-                  style={{ overflow: 'visible', position: 'relative', margin: 0, padding: 0, border: 'none' }}
+                  } ${dragOverVideoId === video.id ? 'ring-2 ring-purple-500 ring-inset' : ''}`}
+                  style={{ position: 'relative' }}
                   onDragStart={(e) => {
                     setDraggedVideoId(video.id)
                     e.dataTransfer.effectAllowed = 'move'
@@ -557,12 +556,11 @@ function WorksShowcase() {
                 >
                   {/* 视频容器 - 根据宽高比自适应 */}
                   <div 
-                    className={`relative bg-gray-100 ${
+                    className={`relative bg-black ${
                       isPortrait 
                         ? 'aspect-[9/16]' 
                         : 'aspect-video'
                     }`}
-                    style={{ overflow: 'hidden', margin: 0, padding: 0 }}
                   >
                     {/* 优先显示缩略图（如果存在），悬停时再显示视频 */}
                     {video.thumbnailUrl && video.thumbnailUrl.trim() !== '' ? (
@@ -697,17 +695,10 @@ function WorksShowcase() {
                     )}
                   </div>
 
-                  {/* 悬停时显示的悬浮窗口 - 绝对定位在视频卡片上方，不占用文档流空间 */}
+                  {/* 悬停时显示的悬浮窗口 - 绝对定位悬浮在视频上方 */}
                   {hoveredVideoId === video.id && (
                     <div 
-                      className="hover-window absolute inset-0 bg-white bg-opacity-98 backdrop-blur-sm shadow-2xl z-[100] flex flex-col p-3 pointer-events-auto rounded-lg"
-                      style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                      }}
+                      className="hover-window absolute inset-0 bg-white bg-opacity-98 backdrop-blur-sm shadow-2xl z-[9999] flex flex-col p-3 pointer-events-auto rounded-lg border border-gray-200"
                       onMouseEnter={() => setHoveredVideoId(video.id)}
                       onMouseLeave={() => setHoveredVideoId(null)}
                     >
