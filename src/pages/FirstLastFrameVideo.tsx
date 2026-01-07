@@ -1310,10 +1310,14 @@ function FirstLastFrameVideo() {
                           }
                         }}
                         src={task.videoUrl}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover cursor-pointer"
                         muted
                         loop
                         preload="metadata"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setPreviewImage({ url: task.videoUrl!, type: 'first' })
+                        }}
                       />
                     ) : task.firstFrameUrl ? (
                       <img
@@ -1627,7 +1631,13 @@ function FirstLastFrameVideo() {
                   <div className="p-3">
                     <p className="text-sm text-gray-700 line-clamp-2 mb-2">{task.text || '无描述'}</p>
                               <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
-                      <span>视频 {videoVersion} | {task.duration}s | {task.resolution}</span>
+                      <span>
+                        {(() => {
+                          const modelInfo = supportedModels.find(m => m.value === task.model)
+                          const modelLabel = modelInfo ? modelInfo.label : task.model
+                          return `${modelLabel} ${task.duration}s ${task.resolution}`
+                        })()}
+                      </span>
                               </div>
                               {/* 操作按钮 */}
                               <div className="flex items-center gap-2">
@@ -1945,16 +1955,6 @@ function FirstLastFrameVideo() {
                             frameAspectRatio === 'other' ? 'object-cover object-top' : 'object-cover'
                           }`}
                         />
-                        {/* 预览按钮 - 鼠标悬停时显示 */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setPreviewImage({ url: firstFramePreview, type: 'first' })
-                          }}
-                          className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 z-10 rounded-xl"
-                        >
-                          <Eye className="text-white" size={24} />
-                        </button>
                       </div>
                     ) : (
                       <div className="flex flex-col items-center justify-center z-10">
@@ -2042,20 +2042,14 @@ function FirstLastFrameVideo() {
                           <img
                             src={lastFramePreview}
                             alt="尾帧"
-                            className={`absolute inset-0 w-full h-full rounded-xl ${
+                            className={`absolute inset-0 w-full h-full rounded-xl cursor-pointer ${
                               frameAspectRatio === 'other' ? 'object-cover object-top' : 'object-cover'
                             }`}
-                          />
-                          {/* 预览按钮 - 鼠标悬停时显示 */}
-                          <button
                             onClick={(e) => {
                               e.stopPropagation()
                               setPreviewImage({ url: lastFramePreview, type: 'last' })
                             }}
-                            className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 z-10 rounded-xl"
-                          >
-                            <Eye className="text-white" size={24} />
-                          </button>
+                          />
                         </div>
                       ) : (
                         <div className="flex flex-col items-center justify-center z-10">
