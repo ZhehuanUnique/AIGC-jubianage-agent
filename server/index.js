@@ -7868,6 +7868,9 @@ async function startServer() {
         console.warn('⚠️  初始化数据库表失败:', error.message)
         console.warn('💡 提示：可以手动运行 node server/db/initFirstLastFrameVideosTable.js 来初始化表')
       }
+
+      // 设置榜单定时任务
+      setupRankingSchedule(dbConnected)
     } else {
       console.warn('⚠️  数据库连接失败，部分功能可能不可用')
       console.warn('💡 提示：请检查 DATABASE_URL 环境变量配置')
@@ -7888,7 +7891,7 @@ async function startServer() {
   }
 
   // 更新榜单的函数
-  const updateRankings = async () => {
+  const updateRankings = async (dbConnected) => {
     try {
       console.log('🔄 开始自动更新榜单...')
       const { updateRanking } = await import('./services/trendingRankingService.js')
@@ -7934,8 +7937,13 @@ async function startServer() {
     }
   }
 
-  // 立即检查并更新今天的榜单（如果还没有）
-  if (dbConnected) {
+  // 设置定时任务（在数据库连接成功后调用）
+  const setupRankingSchedule = (dbConnected) => {
+    if (!dbConnected) {
+      return
+    }
+
+    // 立即检查并更新今天的榜单（如果还没有）
     setTimeout(async () => {
       try {
         const pool = await import('./db/connection.js')
@@ -7955,30 +7963,28 @@ async function startServer() {
         // 如果没有今天的榜单，立即更新
         if (animeCheck.rows.length === 0 || aiRealCheck.rows.length === 0) {
           console.log('📊 检测到今日榜单未更新，立即更新...')
-          await updateRankings()
+          await updateRankings(dbConnected)
         }
       } catch (error) {
         console.warn('⚠️  检查今日榜单失败:', error.message)
       }
     }, 5000) // 延迟5秒，等待服务器完全启动
-  }
 
-  // 设置每天凌晨自动更新
-  const scheduleDailyUpdate = () => {
-    const timeUntilMidnight = getTimeUntilMidnight()
-    
-    setTimeout(() => {
-      // 立即执行一次更新
-      updateRankings()
+    // 设置每天凌晨自动更新
+    const scheduleDailyUpdate = () => {
+      const timeUntilMidnight = getTimeUntilMidnight()
       
-      // 然后每24小时执行一次
-      setInterval(updateRankings, 24 * 60 * 60 * 1000)
-    }, timeUntilMidnight)
-    
-    console.log(`⏰ 已设置定时任务：将在 ${Math.round(timeUntilMidnight / 1000 / 60)} 分钟后首次更新榜单，之后每24小时自动更新`)
-  }
+      setTimeout(() => {
+        // 立即执行一次更新
+        updateRankings(dbConnected)
+        
+        // 然后每24小时执行一次
+        setInterval(() => updateRankings(dbConnected), 24 * 60 * 60 * 1000)
+      }, timeUntilMidnight)
+      
+      console.log(`⏰ 已设置定时任务：将在 ${Math.round(timeUntilMidnight / 1000 / 60)} 分钟后首次更新榜单，之后每24小时自动更新`)
+    }
 
-  if (dbConnected) {
     scheduleDailyUpdate()
   }
 
