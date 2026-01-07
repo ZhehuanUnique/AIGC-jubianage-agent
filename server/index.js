@@ -7839,6 +7839,114 @@ app.use((err, req, res, next) => {
   })
 })
 
+// ==================== 定时任务：每天自动更新榜单 ====================
+// 计算到明天凌晨的时间（毫秒）
+function getTimeUntilMidnight() {
+  const now = new Date()
+  const tomorrow = new Date(now)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  tomorrow.setHours(0, 0, 0, 0)
+  return tomorrow.getTime() - now.getTime()
+}
+
+// 更新榜单的函数
+async function updateRankings(isDbConnected) {
+  try {
+    console.log('🔄 开始自动更新榜单...')
+    const { updateRanking } = await import('./services/trendingRankingService.js')
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+    const today = new Date().toISOString().split('T')[0]
+
+    // 更新动态漫榜
+    try {
+      const animeRanking = await updateRanking('anime')
+      await db.query(
+        `INSERT INTO trending_rankings (ranking_type, ranking_data, date, updated_at)
+         VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+         ON CONFLICT (ranking_type, date) 
+         DO UPDATE SET 
+           ranking_data = EXCLUDED.ranking_data,
+           updated_at = CURRENT_TIMESTAMP`,
+        ['anime', JSON.stringify(animeRanking), today]
+      )
+      console.log('✅ 动态漫榜更新成功')
+    } catch (error) {
+      console.error('❌ 更新动态漫榜失败:', error.message)
+    }
+
+    // 更新AI短剧榜
+    try {
+      const aiRealRanking = await updateRanking('ai-real')
+      await db.query(
+        `INSERT INTO trending_rankings (ranking_type, ranking_data, date, updated_at)
+         VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+         ON CONFLICT (ranking_type, date) 
+         DO UPDATE SET 
+           ranking_data = EXCLUDED.ranking_data,
+           updated_at = CURRENT_TIMESTAMP`,
+        ['ai-real', JSON.stringify(aiRealRanking), today]
+      )
+      console.log('✅ AI短剧榜更新成功')
+    } catch (error) {
+      console.error('❌ 更新AI短剧榜失败:', error.message)
+    }
+  } catch (error) {
+    console.error('❌ 自动更新榜单失败:', error.message)
+  }
+}
+
+// 设置定时任务（在数据库连接成功后调用）
+function setupRankingSchedule(isDbConnected) {
+  if (!isDbConnected) {
+    return
+  }
+
+  // 立即检查并更新今天的榜单（如果还没有）
+  setTimeout(async () => {
+    try {
+      const pool = await import('./db/connection.js')
+      const db = pool.default
+      const today = new Date().toISOString().split('T')[0]
+      
+      // 检查今天是否已有榜单数据
+      const animeCheck = await db.query(
+        'SELECT id FROM trending_rankings WHERE ranking_type = $1 AND date = $2',
+        ['anime', today]
+      )
+      const aiRealCheck = await db.query(
+        'SELECT id FROM trending_rankings WHERE ranking_type = $1 AND date = $2',
+        ['ai-real', today]
+      )
+      
+      // 如果没有今天的榜单，立即更新
+      if (animeCheck.rows.length === 0 || aiRealCheck.rows.length === 0) {
+        console.log('📊 检测到今日榜单未更新，立即更新...')
+        await updateRankings(isDbConnected)
+      }
+    } catch (error) {
+      console.warn('⚠️  检查今日榜单失败:', error.message)
+    }
+  }, 5000) // 延迟5秒，等待服务器完全启动
+
+  // 设置每天凌晨自动更新
+  const scheduleDailyUpdate = () => {
+    const timeUntilMidnight = getTimeUntilMidnight()
+    
+    setTimeout(() => {
+      // 立即执行一次更新
+      updateRankings(isDbConnected)
+      
+      // 然后每24小时执行一次
+      setInterval(() => updateRankings(isDbConnected), 24 * 60 * 60 * 1000)
+    }, timeUntilMidnight)
+    
+    console.log(`⏰ 已设置定时任务：将在 ${Math.round(timeUntilMidnight / 1000 / 60)} 分钟后首次更新榜单，之后每24小时自动更新`)
+  }
+
+  scheduleDailyUpdate()
+}
+
 // 启动服务器前，测试数据库连接
 async function startServer() {
   try {
@@ -7878,114 +7986,6 @@ async function startServer() {
   } catch (error) {
     console.warn('⚠️  数据库连接检查失败:', error.message)
     console.warn('💡 提示：请确保已安装PostgreSQL并配置正确的连接信息')
-  }
-
-  // ==================== 定时任务：每天自动更新榜单 ====================
-  // 计算到明天凌晨的时间（毫秒）
-  const getTimeUntilMidnight = () => {
-    const now = new Date()
-    const tomorrow = new Date(now)
-    tomorrow.setDate(tomorrow.getDate() + 1)
-    tomorrow.setHours(0, 0, 0, 0)
-    return tomorrow.getTime() - now.getTime()
-  }
-
-  // 更新榜单的函数
-  const updateRankings = async (dbConnected) => {
-    try {
-      console.log('🔄 开始自动更新榜单...')
-      const { updateRanking } = await import('./services/trendingRankingService.js')
-      const pool = await import('./db/connection.js')
-      const db = pool.default
-      const today = new Date().toISOString().split('T')[0]
-
-      // 更新动态漫榜
-      try {
-        const animeRanking = await updateRanking('anime')
-        await db.query(
-          `INSERT INTO trending_rankings (ranking_type, ranking_data, date, updated_at)
-           VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
-           ON CONFLICT (ranking_type, date) 
-           DO UPDATE SET 
-             ranking_data = EXCLUDED.ranking_data,
-             updated_at = CURRENT_TIMESTAMP`,
-          ['anime', JSON.stringify(animeRanking), today]
-        )
-        console.log('✅ 动态漫榜更新成功')
-      } catch (error) {
-        console.error('❌ 更新动态漫榜失败:', error.message)
-      }
-
-      // 更新AI短剧榜
-      try {
-        const aiRealRanking = await updateRanking('ai-real')
-        await db.query(
-          `INSERT INTO trending_rankings (ranking_type, ranking_data, date, updated_at)
-           VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
-           ON CONFLICT (ranking_type, date) 
-           DO UPDATE SET 
-             ranking_data = EXCLUDED.ranking_data,
-             updated_at = CURRENT_TIMESTAMP`,
-          ['ai-real', JSON.stringify(aiRealRanking), today]
-        )
-        console.log('✅ AI短剧榜更新成功')
-      } catch (error) {
-        console.error('❌ 更新AI短剧榜失败:', error.message)
-      }
-    } catch (error) {
-      console.error('❌ 自动更新榜单失败:', error.message)
-    }
-  }
-
-  // 设置定时任务（在数据库连接成功后调用）
-  const setupRankingSchedule = (dbConnected) => {
-    if (!dbConnected) {
-      return
-    }
-
-    // 立即检查并更新今天的榜单（如果还没有）
-    setTimeout(async () => {
-      try {
-        const pool = await import('./db/connection.js')
-        const db = pool.default
-        const today = new Date().toISOString().split('T')[0]
-        
-        // 检查今天是否已有榜单数据
-        const animeCheck = await db.query(
-          'SELECT id FROM trending_rankings WHERE ranking_type = $1 AND date = $2',
-          ['anime', today]
-        )
-        const aiRealCheck = await db.query(
-          'SELECT id FROM trending_rankings WHERE ranking_type = $1 AND date = $2',
-          ['ai-real', today]
-        )
-        
-        // 如果没有今天的榜单，立即更新
-        if (animeCheck.rows.length === 0 || aiRealCheck.rows.length === 0) {
-          console.log('📊 检测到今日榜单未更新，立即更新...')
-          await updateRankings(dbConnected)
-        }
-      } catch (error) {
-        console.warn('⚠️  检查今日榜单失败:', error.message)
-      }
-    }, 5000) // 延迟5秒，等待服务器完全启动
-
-    // 设置每天凌晨自动更新
-    const scheduleDailyUpdate = () => {
-      const timeUntilMidnight = getTimeUntilMidnight()
-      
-      setTimeout(() => {
-        // 立即执行一次更新
-        updateRankings(dbConnected)
-        
-        // 然后每24小时执行一次
-        setInterval(() => updateRankings(dbConnected), 24 * 60 * 60 * 1000)
-      }, timeUntilMidnight)
-      
-      console.log(`⏰ 已设置定时任务：将在 ${Math.round(timeUntilMidnight / 1000 / 60)} 分钟后首次更新榜单，之后每24小时自动更新`)
-    }
-
-    scheduleDailyUpdate()
   }
 
   // ==================== 小组管理 API ====================
