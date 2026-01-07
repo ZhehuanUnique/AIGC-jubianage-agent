@@ -499,24 +499,24 @@ function CreateSceneModal({ onClose, onSceneSelect, projectName }: CreateSceneMo
                       const logoPath = getModelLogo(model.id)
                       return (
                         <div key={model.id} className="flex flex-col">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedModel(model.id)}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedModel(model.id)}
                             className={`relative w-full rounded-lg overflow-hidden transition-all ${
-                              selectedModel === model.id
+                            selectedModel === model.id
                                 ? 'ring-2 ring-purple-600 ring-offset-2'
                                 : 'hover:ring-2 hover:ring-purple-300 hover:ring-offset-1'
-                            }`}
+                          }`}
                             style={{ aspectRatio: '16/9' }}
-                          >
+                        >
                             {logoPath ? (
-                              <img
-                                src={logoPath}
-                                alt={model.name}
+                            <img
+                              src={logoPath}
+                              alt={model.name}
                                 className="w-full h-full object-cover"
-                                onError={(e) => {
+                              onError={(e) => {
                                   // 如果图片加载失败，显示占位符
-                                  e.currentTarget.style.display = 'none'
+                                e.currentTarget.style.display = 'none'
                                   const parent = e.currentTarget.parentElement
                                   if (parent && !parent.querySelector('.placeholder')) {
                                     const placeholder = document.createElement('div')
@@ -540,7 +540,7 @@ function CreateSceneModal({ onClose, onSceneSelect, projectName }: CreateSceneMo
                                 </div>
                               </div>
                             )}
-                          </button>
+                        </button>
                           <span className="text-xs text-center mt-1 text-gray-700 leading-tight">{model.name}</span>
                         </div>
                       )

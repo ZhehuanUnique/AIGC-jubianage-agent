@@ -744,34 +744,34 @@ function FirstLastFrameVideo() {
             // 如果任务超过5分钟，标记为失败
             if (elapsedMinutes > 5) {
               console.warn(`任务 ${taskId} 生成超时（超过5分钟），判定为失败`)
-              
-              // 更新任务状态为失败
-              const errorMessage = '视频生成超时，超过5分钟未完成'
-              setAllTasks(prev => prev.map(t => 
-                t.id === taskId 
-                  ? { ...t, status: 'failed', errorMessage }
-                  : t
-              ))
-              setTasks(prev => prev.map(t => 
-                t.id === taskId 
-                  ? { ...t, status: 'failed', errorMessage }
-                  : t
-              ))
+          
+          // 更新任务状态为失败
+          const errorMessage = '视频生成超时，超过5分钟未完成'
+          setAllTasks(prev => prev.map(t => 
+            t.id === taskId 
+              ? { ...t, status: 'failed', errorMessage }
+              : t
+          ))
+          setTasks(prev => prev.map(t => 
+            t.id === taskId 
+              ? { ...t, status: 'failed', errorMessage }
+              : t
+          ))
               
               // 停止轮询
               clearInterval(pollIntervalRef.current!)
               pollIntervalRef.current = null
               polledTasksRef.current.delete(taskId)
-              
-              // 清除生成任务状态
-              if (generatingTask && generatingTask.taskId === taskId) {
-                setGeneratingTask(null)
-              }
-              
-              alertError(errorMessage, '生成超时')
-              return
-            }
-            
+          
+          // 清除生成任务状态
+          if (generatingTask && generatingTask.taskId === taskId) {
+            setGeneratingTask(null)
+          }
+          
+          alertError(errorMessage, '生成超时')
+          return
+        }
+
             // 优先使用后端返回的实际进度（如果存在）
             let progress = 0
             if (task.progress !== undefined && task.progress !== null) {
@@ -798,20 +798,20 @@ function FirstLastFrameVideo() {
             }
             
             // 更新generatingTask（如果存在）
-            if (generatingTask && generatingTask.taskId === taskId) {
-              // 从"加速中"切换到"生成中"
-              if (generatingTask.status === 'accelerating') {
-                setGeneratingTask({
-                  taskId,
+          if (generatingTask && generatingTask.taskId === taskId) {
+            // 从"加速中"切换到"生成中"
+            if (generatingTask.status === 'accelerating') {
+              setGeneratingTask({
+                taskId,
                   progress: Math.round(progress),
-                  status: 'generating',
-                  startTime: generatingTask.startTime
-                })
+                status: 'generating',
+                startTime: generatingTask.startTime
+              })
               } else {
-                setGeneratingTask(prev => prev ? {
-                  ...prev,
-                  progress: Math.round(progress)
-                } : null)
+            setGeneratingTask(prev => prev ? {
+              ...prev,
+              progress: Math.round(progress)
+            } : null)
               }
             } else if (task.status === 'processing' || task.status === 'pending') {
               // 如果没有generatingTask但任务正在处理，创建一个（用于显示进度）
@@ -1310,7 +1310,7 @@ function FirstLastFrameVideo() {
                 groups[dateKey].push(task)
                 return groups
               }, {} as Record<string, VideoTask[]>)
-              
+
               // 对每个日期组内的任务进行排序（新的在前面，旧的在后面）
               Object.keys(groupedTasks).forEach(dateKey => {
                 groupedTasks[dateKey].sort((a, b) => {
@@ -1856,12 +1856,12 @@ function FirstLastFrameVideo() {
                                       const formData = new FormData()
                                       
                                       // 直接使用URL，避免下载图片的CORS问题
-                                      formData.append('firstFrameUrl', task.firstFrameUrl)
+                                        formData.append('firstFrameUrl', task.firstFrameUrl)
                                       
                                       // 处理尾帧图片（如果有）
                                       const taskModelSupportsFirstLastFrame = supportedModels.find(m => m.value === task.model)?.supportsFirstLastFrame || false
                                       if (task.lastFrameUrl && taskModelSupportsFirstLastFrame) {
-                                        formData.append('lastFrameUrl', task.lastFrameUrl)
+                                          formData.append('lastFrameUrl', task.lastFrameUrl)
                                       }
                                       
                                       formData.append('projectId', projectId)
@@ -1897,12 +1897,12 @@ function FirstLastFrameVideo() {
                                       allTasksRef.current = [...allTasksRef.current, tempTask]
                                       
                                       // 设置生成任务状态
-                                      setGeneratingTask({
+                                        setGeneratingTask({
                                         taskId: tempTaskId,
-                                        progress: 0,
-                                        status: 'accelerating',
-                                        startTime: Date.now()
-                                      })
+                                          progress: 0,
+                                          status: 'accelerating',
+                                          startTime: Date.now()
+                                        })
                                       
                                       // 滚动到历史记录区域
                                       setTimeout(() => {
@@ -2416,23 +2416,23 @@ function FirstLastFrameVideo() {
               {/* 删除按钮 - 右下角（仅在输入区域预览时显示） */}
               {(previewImage.type === 'first' && firstFramePreview === previewImage.url) || 
                (previewImage.type === 'last' && lastFramePreview === previewImage.url) ? (
-                <div className="absolute bottom-0 right-0 flex gap-2 z-10 m-2">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      if (previewImage.type === 'first') {
-                        clearFirstFrame()
-                      } else {
-                        clearLastFrame()
-                      }
-                      setPreviewImage(null)
-                    }}
-                    className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 flex items-center gap-2 shadow-lg"
-                  >
-                    <Trash2 size={16} />
-                    删除{previewImage.type === 'first' ? '首帧' : '尾帧'}
-                  </button>
-                </div>
+              <div className="absolute bottom-0 right-0 flex gap-2 z-10 m-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    if (previewImage.type === 'first') {
+                      clearFirstFrame()
+                    } else {
+                      clearLastFrame()
+                    }
+                    setPreviewImage(null)
+                  }}
+                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 flex items-center gap-2 shadow-lg"
+                >
+                  <Trash2 size={16} />
+                  删除{previewImage.type === 'first' ? '首帧' : '尾帧'}
+                </button>
+              </div>
               ) : null}
             </div>
           </div>
