@@ -2284,13 +2284,22 @@ function FirstLastFrameVideo() {
               <X size={20} />
             </button>
 
-            {/* 图片容器 - 居中 */}
+            {/* 图片/视频容器 - 居中 */}
             <div className="relative max-w-full max-h-[90vh] flex items-center justify-center">
-              <img
-                src={previewImage.url}
-                alt={previewImage.type === 'first' ? '首帧' : '尾帧'}
-                className="max-w-full max-h-[90vh] object-contain rounded-lg"
-              />
+              {previewImage.url.endsWith('.mp4') || previewImage.url.includes('video') || previewImage.url.startsWith('data:video/') ? (
+                <video
+                  src={previewImage.url}
+                  controls
+                  autoPlay
+                  className="max-w-full max-h-[90vh] object-contain rounded-lg"
+                />
+              ) : (
+                <img
+                  src={previewImage.url}
+                  alt={previewImage.type === 'first' ? '首帧' : '尾帧'}
+                  className="max-w-full max-h-[90vh] object-contain rounded-lg"
+                />
+              )}
               
               {/* 删除按钮 - 右下角 */}
               <div className="absolute bottom-0 right-0 flex gap-2 z-10 m-2">
