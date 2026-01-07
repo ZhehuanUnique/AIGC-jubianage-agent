@@ -410,8 +410,8 @@ function WorksShowcase() {
       
       <div className="max-w-full mx-auto bg-white" style={{ padding: 0, margin: 0 }}>
         {/* 头部：排序选项 */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-0" style={{ marginBottom: 0 }}>
-          <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-end gap-3 sm:gap-0 mb-0 px-4 py-2" style={{ marginBottom: 0 }}>
+          <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto justify-end">
             <button
               onClick={() => setShowPublishModal(true)}
               className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
@@ -700,7 +700,7 @@ function WorksShowcase() {
                   {/* 悬停时显示的悬浮窗口 - 绝对定位在视频卡片上方，不占用文档流空间 */}
                   {hoveredVideoId === video.id && (
                     <div 
-                      className="hover-window absolute inset-0 bg-white bg-opacity-98 backdrop-blur-sm shadow-2xl z-[100] flex flex-col p-4 pointer-events-auto rounded-lg"
+                      className="hover-window absolute inset-0 bg-white bg-opacity-98 backdrop-blur-sm shadow-2xl z-[100] flex flex-col p-3 pointer-events-auto rounded-lg"
                       style={{
                         position: 'absolute',
                         top: 0,
@@ -712,12 +712,12 @@ function WorksShowcase() {
                       onMouseLeave={() => setHoveredVideoId(null)}
                     >
                       {/* 标题 */}
-                      <h3 className="text-sm font-semibold text-gray-900 mb-3 line-clamp-2 flex-shrink-0">
+                      <h3 className="text-sm font-semibold text-gray-900 mb-1.5 line-clamp-2 flex-shrink-0">
                         {video.title || '未命名视频'}
                       </h3>
                       
                       {/* 用户信息 */}
-                      <div className="flex items-center gap-2 mb-3 flex-shrink-0">
+                      <div className="flex items-center gap-2 mb-1.5 flex-shrink-0">
                         {video.avatar ? (
                           <img
                             src={video.avatar}
@@ -733,7 +733,7 @@ function WorksShowcase() {
                       </div>
 
                       {/* 互动数据 */}
-                      <div className="flex items-center gap-4 text-xs text-gray-600 mb-3 flex-shrink-0">
+                      <div className="flex items-center gap-4 text-xs text-gray-600 mb-1.5 flex-shrink-0">
                         <button
                           onClick={(e) => handleLike(video.id, e)}
                           className="flex items-center gap-1 hover:text-red-500 transition-colors"
@@ -746,7 +746,7 @@ function WorksShowcase() {
                       </div>
                       
                       {/* 模型和规格信息 */}
-                      <div className="flex items-center gap-2 mb-3 flex-wrap flex-shrink-0">
+                      <div className="flex items-center gap-2 mb-1.5 flex-wrap flex-shrink-0">
                         {video.model ? (
                           <span className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-700">
                             {video.model}
@@ -769,7 +769,7 @@ function WorksShowcase() {
                       </div>
                       
                       {/* 操作按钮行 - 参考海螺AI网站的设计 */}
-                      <div className="flex items-center gap-2 pt-3 border-t border-gray-200 mt-auto flex-shrink-0">
+                      <div className="flex items-center gap-2 pt-2 border-t border-gray-200 mt-auto flex-shrink-0">
                         <button 
                           onClick={(e) => {
                             e.stopPropagation()

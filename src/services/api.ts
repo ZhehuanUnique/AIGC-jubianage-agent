@@ -2455,9 +2455,21 @@ export async function followUser(targetUsername: string, action: 'follow' | 'unf
       body: JSON.stringify({ targetUsername, action }),
     })
 
+    // 检查Content-Type，如果不是JSON，说明返回了HTML错误页面
+    const contentType = response.headers.get('content-type')
+    if (!contentType || !contentType.includes('application/json')) {
+      const text = await response.text()
+      console.error('API返回非JSON响应:', text.substring(0, 200))
+      throw new Error('服务器错误，请稍后重试')
+    }
+
     if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.error || '操作失败')
+      try {
+        const error = await response.json()
+        throw new Error(error.error || '操作失败')
+      } catch (parseError) {
+        throw new Error('操作失败，请稍后重试')
+      }
     }
 
     const result = await response.json()

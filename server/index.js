@@ -9152,5 +9152,218 @@ app.post('/api/community-videos/:videoId/view', authenticateToken, async (req, r
   }
 })
 
+// ==================== 用户关注 API ====================
+// 关注/取消关注用户
+app.post('/api/user-follows', authenticateToken, async (req, res) => {
+  try {
+    const { targetUsername, action } = req.body
+    const userId = req.user?.id
+    
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: '未登录，请先登录',
+      })
+    }
+    
+    if (!targetUsername || !action) {
+      return res.status(400).json({
+        success: false,
+        error: '参数错误',
+      })
+    }
+    
+    if (action !== 'follow' && action !== 'unfollow') {
+      return res.status(400).json({
+        success: false,
+        error: '无效的操作类型',
+      })
+    }
+    
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+    
+    // 获取目标用户ID
+    const targetUserResult = await db.query(
+      'SELECT id FROM users WHERE username = $1',
+      [targetUsername]
+    )
+    
+    if (targetUserResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: '用户不存在',
+      })
+    }
+    
+    const targetUserId = targetUserResult.rows[0].id
+    
+    // 不能关注自己
+    if (userId === targetUserId) {
+      return res.status(400).json({
+        success: false,
+        error: '不能关注自己',
+      })
+    }
+    
+    let isFollowing = false
+    
+    if (action === 'follow') {
+      // 检查是否已关注
+      const existingFollow = await db.query(
+        'SELECT id FROM user_follows WHERE follower_id = $1 AND following_id = $2',
+        [userId, targetUserId]
+      )
+      
+      if (existingFollow.rows.length === 0) {
+        // 添加关注
+        await db.query(
+          'INSERT INTO user_follows (follower_id, following_id) VALUES ($1, $2)',
+          [userId, targetUserId]
+        )
+        isFollowing = true
+      } else {
+        isFollowing = true
+      }
+    } else {
+      // 取消关注
+      await db.query(
+        'DELETE FROM user_follows WHERE follower_id = $1 AND following_id = $2',
+        [userId, targetUserId]
+      )
+      isFollowing = false
+    }
+    
+    res.json({
+      success: true,
+      isFollowing,
+    })
+  } catch (error) {
+    console.error('关注操作失败:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '操作失败',
+    })
+  }
+})
+
+// 检查是否已关注用户
+app.get('/api/user-follows/check', authenticateToken, async (req, res) => {
+  try {
+    const { targetUsername } = req.query
+    const userId = req.user?.id
+    
+    if (!userId) {
+      return res.json({
+        isFollowing: false,
+      })
+    }
+    
+    if (!targetUsername) {
+      return res.json({
+        isFollowing: false,
+      })
+    }
+    
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+    
+    // 获取目标用户ID
+    const targetUserResult = await db.query(
+      'SELECT id FROM users WHERE username = $1',
+      [targetUsername]
+    )
+    
+    if (targetUserResult.rows.length === 0) {
+      return res.json({
+        isFollowing: false,
+      })
+    }
+    
+    const targetUserId = targetUserResult.rows[0].id
+    
+    // 检查是否已关注
+    const followResult = await db.query(
+      'SELECT id FROM user_follows WHERE follower_id = $1 AND following_id = $2',
+      [userId, targetUserId]
+    )
+    
+    res.json({
+      isFollowing: followResult.rows.length > 0,
+    })
+  } catch (error) {
+    console.error('检查关注状态失败:', error)
+    res.json({
+      isFollowing: false,
+    })
+  }
+})
+
+// 获取用户信息（包括粉丝数、关注数等）
+app.get('/api/users/:username', authenticateToken, async (req, res) => {
+  try {
+    const { username } = req.params
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+    
+    // 获取用户基本信息
+    const userResult = await db.query(
+      'SELECT id, username, display_name, avatar_url, verified, created_at FROM users WHERE username = $1',
+      [username]
+    )
+    
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: '用户不存在',
+      })
+    }
+    
+    const user = userResult.rows[0]
+    
+    // 获取粉丝数
+    const followersResult = await db.query(
+      'SELECT COUNT(*) as count FROM user_follows WHERE following_id = $1',
+      [user.id]
+    )
+    const followersCount = parseInt(followersResult.rows[0].count) || 0
+    
+    // 获取关注数
+    const followingResult = await db.query(
+      'SELECT COUNT(*) as count FROM user_follows WHERE follower_id = $1',
+      [user.id]
+    )
+    const followingCount = parseInt(followingResult.rows[0].count) || 0
+    
+    // 获取视频数
+    const videosResult = await db.query(
+      'SELECT COUNT(*) as count FROM community_videos WHERE username = $1 AND published = true',
+      [username]
+    )
+    const videosCount = parseInt(videosResult.rows[0].count) || 0
+    
+    res.json({
+      success: true,
+      data: {
+        id: user.id,
+        username: user.username,
+        displayName: user.display_name || user.username,
+        avatar: user.avatar_url,
+        verified: user.verified || false,
+        followersCount,
+        followingCount,
+        videosCount,
+        createdAt: user.created_at,
+      },
+    })
+  } catch (error) {
+    console.error('获取用户信息失败:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '获取用户信息失败',
+    })
+  }
+})
+
 startServer()
 
