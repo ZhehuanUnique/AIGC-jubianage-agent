@@ -245,8 +245,8 @@ function Community() {
             {/* 帖子列表 */}
             <div className="space-y-4">
               {isLoading ? (
-                <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-                  <div className="inline-block w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+                <div className="bg-white rounded-lg shadow-sm p-12 text-center flex flex-col items-center">
+                  <HamsterLoader size={8} />
                   <p className="mt-4 text-gray-600">加载中...</p>
                 </div>
               ) : videos.length === 0 ? (
