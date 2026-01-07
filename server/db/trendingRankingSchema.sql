@@ -1,7 +1,7 @@
 -- 榜单数据表
 CREATE TABLE IF NOT EXISTS trending_rankings (
   id SERIAL PRIMARY KEY,
-  ranking_type VARCHAR(50) NOT NULL, -- 榜单类型：'anime'（动态漫榜）或 'ai-real'（AI短剧榜）
+  ranking_type VARCHAR(50) NOT NULL, -- 榜单类型：'anime'（动态漫剧榜）或 'ai-real'（AI短剧榜）
   ranking_data JSONB NOT NULL, -- 榜单数据（JSON数组）
   date DATE NOT NULL DEFAULT CURRENT_DATE, -- 榜单日期
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

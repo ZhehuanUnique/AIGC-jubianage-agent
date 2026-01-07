@@ -187,19 +187,19 @@ export async function generateAnimeRanking() {
       views: item.views || Math.floor(Math.random() * 100000) + 10000, // 如果没有浏览量，生成一个随机数
     }))
   } catch (error) {
-    console.error('❌ 生成动态漫榜失败:', error)
+    console.error('❌ 生成动态漫剧榜失败:', error)
     // 返回默认数据作为后备
     return [
-      { keyword: '动态漫画行业新动态', tag: '新', rank: 1, views: 50000 },
-      { keyword: '热门动态漫画作品推荐', tag: '热', rank: 2, views: 45000 },
-      { keyword: '动态漫画制作技术突破', tag: null, rank: 3, views: 40000 },
-      { keyword: '动态漫画市场分析', tag: null, rank: 4, views: 35000 },
-      { keyword: '动态漫画创作工具更新', tag: '新', rank: 5, views: 30000 },
-      { keyword: '动态漫画IP开发', tag: null, rank: 6, views: 25000 },
-      { keyword: '动态漫画平台政策', tag: null, rank: 7, views: 20000 },
-      { keyword: '动态漫画用户增长', tag: null, rank: 8, views: 15000 },
-      { keyword: '动态漫画内容创新', tag: null, rank: 9, views: 10000 },
-      { keyword: '动态漫画技术趋势', tag: null, rank: 10, views: 5000 },
+      { keyword: '全球冰封:我打造了末日安全屋', tag: '热', rank: 1, views: 30774 },
+      { keyword: '武炼巅峰', tag: '热', rank: 2, views: 97421 },
+      { keyword: '逆天邪神', tag: '热', rank: 3, views: 38051 },
+      { keyword: '百炼成神', tag: '热', rank: 4, views: 30813 },
+      { keyword: 'AI技术在动态漫剧中的应用', tag: '新', rank: 5, views: 99527 },
+      { keyword: '万古神帝', tag: '热', rank: 6, views: 30146 },
+      { keyword: '开局一座山', tag: '热', rank: 7, views: 79301 },
+      { keyword: '我气哭了百万修炼者', tag: null, rank: 8, views: 51720 },
+      { keyword: '绝世武魂', tag: null, rank: 9, views: 99989 },
+      { keyword: '动态漫剧短视频化改编趋势', tag: '新', rank: 10, views: 90372 },
     ]
   }
 }
