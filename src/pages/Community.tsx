@@ -715,33 +715,34 @@ function Community() {
                     </div>
                   ) : (
                     hotSearchList.map((item, index) => (
-                    <div
-                      key={item.id}
-                      className="flex items-start gap-3 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
-                    >
-                      <span className={`text-sm font-medium ${
-                        index < 3 ? 'text-orange-500' : 'text-gray-400'
-                      }`}>
-                        {item.rank}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm text-gray-900 truncate">{item.keyword}</span>
-                          {item.tag && (
-                            <span className={`text-xs px-1.5 py-0.5 rounded ${
-                              item.tag === '新' ? 'bg-red-500 text-white' : 'bg-orange-500 text-white'
-                            }`}>
-                              {item.tag}
-                            </span>
-                          )}
-                          {/* 显示浏览量（如果有） */}
-                          {item.views && (
-                            <span className="text-xs text-gray-500">{item.views.toLocaleString()}</span>
-                          )}
+                      <div
+                        key={item.id}
+                        className="flex items-start gap-3 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
+                      >
+                        <span className={`text-sm font-medium ${
+                          index < 3 ? 'text-orange-500' : 'text-gray-400'
+                        }`}>
+                          {item.rank}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm text-gray-900 truncate">{item.keyword}</span>
+                            {item.tag && (
+                              <span className={`text-xs px-1.5 py-0.5 rounded ${
+                                item.tag === '新' ? 'bg-red-500 text-white' : 'bg-orange-500 text-white'
+                              }`}>
+                                {item.tag}
+                              </span>
+                            )}
+                            {/* 显示浏览量（如果有） */}
+                            {item.views && (
+                              <span className="text-xs text-gray-500">{item.views.toLocaleString()}</span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
                 <button
                   onClick={() => navigate(`/community/ranking/${activeRankingType}`)}
