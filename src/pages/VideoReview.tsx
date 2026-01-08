@@ -229,9 +229,6 @@ function VideoReview() {
                 console.log('⚠️ 当前片段没有视频')
                 setVideoThumbnail(null)
               }
-            } else {
-              console.log('⚠️ 未找到片段，fragmentId:', fragmentId, '可用片段:', fragmentsData.map((f: any) => f.id))
-            }
               
               // 加载批注列表
               try {
@@ -253,6 +250,8 @@ function VideoReview() {
                 console.error('加载批注列表失败:', error)
                 // 如果加载失败，保持默认的批注列表（兼容旧数据）
               }
+            } else {
+              console.log('⚠️ 未找到片段，fragmentId:', fragmentId, '可用片段:', fragmentsData.map((f: any) => f.id))
             }
           }
         }
