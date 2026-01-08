@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { X, Settings as SettingsIcon } from 'lucide-react'
 import { getUserSettings, saveUserSettings, UserSettings } from '../services/settingsService'
 import { alertSuccess, alertError } from '../utils/alert'
+import ToggleSwitch from './ToggleSwitch'
 
 interface SettingsModalProps {
   isOpen: boolean
@@ -94,20 +95,18 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             </h3>
             
             <div className="space-y-4 pl-4">
-              <label className="flex items-center gap-3 cursor-pointer group">
-                <input
-                  type="checkbox"
+              <div className="flex items-center gap-3 cursor-pointer group">
+                <ToggleSwitch
                   checked={settings.jianying.autoCreateProject}
-                  onChange={(e) =>
+                  onChange={(checked) =>
                     setSettings({
                       ...settings,
                       jianying: {
                         ...settings.jianying,
-                        autoCreateProject: e.target.checked,
+                        autoCreateProject: checked,
                       },
                     })
                   }
-                  className="w-5 h-5 text-purple-600 rounded focus:ring-purple-500 focus:ring-2"
                 />
                 <div className="flex-1">
                   <div className="font-medium text-gray-700 group-hover:text-gray-900">
@@ -117,23 +116,21 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     点击"导入剪映"时，自动在剪映中新建项目
                   </div>
                 </div>
-              </label>
+              </div>
 
-              <label className="flex items-center gap-3 cursor-pointer group">
-                <input
-                  type="checkbox"
+              <div className="flex items-center gap-3 cursor-pointer group">
+                <ToggleSwitch
                   checked={settings.jianying.autoImportVideos}
-                  onChange={(e) =>
+                  onChange={(checked) =>
                     setSettings({
                       ...settings,
                       jianying: {
                         ...settings.jianying,
-                        autoImportVideos: e.target.checked,
+                        autoImportVideos: checked,
                       },
                     })
                   }
                   disabled={!settings.jianying.autoCreateProject}
-                  className="w-5 h-5 text-purple-600 rounded focus:ring-purple-500 focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
                 <div className="flex-1">
                   <div className={`font-medium ${settings.jianying.autoCreateProject ? 'text-gray-700 group-hover:text-gray-900' : 'text-gray-400'}`}>
@@ -143,7 +140,7 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     自动将所有生成的分镜视频导入到新建的项目中
                   </div>
                 </div>
-              </label>
+              </div>
 
               {/* 导入位置选择 */}
               <div className={`pl-8 space-y-2 ${settings.jianying.autoImportVideos && settings.jianying.autoCreateProject ? '' : 'opacity-50 pointer-events-none'}`}>
@@ -215,20 +212,18 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             </h3>
             
             <div className="space-y-4 pl-4">
-              <label className="flex items-center gap-3 cursor-pointer group">
-                <input
-                  type="checkbox"
+              <div className="flex items-center gap-3 cursor-pointer group">
+                <ToggleSwitch
                   checked={settings.workflow?.enterKeySubmit || false}
-                  onChange={(e) =>
+                  onChange={(checked) =>
                     setSettings({
                       ...settings,
                       workflow: {
                         ...settings.workflow,
-                        enterKeySubmit: e.target.checked,
+                        enterKeySubmit: checked,
                       },
                     })
                   }
-                  className="w-5 h-5 text-purple-600 rounded focus:ring-purple-500 focus:ring-2"
                 />
                 <div className="flex-1">
                   <div className="font-medium text-gray-700 group-hover:text-gray-900">
@@ -238,7 +233,7 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     开启后，在五步骤流程中按Enter键可提交到下一步，按Ctrl+Enter换行（在文本输入框中）
                   </div>
                 </div>
-              </label>
+              </div>
             </div>
           </div>
 
@@ -317,20 +312,18 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             </h3>
             
             <div className="space-y-4 pl-4">
-              <label className="flex items-center gap-3 cursor-pointer group">
-                <input
-                  type="checkbox"
+              <div className="flex items-center gap-3 cursor-pointer group">
+                <ToggleSwitch
                   checked={settings.photoshop.autoCreateProject}
-                  onChange={(e) =>
+                  onChange={(checked) =>
                     setSettings({
                       ...settings,
                       photoshop: {
                         ...settings.photoshop,
-                        autoCreateProject: e.target.checked,
+                        autoCreateProject: checked,
                       },
                     })
                   }
-                  className="w-5 h-5 text-purple-600 rounded focus:ring-purple-500 focus:ring-2"
                 />
                 <div className="flex-1">
                   <div className="font-medium text-gray-700 group-hover:text-gray-900">
@@ -340,23 +333,21 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     点击"导入PS"时，自动在 Photoshop 中新建项目
                   </div>
                 </div>
-              </label>
+              </div>
 
-              <label className="flex items-center gap-3 cursor-pointer group">
-                <input
-                  type="checkbox"
+              <div className="flex items-center gap-3 cursor-pointer group">
+                <ToggleSwitch
                   checked={settings.photoshop.autoImportPoster}
-                  onChange={(e) =>
+                  onChange={(checked) =>
                     setSettings({
                       ...settings,
                       photoshop: {
                         ...settings.photoshop,
-                        autoImportPoster: e.target.checked,
+                        autoImportPoster: checked,
                       },
                     })
                   }
                   disabled={!settings.photoshop.autoCreateProject}
-                  className="w-5 h-5 text-purple-600 rounded focus:ring-purple-500 focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
                 <div className="flex-1">
                   <div className={`font-medium ${settings.photoshop.autoCreateProject ? 'text-gray-700 group-hover:text-gray-900' : 'text-gray-400'}`}>
@@ -366,7 +357,7 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     自动将海报图导入到新建项目的最上面的图层
                   </div>
                 </div>
-              </label>
+              </div>
             </div>
           </div>
         </div>
