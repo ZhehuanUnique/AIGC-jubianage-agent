@@ -981,7 +981,30 @@ function FirstLastFrameVideo() {
       const now = Date.now()
       const elapsedMinutes = (now - createdTime) / 60000
       
-      // 如果超过5分钟，返回90%（等待超时检测）
+      // 补帧任务使用更长的进度曲线（30分钟超时）
+      if (task.processingType === 'frame_interpolation') {
+        if (elapsedMinutes > 30) {
+          return 95
+        }
+        // 补帧进度曲线：更平缓，适应30分钟的处理时间
+        if (elapsedMinutes < 2) {
+          return Math.min(15, 5 + elapsedMinutes * 5)
+        } else if (elapsedMinutes < 5) {
+          return Math.min(30, 15 + (elapsedMinutes - 2) * 5)
+        } else if (elapsedMinutes < 10) {
+          return Math.min(50, 30 + (elapsedMinutes - 5) * 4)
+        } else if (elapsedMinutes < 15) {
+          return Math.min(65, 50 + (elapsedMinutes - 10) * 3)
+        } else if (elapsedMinutes < 20) {
+          return Math.min(80, 65 + (elapsedMinutes - 15) * 3)
+        } else if (elapsedMinutes < 25) {
+          return Math.min(90, 80 + (elapsedMinutes - 20) * 2)
+        } else {
+          return Math.min(95, 90 + (elapsedMinutes - 25) * 1)
+        }
+      }
+      
+      // 普通视频生成任务（5分钟超时）
       if (elapsedMinutes > 5) {
         return 90
       }
@@ -1002,16 +1025,6 @@ function FirstLastFrameVideo() {
       }
       
       return 90
-      
-      if (elapsedMinutes < 1) {
-        return Math.min(40, 10 + (elapsedMinutes / 1) * 30)
-      } else if (elapsedMinutes < 2) {
-        return Math.min(70, 40 + ((elapsedMinutes - 1) / 1) * 30)
-      } else if (elapsedMinutes < 3) {
-        return Math.min(95, 70 + ((elapsedMinutes - 2) / 1) * 25)
-      } else {
-        return 95
-      }
     } catch (error) {
       return 10
     }
@@ -1518,7 +1531,19 @@ function FirstLastFrameVideo() {
                     
                     {/* 状态覆盖层 */}
                     {task.status !== 'completed' && (
-                      <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center pointer-events-none">
+                      <div className="absolute inset-0 flex flex-col pointer-events-none">
+                        {/* 补帧任务：显示原视频首帧作为背景 */}
+                        {task.processingType === 'frame_interpolation' && task.firstFrameUrl && (
+                          <img 
+                            src={task.firstFrameUrl} 
+                            alt="原视频首帧" 
+                            className="absolute inset-0 w-full h-full object-cover"
+                          />
+                        )}
+                        {/* 半透明遮罩 */}
+                        <div className={`absolute inset-0 ${task.processingType === 'frame_interpolation' && task.firstFrameUrl ? 'bg-black bg-opacity-60' : 'bg-black bg-opacity-50'}`}></div>
+                        {/* 进度信息 */}
+                        <div className="relative flex-1 flex items-center justify-center">
                         <div className="text-center text-white px-4 w-full">
                           {/* 如果是正在生成的任务，显示"加速中"或进度 */}
                           {generatingTask && generatingTask.taskId === task.id ? (
@@ -1571,6 +1596,7 @@ function FirstLastFrameVideo() {
                               )}
                             </>
                           )}
+                        </div>
                         </div>
                       </div>
                     )}

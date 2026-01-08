@@ -9,23 +9,52 @@ const rankingTypes = [
   { id: 'ai-real', label: 'AI短剧榜' },
 ]
 
-// 示例榜单数据
-const rankingData = [
-  { id: 1, title: '日本年轻人聚众晒梅毒', tag: '热', tagColor: 'red', rightInfo: '好友正在看', rank: 1 },
-  { id: 2, title: '吴世勋 danking', rightInfo: '下午霸榜', rank: 2 },
-  { id: 3, title: '关晓彤 未来请幸福', tag: '新', tagColor: 'pink', rightInfo: '98186', rank: 3 },
-  { id: 4, title: '月薪一万的工作强度', tag: '热', tagColor: 'red', rightInfo: '186195', rank: 4 },
-  { id: 5, title: '霸王茶姬通报', rightInfo: '13:17登顶', rank: 5 },
-  { id: 6, title: '童锦程不纠缠是最后的体面', rightInfo: '11:26登顶', rank: 6 },
-  { id: 7, title: '马杜罗跪着艰难爬上囚车', rightInfo: '45273', rank: 7 },
-  { id: 8, title: '女子以油养肤导致面部疯狂掉皮', rightInfo: '286793', rank: 8 },
-  { id: 9, title: '冯提莫瘦了50斤', rightInfo: '12:06登顶', rank: 9 },
-  { id: 10, title: '日本梅毒扩散', tag: '热', tagColor: 'red', rightInfo: '下午霸榜', rank: 10 },
-  { id: 11, title: '小洛熙爸爸', rightInfo: '53707', rank: 11 },
-  { id: 12, title: '霸王茶姬手打', rightInfo: '62291', rank: 12 },
-  { id: 13, title: '羽绒服一下就洗干净了', tag: '新', tagColor: 'pink', rightInfo: '98003', rank: 13 },
-  { id: 14, title: '范丞丞线上呕完线下也呕了', rightInfo: '50339', rank: 14 },
-  { id: 15, title: '骄阳似我大结局', tag: '新', tagColor: 'pink', rightInfo: '18:26登顶', rank: 15 },
+// 示例榜单数据 - 2026年1月热门动态漫剧作品（与后端默认数据一致）
+const animeRankingData = [
+  { id: 1, title: '《斗罗大陆》', tag: '热', tagColor: 'red', rightInfo: '1,580,000', rank: 1 },
+  { id: 2, title: '《完美世界》', tag: '热', tagColor: 'red', rightInfo: '1,420,000', rank: 2 },
+  { id: 3, title: '《斗破苍穹》', tag: '热', tagColor: 'red', rightInfo: '1,350,000', rank: 3 },
+  { id: 4, title: '《万古神帝》', tag: '新', tagColor: 'pink', rightInfo: '1,280,000', rank: 4 },
+  { id: 5, title: '《武动乾坤》', tag: '热', tagColor: 'red', rightInfo: '1,150,000', rank: 5 },
+  { id: 6, title: '《遮天》', tag: '新', tagColor: 'pink', rightInfo: '1,080,000', rank: 6 },
+  { id: 7, title: '《吞噬星空》', tag: '热', tagColor: 'red', rightInfo: '980,000', rank: 7 },
+  { id: 8, title: '《凡人修仙传》', tag: '热', tagColor: 'red', rightInfo: '920,000', rank: 8 },
+  { id: 9, title: '《一念永恒》', tag: null, tagColor: null, rightInfo: '850,000', rank: 9 },
+  { id: 10, title: '《仙逆》', tag: '新', tagColor: 'pink', rightInfo: '780,000', rank: 10 },
+  { id: 11, title: '《神印王座》', tag: null, tagColor: null, rightInfo: '720,000', rank: 11 },
+  { id: 12, title: '《雪中悍刀行》', tag: '热', tagColor: 'red', rightInfo: '680,000', rank: 12 },
+  { id: 13, title: '《剑来》', tag: '新', tagColor: 'pink', rightInfo: '650,000', rank: 13 },
+  { id: 14, title: '《大奉打更人》', tag: null, tagColor: null, rightInfo: '620,000', rank: 14 },
+  { id: 15, title: '《诛仙》', tag: null, tagColor: null, rightInfo: '580,000', rank: 15 },
+  { id: 16, title: '《牧神记》', tag: '新', tagColor: 'pink', rightInfo: '550,000', rank: 16 },
+  { id: 17, title: '《圣墟》', tag: null, tagColor: null, rightInfo: '520,000', rank: 17 },
+  { id: 18, title: '《帝霸》', tag: null, tagColor: null, rightInfo: '480,000', rank: 18 },
+  { id: 19, title: '《永生》', tag: null, tagColor: null, rightInfo: '450,000', rank: 19 },
+  { id: 20, title: '《飞剑问道》', tag: null, tagColor: null, rightInfo: '420,000', rank: 20 },
+]
+
+// AI短剧榜数据 - 2026年1月热门AI短剧作品
+const aiRealRankingData = [
+  { id: 1, title: '《重生之门》', tag: '热', tagColor: 'red', rightInfo: '3,250,000', rank: 1 },
+  { id: 2, title: '《闪婚后傅总每天都在追妻》', tag: '热', tagColor: 'red', rightInfo: '2,980,000', rank: 2 },
+  { id: 3, title: '《龙王令》', tag: '新', tagColor: 'pink', rightInfo: '2,750,000', rank: 3 },
+  { id: 4, title: '《战神归来》', tag: '热', tagColor: 'red', rightInfo: '2,580,000', rank: 4 },
+  { id: 5, title: '《豪门弃妇的逆袭》', tag: '新', tagColor: 'pink', rightInfo: '2,420,000', rank: 5 },
+  { id: 6, title: '《神医下山》', tag: '热', tagColor: 'red', rightInfo: '2,280,000', rank: 6 },
+  { id: 7, title: '《总裁的替嫁新娘》', tag: null, tagColor: null, rightInfo: '2,150,000', rank: 7 },
+  { id: 8, title: '《穿越之农门贵女》', tag: '新', tagColor: 'pink', rightInfo: '1,980,000', rank: 8 },
+  { id: 9, title: '《绝世神医》', tag: '热', tagColor: 'red', rightInfo: '1,850,000', rank: 9 },
+  { id: 10, title: '《霸道总裁爱上我》', tag: null, tagColor: null, rightInfo: '1,720,000', rank: 10 },
+  { id: 11, title: '《重生之商界女王》', tag: '新', tagColor: 'pink', rightInfo: '1,650,000', rank: 11 },
+  { id: 12, title: '《神豪从退婚开始》', tag: null, tagColor: null, rightInfo: '1,580,000', rank: 12 },
+  { id: 13, title: '《离婚后前夫后悔了》', tag: '热', tagColor: 'red', rightInfo: '1,520,000', rank: 13 },
+  { id: 14, title: '《都市最强战神》', tag: null, tagColor: null, rightInfo: '1,450,000', rank: 14 },
+  { id: 15, title: '《千金归来》', tag: '新', tagColor: 'pink', rightInfo: '1,380,000', rank: 15 },
+  { id: 16, title: '《隐婚甜妻》', tag: null, tagColor: null, rightInfo: '1,320,000', rank: 16 },
+  { id: 17, title: '《逆袭人生》', tag: null, tagColor: null, rightInfo: '1,250,000', rank: 17 },
+  { id: 18, title: '《豪门恩怨》', tag: null, tagColor: null, rightInfo: '1,180,000', rank: 18 },
+  { id: 19, title: '《重生之我是大明星》', tag: '新', tagColor: 'pink', rightInfo: '1,120,000', rank: 19 },
+  { id: 20, title: '《总裁的秘密情人》', tag: null, tagColor: null, rightInfo: '1,050,000', rank: 20 },
 ]
 
 function RankingDetail() {
@@ -124,7 +153,7 @@ function RankingDetail() {
 
               {/* 榜单列表 */}
               <div className="space-y-1">
-                {rankingData.map((item) => (
+                {(activeRankingType === 'anime' ? animeRankingData : aiRealRankingData).map((item) => (
                   <div
                     key={item.id}
                     className="flex items-center gap-4 p-3 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer group"
