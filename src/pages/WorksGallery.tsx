@@ -317,7 +317,7 @@ function WorksGallery() {
                         else videoRefs.current.delete(video.id)
                       }}
                       src={video.videoUrl}
-                      className="w-full h-auto block"
+                      className="w-full aspect-[9/16] object-cover object-top block"
                       muted
                       loop
                       preload="metadata"
@@ -345,7 +345,6 @@ function WorksGallery() {
                 {hoveredVideoId === video.id && (
                   <div 
                     className="absolute left-0 right-0 bottom-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent z-[9999] flex flex-col p-3"
-                    style={{ minHeight: '50%' }}
                   >
                     <h3 className="text-sm font-semibold text-white mb-1.5 line-clamp-2">
                       {video.title || '未命名视频'}

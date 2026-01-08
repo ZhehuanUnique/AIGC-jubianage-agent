@@ -441,7 +441,7 @@ function WorksShowcase() {
             {/* 缩略图列表 */}
             {showThumbnailList && (
               <div className="absolute left-12 top-1/2 -translate-y-1/2 bg-black/90 backdrop-blur-sm rounded-lg p-3 max-h-[80vh] overflow-y-auto scrollbar-thin scrollbar-thumb-white/30">
-                <div className="flex flex-col gap-3 w-32">
+                <div className="flex flex-col gap-3 w-40">
                   {videos.map((v, idx) => (
                     <button
                       key={v.id}
@@ -450,7 +450,7 @@ function WorksShowcase() {
                         lastSwitchTime.current = 0
                         switchToVideo(idx)
                       }}
-                      className={`relative w-full aspect-video rounded-lg overflow-hidden transition-all ${
+                      className={`relative w-full aspect-[16/9] rounded-lg overflow-hidden transition-all ${
                         idx === currentVideoIndex 
                           ? 'ring-2 ring-purple-500 scale-105 shadow-lg shadow-purple-500/30' 
                           : 'opacity-80 hover:opacity-100 hover:scale-102'
@@ -461,7 +461,7 @@ function WorksShowcase() {
                         <img 
                           src={v.thumbnailUrl} 
                           alt={v.title} 
-                          className="w-full h-full object-cover bg-gray-800"
+                          className="w-full h-full object-cover object-top bg-gray-800"
                           onError={(e) => {
                             // 图片加载失败时隐藏
                             e.currentTarget.style.display = 'none'
@@ -470,7 +470,7 @@ function WorksShowcase() {
                       ) : v.videoUrl ? (
                         <video 
                           src={v.videoUrl} 
-                          className="w-full h-full object-cover bg-gray-800"
+                          className="w-full h-full object-cover object-top bg-gray-800"
                           muted
                           preload="metadata"
                           onLoadedMetadata={(e) => {
