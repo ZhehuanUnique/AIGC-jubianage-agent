@@ -1028,3 +1028,111 @@ select.text-center::-ms-expand {
     column-count: 1;
   }
 }
+
+/* 视频生成中加载动画 */
+.video-generating-loader-wrapper {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Poppins", sans-serif;
+  font-size: 1.2em;
+  font-weight: 600;
+  user-select: none;
+  color: #fff;
+  z-index: 20;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.video-generating-loader-content {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 80px;
+  width: auto;
+  padding: 0 1rem;
+}
+
+.video-generating-loader {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+  z-index: 1;
+  background-color: transparent;
+  mask: repeating-linear-gradient(90deg, transparent 0, transparent 6px, black 7px, black 8px);
+  -webkit-mask: repeating-linear-gradient(90deg, transparent 0, transparent 6px, black 7px, black 8px);
+}
+
+.video-generating-loader::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: radial-gradient(circle at 50% 50%, #ff0 0%, transparent 50%),
+    radial-gradient(circle at 45% 45%, #f00 0%, transparent 45%),
+    radial-gradient(circle at 55% 55%, #0ff 0%, transparent 45%),
+    radial-gradient(circle at 45% 55%, #0f0 0%, transparent 45%),
+    radial-gradient(circle at 55% 45%, #00f 0%, transparent 45%);
+  mask: radial-gradient(circle at 50% 50%, transparent 0%, transparent 10%, black 25%);
+  -webkit-mask: radial-gradient(circle at 50% 50%, transparent 0%, transparent 10%, black 25%);
+  animation: video-loader-transform 2s infinite alternate, video-loader-opacity 4s infinite;
+  animation-timing-function: cubic-bezier(0.6, 0.8, 0.5, 1);
+}
+
+@keyframes video-loader-transform {
+  0% {
+    transform: translate(-55%);
+  }
+  100% {
+    transform: translate(55%);
+  }
+}
+
+@keyframes video-loader-opacity {
+  0%, 100% {
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  65% {
+    opacity: 0;
+  }
+}
+
+.video-generating-letter {
+  display: inline-block;
+  opacity: 0;
+  animation: video-loader-letter-anim 4s infinite linear;
+  z-index: 2;
+}
+
+.video-generating-letter:nth-child(1) { animation-delay: 0.1s; }
+.video-generating-letter:nth-child(2) { animation-delay: 0.205s; }
+.video-generating-letter:nth-child(3) { animation-delay: 0.31s; }
+.video-generating-letter:nth-child(4) { animation-delay: 0.415s; }
+.video-generating-letter:nth-child(5) { animation-delay: 0.521s; }
+.video-generating-letter:nth-child(6) { animation-delay: 0.626s; }
+
+@keyframes video-loader-letter-anim {
+  0% {
+    opacity: 0;
+  }
+  5% {
+    opacity: 1;
+    text-shadow: 0 0 4px #fff;
+    transform: scale(1.1) translateY(-2px);
+  }
+  20% {
+    opacity: 0.2;
+  }
+  100% {
+    opacity: 0;
+  }
+}

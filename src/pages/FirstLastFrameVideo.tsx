@@ -4,6 +4,7 @@ import { ArrowLeft, Upload, Loader2, Share2, Download, Heart, ThumbsUp, Edit, Sp
 import { alertSuccess, alertError } from '../utils/alert'
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
 import HamsterLoader from '../components/HamsterLoader'
+import VideoGeneratingLoader from '../components/VideoGeneratingLoader'
 import { generateFirstLastFrameVideo, getFirstLastFrameVideoStatus, getFirstLastFrameVideos, createVideoProcessingTask } from '../services/api'
 import { FrameInterpolationModal } from '../components/FrameInterpolationModal'
 import { calculateVideoGenerationCredit } from '../utils/creditCalculator'
@@ -1529,74 +1530,22 @@ function FirstLastFrameVideo() {
                       </div>
                     )}
                     
-                    {/* 状态覆盖层 */}
-                    {task.status !== 'completed' && (
+                    {/* 状态覆盖层 - 生成中显示加载动画 */}
+                    {(task.status === 'pending' || task.status === 'processing') && (
+                      <VideoGeneratingLoader />
+                    )}
+                    
+                    {/* 失败状态覆盖层 */}
+                    {task.status === 'failed' && (
                       <div className="absolute inset-0 flex flex-col pointer-events-none">
-                        {/* 补帧任务：显示原视频首帧作为背景 */}
-                        {task.processingType === 'frame_interpolation' && task.firstFrameUrl && (
-                          <img 
-                            src={task.firstFrameUrl} 
-                            alt="原视频首帧" 
-                            className="absolute inset-0 w-full h-full object-cover"
-                          />
-                        )}
-                        {/* 半透明遮罩 */}
-                        <div className={`absolute inset-0 ${task.processingType === 'frame_interpolation' && task.firstFrameUrl ? 'bg-black bg-opacity-60' : 'bg-black bg-opacity-50'}`}></div>
-                        {/* 进度信息 */}
+                        <div className="absolute inset-0 bg-black bg-opacity-50"></div>
                         <div className="relative flex-1 flex items-center justify-center">
-                        <div className="text-center text-white px-4 w-full">
-                          {/* 如果是正在生成的任务，显示"加速中"或进度 */}
-                          {generatingTask && generatingTask.taskId === task.id ? (
-                            generatingTask.status === 'accelerating' ? (
-                              // 加速中状态
-                              <>
-                                <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center mb-4 mx-auto animate-pulse">
-                                  <Zap className="text-white" size={32} />
-                                </div>
-                                <h3 className="text-lg font-bold mb-2">加速中</h3>
-                                <p className="text-xs text-gray-300">正在为您加速生成视频...</p>
-                              </>
-                            ) : (
-                              // 生成中状态（显示进度）
-                              <>
-                                <div className="bg-yellow-400 border-2 border-yellow-500 rounded-lg px-3 py-1 mb-3 inline-block">
-                                  <div className="text-lg font-bold text-gray-800">
-                                    {generatingTask.progress}%生成中
-                                  </div>
-                                </div>
-                                <div className="w-full max-w-xs mx-auto mb-2">
-                                  <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
-                                    <div
-                                      className="bg-gradient-to-r from-purple-500 to-blue-500 h-2 rounded-full transition-all duration-300"
-                                      style={{ width: `${generatingTask.progress}%` }}
-                                    ></div>
-                                  </div>
-                                  <p className="text-xs text-gray-300 mt-1 text-center">{generatingTask.progress}%</p>
-                                </div>
-                              </>
-                            )
-                          ) : (
-                            // 其他状态（pending/processing/failed）
-                            <>
-                              <p className="text-sm font-medium mb-2">{getStatusText(task.status)}</p>
-                              {/* 进度条 */}
-                              {(task.status === 'processing' || task.status === 'pending') && (
-                                <div className="w-full max-w-xs mx-auto mb-2">
-                                  <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
-                                    <div
-                                      className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                                      style={{ width: `${getEstimatedProgress(task)}%` }}
-                                    ></div>
-                                  </div>
-                                  <p className="text-xs text-gray-300 mt-1 text-center">{Math.round(getEstimatedProgress(task))}%</p>
-                                </div>
-                              )}
-                              {task.status === 'failed' && task.errorMessage && (
-                                <p className="text-xs text-gray-300 mt-1">{task.errorMessage}</p>
-                              )}
-                            </>
-                          )}
-                        </div>
+                          <div className="text-center text-white px-4 w-full">
+                            <p className="text-sm font-medium mb-2 text-red-400">生成失败</p>
+                            {task.errorMessage && (
+                              <p className="text-xs text-gray-300 mt-1">{task.errorMessage}</p>
+                            )}
+                          </div>
                         </div>
                       </div>
                     )}
