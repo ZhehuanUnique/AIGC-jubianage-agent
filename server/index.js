@@ -1539,7 +1539,7 @@ app.get('/api/projects/:projectId/first-last-frame-videos', authenticateToken, a
     let frameInterpolationTasks = []
     try {
       const frameInterpolationResult = await db.query(
-        `SELECT vpt.id, vpt.source_video_task_id, vpt.source_video_url, vpt.output_video_url,
+        `SELECT vpt.id, vpt.source_video_task_id, vpt.source_video_url, vpt.result_video_url,
                 vpt.processing_type, vpt.status, vpt.error_message, vpt.metadata,
                 vpt.created_at, vpt.updated_at,
                 flv.first_frame_url, flv.last_frame_url, flv.model, flv.resolution, 
@@ -1641,7 +1641,7 @@ app.get('/api/projects/:projectId/first-last-frame-videos', authenticateToken, a
       return {
         id: `fi-${task.id}`, // 使用前缀区分补帧任务
         taskId: `fi-${task.id}`,
-        videoUrl: task.output_video_url || null,
+        videoUrl: task.result_video_url || null,
         status: task.status || 'pending',
         firstFrameUrl: task.first_frame_url || null,
         lastFrameUrl: task.last_frame_url || null,
@@ -1808,7 +1808,7 @@ async function processVideoTask(taskId, sourceVideoUrl, processingType, userId, 
       // 补帧处理
       const { interpolateVideoWithRife, interpolateVideoWithFfmpeg } = await import('./services/rifeService.js')
       
-      // 从metadata中获取目标帧率和技术选择（如果前端传递了）
+      // 从metadata中获取目标帧率和技术选择
       let metadata = {}
       try {
         const taskMetaResult = await db.query(
@@ -1822,8 +1822,10 @@ async function processVideoTask(taskId, sourceVideoUrl, processingType, userId, 
         console.warn('⚠️ 读取任务metadata失败:', metaError.message)
       }
       
-      const finalTargetFps = targetFps || metadata.targetFps || null
-      const preferredMethod = method || metadata.method || 'rife' // 默认使用RIFE
+      const finalTargetFps = metadata.targetFps || 60 // 默认60fps
+      const preferredMethod = metadata.method || 'rife' // 默认使用RIFE
+      
+      console.log(`📹 补帧任务 ${taskId}: targetFps=${finalTargetFps}, method=${preferredMethod}`)
       
       // 如果用户明确选择FFmpeg，直接使用FFmpeg
       if (preferredMethod === 'ffmpeg') {
