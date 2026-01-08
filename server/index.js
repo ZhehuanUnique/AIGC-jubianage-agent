@@ -5239,10 +5239,12 @@ app.get('/api/projects/:projectId/fragments', authenticateToken, async (req, res
     )
     
     // 获取每个分镜的视频URL（从files表中查找video类型的文件）
+    // 排除首尾帧视频，因为它们会单独显示在"首尾帧生视频"片段中
     const fragments = await Promise.all(
       shotsResult.rows.map(async (shot) => {
         // 查找该分镜关联的视频文件（支持 shot_id 和 fragment_id）
         // 使用DISTINCT去重，避免重复视频
+        // 排除首尾帧视频（source = 'first_last_frame_video'）
         const videoFiles = await db.query(
           `SELECT DISTINCT ON (f.cos_url) f.cos_url, f.file_name, f.created_at
            FROM files f
@@ -5252,6 +5254,7 @@ app.get('/api/projects/:projectId/fragments', authenticateToken, async (req, res
                f.metadata->>'shot_id' = $2::text
                OR f.metadata->>'fragment_id' = $2::text
              )
+             AND (f.metadata->>'source' IS NULL OR f.metadata->>'source' != 'first_last_frame_video')
            ORDER BY f.cos_url, f.created_at DESC`,
           [projectId, shot.id.toString()]
         )
