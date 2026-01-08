@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, RefreshCw, Play, Pause, Volume2, VolumeX, Maximize, X, ChevronsRight, Upload, Trash2 } from 'lucide-react'
 import { getProject } from '../services/projectStorage'
 import { alertError, alertInfo, alertSuccess, alertWarning } from '../utils/alert'
-import { uploadVideo, importVideosToJianying, getProjectFragments, deleteAnnotation, getAnnotations } from '../services/api'
+import { uploadVideo, importVideosToJianying, getProjectFragments, deleteAnnotation, getAnnotations, createAnnotation } from '../services/api'
 import { AuthService } from '../services/auth'
 import { getUserSettings, updateUserSettings } from '../services/settingsService'
 import HamsterLoader from '../components/HamsterLoader'
@@ -57,7 +57,7 @@ function VideoReview() {
   const [fragments, setFragments] = useState<Array<{ id: string; name: string; videoUrls?: string[] }>>([])
   const [currentFragmentIndex, setCurrentFragmentIndex] = useState(0)
   const [currentUser, setCurrentUser] = useState<{ username: string; displayName: string } | null>(null)
-  const [mode, setMode] = useState<'preview' | 'review'>('preview') // 预览/审片模式
+  const [mode, setMode] = useState<'preview' | 'review'>('review') // 预览/审片模式，默认审片
   const [videoAspectRatios, setVideoAspectRatios] = useState<Map<string, number>>(new Map()) // 存储每个视频的宽高比
 
   // 加载当前用户信息和默认模式
@@ -65,9 +65,9 @@ function VideoReview() {
     const user = AuthService.getCurrentUser()
     setCurrentUser(user)
     
-    // 从设置中读取默认模式
+    // 从设置中读取默认模式，默认为审片模式
     const settings = getUserSettings()
-    setMode(settings.videoReview?.defaultMode || 'preview')
+    setMode(settings.videoReview?.defaultMode || 'review')
   }, [])
 
   // 检查用户权限
@@ -454,7 +454,7 @@ function VideoReview() {
 
 
   // 提交批注
-  const handleSubmitAnnotation = () => {
+  const handleSubmitAnnotation = async () => {
     if (!annotation.trim()) return
 
     // 获取当前登录用户的显示名称
@@ -472,22 +472,58 @@ function VideoReview() {
       timestamp: formatTime(currentTime),
       replies: 0,
       type: '已批注' as const,
+      timestampSeconds: currentTime,
     }
 
-    // 添加到批注列表
+    // 先乐观更新UI
     setAnnotations(prev => [newAnnotation, ...prev])
 
     // 添加弹幕（关联批注ID，方便后续删除）
     if (isDanmakuEnabled) {
       setDanmakus(prev => [...prev, {
-        id: annotationId, // 使用相同的ID，方便关联删除
+        id: annotationId,
         content: annotation,
         time: currentTime,
       }])
     }
 
     // 清空输入框
+    const annotationContent = annotation
     setAnnotation('')
+
+    // 保存到后端
+    if (projectId && fragmentId) {
+      try {
+        const savedAnnotation = await createAnnotation(
+          parseInt(projectId, 10),
+          fragmentId,
+          annotationContent,
+          currentTime
+        )
+        
+        // 更新本地批注ID为后端返回的ID
+        setAnnotations(prev => prev.map(a => 
+          a.id === annotationId 
+            ? { ...a, id: savedAnnotation.id }
+            : a
+        ))
+        
+        // 更新弹幕ID
+        setDanmakus(prev => prev.map(d =>
+          d.id === annotationId
+            ? { ...d, id: savedAnnotation.id }
+            : d
+        ))
+        
+        alertSuccess('批注发送成功', '发送成功')
+      } catch (error) {
+        console.error('保存批注失败:', error)
+        // 保存失败时回滚UI
+        setAnnotations(prev => prev.filter(a => a.id !== annotationId))
+        setDanmakus(prev => prev.filter(d => d.id !== annotationId))
+        alertError(error instanceof Error ? error.message : '发送批注失败，请稍后重试', '发送失败')
+      }
+    }
   }
 
   // 点击进度条调整进度（支持更精确的时间定位，不四舍五入到整数）
@@ -1270,7 +1306,7 @@ function VideoReview() {
           ) : (
             <>
               <h3 className="text-sm sm:text-lg font-semibold mb-3 sm:mb-4">批注列表</h3>
-              <div className="space-y-3 sm:space-y-4">
+              <div className="space-y-3 sm:space-y-4 flex-1 overflow-y-auto">
             {filteredAnnotations.map((item) => (
               <div key={item.id} className="bg-gray-50 border border-gray-200 rounded-lg p-3 sm:p-4">
                 <div className="flex items-start gap-2 sm:gap-3 mb-2">
@@ -1309,7 +1345,42 @@ function VideoReview() {
                 </div>
               </div>
             ))}
+                {filteredAnnotations.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <p className="text-sm">暂无批注</p>
+                  </div>
+                )}
           </div>
+              
+              {/* 批注输入框 */}
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <textarea
+                  value={annotation}
+                  onChange={(e) => setAnnotation(e.target.value)}
+                  placeholder="输入批注内容，发送后将在当前播放时刻显示弹幕..."
+                  className="w-full h-20 px-3 py-2 text-sm border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+                <div className="flex items-center justify-between mt-2">
+                  <span className="text-xs text-gray-500">
+                    当前时刻: {formatTime(currentTime)}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setAnnotation('')}
+                      className="px-3 py-1.5 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 active:bg-gray-200 transition-colors touch-manipulation"
+                    >
+                      清空
+                    </button>
+                    <button
+                      onClick={handleSubmitAnnotation}
+                      disabled={!annotation.trim()}
+                      className="px-4 py-1.5 text-sm text-white bg-purple-600 rounded-lg hover:bg-purple-700 active:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
+                    >
+                      发送
+                    </button>
+                  </div>
+                </div>
+              </div>
             </>
           )}
         </div>

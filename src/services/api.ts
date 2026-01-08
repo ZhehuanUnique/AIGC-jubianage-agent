@@ -2302,6 +2302,61 @@ export async function getAnnotations(projectId: number, fragmentId: string): Pro
 }
 
 /**
+ * 创建视频批注
+ */
+export async function createAnnotation(
+  projectId: number, 
+  fragmentId: string, 
+  content: string, 
+  timestampSeconds: number
+): Promise<{
+  id: string
+  user: string
+  avatar: string
+  time: string
+  content: string
+  timestamp: string
+  replies: number
+  type: '待批注' | '已批注'
+  timestampSeconds: number
+}> {
+  try {
+    const token = AuthService.getToken()
+    if (!token) {
+      throw new Error('未登录，请先登录')
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/fragments/${fragmentId}/annotations`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        content,
+        timestampSeconds,
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || '创建批注失败')
+    }
+
+    const result = await response.json()
+    if (result.success && result.data) {
+      return result.data
+    }
+    throw new Error('创建批注失败')
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('网络错误，请检查服务器连接')
+  }
+}
+
+/**
  * 删除视频批注
  */
 export async function deleteAnnotation(projectId: number, annotationId: string): Promise<void> {
