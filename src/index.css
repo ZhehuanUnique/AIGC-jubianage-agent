@@ -1201,3 +1201,99 @@ select.text-center::-ms-expand {
 .toggle-switch-disabled .toggle-slider {
   cursor: not-allowed;
 }
+
+
+/* 自定义单选按钮样式 - 基于 https://uiverse.io/coding-masala/pink-ape-66 */
+.custom-radio-button {
+  display: flex;
+  align-items: flex-start;
+  cursor: pointer;
+  padding: 8px 0;
+}
+
+.custom-radio-button input[type="radio"] {
+  display: none;
+}
+
+.custom-radio-circle {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid #ccc;
+  position: relative;
+  margin-right: 12px;
+  flex-shrink: 0;
+  margin-top: 2px;
+  transition: border-color 0.2s ease-in-out;
+}
+
+.custom-radio-circle::before {
+  content: "";
+  display: block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: #8b5cf6;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  transition: all 0.2s ease-in-out;
+}
+
+.custom-radio-button input[type="radio"]:checked + .custom-radio-circle {
+  border-color: #8b5cf6;
+}
+
+.custom-radio-button input[type="radio"]:checked + .custom-radio-circle::before {
+  transform: translate(-50%, -50%) scale(1);
+}
+
+/* 颜色变体 */
+.custom-radio-purple::before { background-color: #8b5cf6; }
+.custom-radio-button input[type="radio"]:checked + .custom-radio-purple { border-color: #8b5cf6; }
+
+.custom-radio-green::before { background-color: #22c55e; }
+.custom-radio-button input[type="radio"]:checked + .custom-radio-green { border-color: #22c55e; }
+
+.custom-radio-blue::before { background-color: #3b82f6; }
+.custom-radio-button input[type="radio"]:checked + .custom-radio-blue { border-color: #3b82f6; }
+
+.custom-radio-orange::before { background-color: #f97316; }
+.custom-radio-button input[type="radio"]:checked + .custom-radio-orange { border-color: #f97316; }
+
+.custom-radio-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.custom-radio-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.custom-radio-description {
+  font-size: 13px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+.custom-radio-button:hover .custom-radio-circle {
+  border-color: #9ca3af;
+}
+
+.custom-radio-button:hover input[type="radio"]:checked + .custom-radio-circle {
+  border-color: #7c3aed;
+}
+
+/* 禁用状态 */
+.custom-radio-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.custom-radio-disabled .custom-radio-circle {
+  cursor: not-allowed;
+}

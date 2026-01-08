@@ -3,6 +3,7 @@ import { X, Settings as SettingsIcon } from 'lucide-react'
 import { getUserSettings, saveUserSettings, UserSettings } from '../services/settingsService'
 import { alertSuccess, alertError } from '../utils/alert'
 import ToggleSwitch from './ToggleSwitch'
+import RadioButton from './RadioButton'
 
 interface SettingsModalProps {
   isOpen: boolean
@@ -95,7 +96,15 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             </h3>
             
             <div className="space-y-4 pl-4">
-              <div className="flex items-center gap-3 cursor-pointer group">
+              <div className="flex items-center justify-between gap-4 cursor-pointer group">
+                <div className="flex-1">
+                  <div className="font-medium text-gray-700 group-hover:text-gray-900">
+                    自动新建项目
+                  </div>
+                  <div className="text-sm text-gray-500 mt-1">
+                    点击"导入剪映"时，自动在剪映中新建项目
+                  </div>
+                </div>
                 <ToggleSwitch
                   checked={settings.jianying.autoCreateProject}
                   onChange={(checked) =>
@@ -108,17 +117,17 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     })
                   }
                 />
-                <div className="flex-1">
-                  <div className="font-medium text-gray-700 group-hover:text-gray-900">
-                    自动新建项目
-                  </div>
-                  <div className="text-sm text-gray-500 mt-1">
-                    点击"导入剪映"时，自动在剪映中新建项目
-                  </div>
-                </div>
               </div>
 
-              <div className="flex items-center gap-3 cursor-pointer group">
+              <div className="flex items-center justify-between gap-4 cursor-pointer group">
+                <div className="flex-1">
+                  <div className={`font-medium ${settings.jianying.autoCreateProject ? 'text-gray-700 group-hover:text-gray-900' : 'text-gray-400'}`}>
+                    自动导入分镜视频
+                  </div>
+                  <div className={`text-sm mt-1 ${settings.jianying.autoCreateProject ? 'text-gray-500' : 'text-gray-400'}`}>
+                    自动将所有生成的分镜视频导入到新建的项目中
+                  </div>
+                </div>
                 <ToggleSwitch
                   checked={settings.jianying.autoImportVideos}
                   onChange={(checked) =>
@@ -132,74 +141,47 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   }
                   disabled={!settings.jianying.autoCreateProject}
                 />
-                <div className="flex-1">
-                  <div className={`font-medium ${settings.jianying.autoCreateProject ? 'text-gray-700 group-hover:text-gray-900' : 'text-gray-400'}`}>
-                    自动导入分镜视频
-                  </div>
-                  <div className={`text-sm mt-1 ${settings.jianying.autoCreateProject ? 'text-gray-500' : 'text-gray-400'}`}>
-                    自动将所有生成的分镜视频导入到新建的项目中
-                  </div>
-                </div>
               </div>
 
               {/* 导入位置选择 */}
-              <div className={`pl-8 space-y-2 ${settings.jianying.autoImportVideos && settings.jianying.autoCreateProject ? '' : 'opacity-50 pointer-events-none'}`}>
+              <div className={`pl-4 space-y-1 ${settings.jianying.autoImportVideos && settings.jianying.autoCreateProject ? '' : 'opacity-50 pointer-events-none'}`}>
                 <div className="text-sm font-medium text-gray-700 mb-2">导入位置：</div>
-                <label className="flex items-center gap-3 cursor-pointer group">
-                  <input
-                    type="radio"
-                    name="importLocation"
-                    value="material"
-                    checked={settings.jianying.importLocation === 'material'}
-                    onChange={(e) =>
-                      setSettings({
-                        ...settings,
-                        jianying: {
-                          ...settings.jianying,
-                          importLocation: 'material',
-                        },
-                      })
-                    }
-                    disabled={!settings.jianying.autoImportVideos || !settings.jianying.autoCreateProject}
-                    className="w-4 h-4 text-purple-600 focus:ring-purple-500 focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  />
-                  <div className="flex-1">
-                    <div className="font-medium text-gray-700 group-hover:text-gray-900">
-                      素材库
-                    </div>
-                    <div className="text-sm text-gray-500 mt-1">
-                      视频将导入到剪映的"素材"面板，方便后续手动添加到轨道
-                    </div>
-                  </div>
-                </label>
-
-                <label className="flex items-center gap-3 cursor-pointer group">
-                  <input
-                    type="radio"
-                    name="importLocation"
-                    value="track"
-                    checked={settings.jianying.importLocation === 'track'}
-                    onChange={(e) =>
-                      setSettings({
-                        ...settings,
-                        jianying: {
-                          ...settings.jianying,
-                          importLocation: 'track',
-                        },
-                      })
-                    }
-                    disabled={!settings.jianying.autoImportVideos || !settings.jianying.autoCreateProject}
-                    className="w-4 h-4 text-purple-600 focus:ring-purple-500 focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  />
-                  <div className="flex-1">
-                    <div className="font-medium text-gray-700 group-hover:text-gray-900">
-                      时间轴轨道
-                    </div>
-                    <div className="text-sm text-gray-500 mt-1">
-                      视频将直接添加到时间轴轨道，按顺序排列
-                    </div>
-                  </div>
-                </label>
+                <RadioButton
+                  name="importLocation"
+                  value="material"
+                  checked={settings.jianying.importLocation === 'material'}
+                  onChange={() =>
+                    setSettings({
+                      ...settings,
+                      jianying: {
+                        ...settings.jianying,
+                        importLocation: 'material',
+                      },
+                    })
+                  }
+                  label="素材库"
+                  description="视频将导入到剪映的素材面板，方便后续手动添加到轨道"
+                  disabled={!settings.jianying.autoImportVideos || !settings.jianying.autoCreateProject}
+                  color="blue"
+                />
+                <RadioButton
+                  name="importLocation"
+                  value="track"
+                  checked={settings.jianying.importLocation === 'track'}
+                  onChange={() =>
+                    setSettings({
+                      ...settings,
+                      jianying: {
+                        ...settings.jianying,
+                        importLocation: 'track',
+                      },
+                    })
+                  }
+                  label="时间轴轨道"
+                  description="视频将直接添加到时间轴轨道，按顺序排列"
+                  disabled={!settings.jianying.autoImportVideos || !settings.jianying.autoCreateProject}
+                  color="blue"
+                />
               </div>
             </div>
           </div>
@@ -212,7 +194,15 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             </h3>
             
             <div className="space-y-4 pl-4">
-              <div className="flex items-center gap-3 cursor-pointer group">
+              <div className="flex items-center justify-between gap-4 cursor-pointer group">
+                <div className="flex-1">
+                  <div className="font-medium text-gray-700 group-hover:text-gray-900">
+                    Enter键代替鼠标点击"下一步"
+                  </div>
+                  <div className="text-sm text-gray-500 mt-1">
+                    开启后，在五步骤流程中按Enter键可提交到下一步，按Ctrl+Enter换行（在文本输入框中）
+                  </div>
+                </div>
                 <ToggleSwitch
                   checked={settings.workflow?.enterKeySubmit || false}
                   onChange={(checked) =>
@@ -225,14 +215,6 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     })
                   }
                 />
-                <div className="flex-1">
-                  <div className="font-medium text-gray-700 group-hover:text-gray-900">
-                    Enter键代替鼠标点击"下一步"
-                  </div>
-                  <div className="text-sm text-gray-500 mt-1">
-                    开启后，在五步骤流程中按Enter键可提交到下一步，按Ctrl+Enter换行（在文本输入框中）
-                  </div>
-                </div>
               </div>
             </div>
           </div>
@@ -245,61 +227,42 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             </h3>
             
             <div className="space-y-4 pl-4">
-              <div className="space-y-2">
+              <div className="space-y-1">
                 <div className="text-sm font-medium text-gray-700 mb-2">底部输入栏模式：</div>
-                <label className="flex items-center gap-3 cursor-pointer group">
-                  <input
-                    type="radio"
-                    name="bottomBarMode"
-                    value="auto"
-                    checked={settings.firstLastFrame?.bottomBarMode === 'auto'}
-                    onChange={() =>
-                      setSettings({
-                        ...settings,
-                        firstLastFrame: {
-                          ...settings.firstLastFrame,
-                          bottomBarMode: 'auto',
-                        },
-                      })
-                    }
-                    className="w-4 h-4 text-purple-600 focus:ring-purple-500 focus:ring-2"
-                  />
-                  <div className="flex-1">
-                    <div className="font-medium text-gray-700 group-hover:text-gray-900">
-                      自动收缩
-                    </div>
-                    <div className="text-sm text-gray-500 mt-1">
-                      滚动页面时底部输入栏自动收缩为小按钮，鼠标悬停时展开
-                    </div>
-                  </div>
-                </label>
-
-                <label className="flex items-center gap-3 cursor-pointer group">
-                  <input
-                    type="radio"
-                    name="bottomBarMode"
-                    value="fixed"
-                    checked={settings.firstLastFrame?.bottomBarMode === 'fixed'}
-                    onChange={() =>
-                      setSettings({
-                        ...settings,
-                        firstLastFrame: {
-                          ...settings.firstLastFrame,
-                          bottomBarMode: 'fixed',
-                        },
-                      })
-                    }
-                    className="w-4 h-4 text-purple-600 focus:ring-purple-500 focus:ring-2"
-                  />
-                  <div className="flex-1">
-                    <div className="font-medium text-gray-700 group-hover:text-gray-900">
-                      固定显示
-                    </div>
-                    <div className="text-sm text-gray-500 mt-1">
-                      底部输入栏始终完整显示，不会自动收缩
-                    </div>
-                  </div>
-                </label>
+                <RadioButton
+                  name="bottomBarMode"
+                  value="auto"
+                  checked={settings.firstLastFrame?.bottomBarMode === 'auto'}
+                  onChange={() =>
+                    setSettings({
+                      ...settings,
+                      firstLastFrame: {
+                        ...settings.firstLastFrame,
+                        bottomBarMode: 'auto',
+                      },
+                    })
+                  }
+                  label="自动收缩"
+                  description="滚动页面时底部输入栏自动收缩为小按钮，鼠标悬停时展开"
+                  color="green"
+                />
+                <RadioButton
+                  name="bottomBarMode"
+                  value="fixed"
+                  checked={settings.firstLastFrame?.bottomBarMode === 'fixed'}
+                  onChange={() =>
+                    setSettings({
+                      ...settings,
+                      firstLastFrame: {
+                        ...settings.firstLastFrame,
+                        bottomBarMode: 'fixed',
+                      },
+                    })
+                  }
+                  label="固定显示"
+                  description="底部输入栏始终完整显示，不会自动收缩"
+                  color="green"
+                />
               </div>
             </div>
           </div>
@@ -312,7 +275,15 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             </h3>
             
             <div className="space-y-4 pl-4">
-              <div className="flex items-center gap-3 cursor-pointer group">
+              <div className="flex items-center justify-between gap-4 cursor-pointer group">
+                <div className="flex-1">
+                  <div className="font-medium text-gray-700 group-hover:text-gray-900">
+                    自动新建项目
+                  </div>
+                  <div className="text-sm text-gray-500 mt-1">
+                    点击"导入PS"时，自动在 Photoshop 中新建项目
+                  </div>
+                </div>
                 <ToggleSwitch
                   checked={settings.photoshop.autoCreateProject}
                   onChange={(checked) =>
@@ -325,17 +296,17 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     })
                   }
                 />
-                <div className="flex-1">
-                  <div className="font-medium text-gray-700 group-hover:text-gray-900">
-                    自动新建项目
-                  </div>
-                  <div className="text-sm text-gray-500 mt-1">
-                    点击"导入PS"时，自动在 Photoshop 中新建项目
-                  </div>
-                </div>
               </div>
 
-              <div className="flex items-center gap-3 cursor-pointer group">
+              <div className="flex items-center justify-between gap-4 cursor-pointer group">
+                <div className="flex-1">
+                  <div className={`font-medium ${settings.photoshop.autoCreateProject ? 'text-gray-700 group-hover:text-gray-900' : 'text-gray-400'}`}>
+                    自动导入海报图
+                  </div>
+                  <div className={`text-sm mt-1 ${settings.photoshop.autoCreateProject ? 'text-gray-500' : 'text-gray-400'}`}>
+                    自动将海报图导入到新建项目的最上面的图层
+                  </div>
+                </div>
                 <ToggleSwitch
                   checked={settings.photoshop.autoImportPoster}
                   onChange={(checked) =>
@@ -349,14 +320,6 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   }
                   disabled={!settings.photoshop.autoCreateProject}
                 />
-                <div className="flex-1">
-                  <div className={`font-medium ${settings.photoshop.autoCreateProject ? 'text-gray-700 group-hover:text-gray-900' : 'text-gray-400'}`}>
-                    自动导入海报图
-                  </div>
-                  <div className={`text-sm mt-1 ${settings.photoshop.autoCreateProject ? 'text-gray-500' : 'text-gray-400'}`}>
-                    自动将海报图导入到新建项目的最上面的图层
-                  </div>
-                </div>
               </div>
             </div>
           </div>
