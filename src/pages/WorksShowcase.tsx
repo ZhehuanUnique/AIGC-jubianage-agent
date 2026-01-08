@@ -452,7 +452,7 @@ function WorksShowcase() {
           </div>
         </div>
 
-        {/* 视频网格 */}
+        {/* 视频瀑布流 */}
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20">
             <HamsterLoader size={10} />
@@ -466,7 +466,11 @@ function WorksShowcase() {
         ) : (
           <div 
             ref={containerRef}
-            className="works-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
+            className="masonry-grid"
+            style={{
+              columnCount: 5,
+              columnGap: 0,
+            }}
           >
             {/* 视频卡片 */}
             {videos.map((video, index) => {
@@ -478,10 +482,13 @@ function WorksShowcase() {
                   key={video.id}
                   id={`video-${video.id}`}
                   draggable
-                  className={`group cursor-grab active:cursor-grabbing ${
+                  className={`masonry-item group cursor-grab active:cursor-grabbing relative ${
                     draggedVideoId === video.id ? 'opacity-50 cursor-grabbing' : ''
                   } ${dragOverVideoId === video.id ? 'ring-2 ring-purple-500 ring-inset' : ''}`}
-                  style={{ position: 'relative' }}
+                  style={{ 
+                    breakInside: 'avoid',
+                    marginBottom: 0,
+                  }}
                   onDragStart={(e) => {
                     setDraggedVideoId(video.id)
                     e.dataTransfer.effectAllowed = 'move'
@@ -554,22 +561,16 @@ function WorksShowcase() {
                     navigate(`/works/${video.id}`)
                   }}
                 >
-                  {/* 视频容器 - 根据宽高比自适应 */}
-                  <div 
-                    className={`relative bg-black ${
-                      isPortrait 
-                        ? 'aspect-[9/16]' 
-                        : 'aspect-video'
-                    }`}
-                  >
+                  {/* 视频容器 - 自适应高度 */}
+                  <div className="relative bg-black">
                     {/* 优先显示缩略图（如果存在），悬停时再显示视频 */}
                     {video.thumbnailUrl && video.thumbnailUrl.trim() !== '' ? (
                       <>
-                        {/* 缩略图 - 始终显示 */}
+                        {/* 缩略图 - 始终显示，自适应高度 */}
                         <img
                           src={video.thumbnailUrl}
                           alt={video.title}
-                          className="w-full h-full object-cover"
+                          className="w-full h-auto block"
                           onError={(e) => {
                             // 如果缩略图加载失败，尝试显示视频或占位符
                             const target = e.currentTarget
@@ -647,7 +648,7 @@ function WorksShowcase() {
                           }
                         }}
                         src={video.videoUrl}
-                        className="w-full h-full object-cover"
+                        className="w-full h-auto block"
                         muted
                         loop
                         preload="metadata"
@@ -665,7 +666,7 @@ function WorksShowcase() {
                           const parent = videoEl.parentElement
                           if (parent && !parent.querySelector('.placeholder')) {
                             const placeholder = document.createElement('div')
-                            placeholder.className = 'w-full h-full flex items-center justify-center bg-gray-200 placeholder'
+                            placeholder.className = 'w-full aspect-video flex items-center justify-center bg-gray-200 placeholder'
                             placeholder.innerHTML = '<svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>'
                             parent.appendChild(placeholder)
                           }
@@ -673,7 +674,7 @@ function WorksShowcase() {
                       />
                     ) : (
                       // 既没有缩略图也没有视频，显示占位符
-                      <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                      <div className="w-full aspect-video flex items-center justify-center bg-gray-200">
                         <Play className="w-12 h-12 text-gray-400" />
                       </div>
                     )}
@@ -695,15 +696,16 @@ function WorksShowcase() {
                     )}
                   </div>
 
-                  {/* 悬停时显示的悬浮窗口 - 从底部向上展开，高度自适应内容 */}
+                  {/* 悬停时显示的悬浮窗口 - 覆盖在视频底部，不影响布局 */}
                   {hoveredVideoId === video.id && (
                     <div 
-                      className="hover-window absolute left-0 right-0 bottom-0 bg-white bg-opacity-98 backdrop-blur-sm shadow-2xl z-[9999] flex flex-col p-3 pointer-events-auto rounded-t-lg border border-gray-200 border-b-0"
+                      className="hover-window absolute left-0 right-0 bottom-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent z-[9999] flex flex-col p-3 pointer-events-auto"
+                      style={{ minHeight: '50%' }}
                       onMouseEnter={() => setHoveredVideoId(video.id)}
                       onMouseLeave={() => setHoveredVideoId(null)}
                     >
                       {/* 标题 */}
-                      <h3 className="text-sm font-semibold text-gray-900 mb-1.5 line-clamp-2">
+                      <h3 className="text-sm font-semibold text-white mb-1.5 line-clamp-2 drop-shadow-md">
                         {video.title || '未命名视频'}
                       </h3>
                       
@@ -713,23 +715,23 @@ function WorksShowcase() {
                           <img
                             src={video.avatar}
                             alt={video.username}
-                            className="w-6 h-6 rounded-full object-cover border border-gray-200"
+                            className="w-6 h-6 rounded-full object-cover border border-white/30"
                           />
                         ) : (
-                          <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center text-white text-xs border border-gray-200">
+                          <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center text-white text-xs border border-white/30">
                             {video.username.charAt(0).toUpperCase()}
                           </div>
                         )}
-                        <span className="text-xs text-gray-700 truncate">{video.username}</span>
+                        <span className="text-xs text-white/90 truncate">{video.username}</span>
                       </div>
 
                       {/* 互动数据 */}
-                      <div className="flex items-center gap-4 text-xs text-gray-600 mb-1.5">
+                      <div className="flex items-center gap-4 text-xs text-white/80 mb-1.5">
                         <button
                           onClick={(e) => handleLike(video.id, e)}
-                          className="flex items-center gap-1 hover:text-red-500 transition-colors"
+                          className="flex items-center gap-1 hover:text-red-400 transition-colors"
                         >
-                          <Heart className={`w-4 h-4 ${video.isLiked ? 'fill-current text-red-500' : ''}`} />
+                          <Heart className={`w-4 h-4 ${video.isLiked ? 'fill-current text-red-400' : ''}`} />
                           <span>{formatNumber(video.likesCount)}</span>
                         </button>
                         <span>{formatNumber(video.viewsCount)}次观看</span>
@@ -739,28 +741,28 @@ function WorksShowcase() {
                       {/* 模型和规格信息 */}
                       <div className="flex items-center gap-2 mb-2 flex-wrap">
                         {video.model ? (
-                          <span className="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-700">
+                          <span className="px-2 py-0.5 bg-white/20 rounded text-xs text-white/90">
                             {video.model}
                           </span>
                         ) : (
-                          <span className="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-500">
+                          <span className="px-2 py-0.5 bg-white/20 rounded text-xs text-white/70">
                             未知模型
                           </span>
                         )}
                         {video.duration ? (
-                          <span className="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-700">
+                          <span className="px-2 py-0.5 bg-white/20 rounded text-xs text-white/90">
                             {video.duration}s
                           </span>
                         ) : null}
                         {video.resolution ? (
-                          <span className="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-700">
+                          <span className="px-2 py-0.5 bg-white/20 rounded text-xs text-white/90">
                             {video.resolution}
                           </span>
                         ) : null}
                       </div>
                       
                       {/* 操作按钮行 */}
-                      <div className="flex items-center gap-2 pt-2 border-t border-gray-200">
+                      <div className="flex items-center gap-2 pt-2 border-t border-white/20">
                         <button 
                           onClick={(e) => {
                             e.stopPropagation()
@@ -776,7 +778,7 @@ function WorksShowcase() {
                             e.stopPropagation()
                             // TODO: 实现下载功能
                           }}
-                          className="w-9 h-9 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center text-gray-700 transition-all"
+                          className="w-9 h-9 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center text-white transition-all"
                           title="下载"
                         >
                           <Download className="w-4 h-4" />
@@ -786,7 +788,7 @@ function WorksShowcase() {
                             e.stopPropagation()
                             // TODO: 实现分享功能
                           }}
-                          className="w-9 h-9 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center text-gray-700 transition-all"
+                          className="w-9 h-9 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center text-white transition-all"
                           title="分享"
                         >
                           <Share2 className="w-4 h-4" />
@@ -796,7 +798,7 @@ function WorksShowcase() {
                             e.stopPropagation()
                             // TODO: 实现更多选项
                           }}
-                          className="w-9 h-9 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center text-gray-700 transition-all"
+                          className="w-9 h-9 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center text-white transition-all"
                           title="更多"
                         >
                           <MoreVertical className="w-5 h-5" />

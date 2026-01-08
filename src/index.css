@@ -985,33 +985,46 @@ select.text-center::-ms-expand {
 
 
 
-/* 作品展示网格 - 视频紧贴无间隙 */
-.works-grid {
-  display: grid;
-  gap: 0 !important;
-  row-gap: 0 !important;
-  column-gap: 0 !important;
-  grid-auto-rows: auto;
+/* 作品展示瀑布流布局 */
+.masonry-grid {
+  column-count: 5;
+  column-gap: 0;
 }
 
-.works-grid > * {
-  margin: 0 !important;
-  padding: 0 !important;
-  border: none !important;
-  line-height: 0;
-  font-size: 0;
-}
-
-.works-grid > * > * {
-  font-size: 1rem;
-}
-
-.works-grid img,
-.works-grid video {
-  display: block;
+.masonry-item {
+  break-inside: avoid;
   margin: 0;
   padding: 0;
-  border: none;
-  line-height: 0;
-  font-size: 0;
+}
+
+.masonry-item img,
+.masonry-item video {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* 响应式列数 */
+@media (max-width: 1536px) {
+  .masonry-grid {
+    column-count: 4;
+  }
+}
+
+@media (max-width: 1280px) {
+  .masonry-grid {
+    column-count: 3;
+  }
+}
+
+@media (max-width: 1024px) {
+  .masonry-grid {
+    column-count: 2;
+  }
+}
+
+@media (max-width: 640px) {
+  .masonry-grid {
+    column-count: 1;
+  }
 }
