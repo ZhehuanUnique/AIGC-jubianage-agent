@@ -25,6 +25,7 @@ function WorksShowcase() {
   const [deletingVideoId, setDeletingVideoId] = useState<number | null>(null)
   const [showPublishModal, setShowPublishModal] = useState(false)
   const [deleteConfirmState, setDeleteConfirmState] = useState<{ isOpen: boolean; videoId: number | null }>({ isOpen: false, videoId: null })
+  const [showThumbnailList, setShowThumbnailList] = useState(false)
 
   // 检查用户权限
   useEffect(() => {
@@ -277,111 +278,131 @@ function WorksShowcase() {
     return `${Math.floor(days / 365)}年前`
   }
 
-  // 键盘导航
+  // 键盘导航 - 使用 ref 获取最新状态
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (videos.length === 0) return
+      const currentVideos = videosRef.current
+      const currentIdx = currentIndexRef.current
+      
+      if (currentVideos.length === 0) return
       
       if (e.key === 'ArrowUp') {
         e.preventDefault()
-        setCurrentVideoIndex(prev => {
-          const newIndex = Math.max(0, prev - 1)
+        if (currentIdx > 0) {
+          const newIndex = currentIdx - 1
           // 暂停当前视频
-          const currentVideo = videoRefs.current.get(videos[prev]?.id)
+          const currentVideo = videoRefs.current.get(currentVideos[currentIdx]?.id)
           if (currentVideo) currentVideo.pause()
+          // 更新索引
+          setCurrentVideoIndex(newIndex)
           // 播放新视频
           setTimeout(() => {
-            const newVideo = videoRefs.current.get(videos[newIndex]?.id)
+            const newVideo = videoRefs.current.get(currentVideos[newIndex]?.id)
             if (newVideo) {
               newVideo.play().catch(() => {})
-              recordVideoView(videos[newIndex].id)
+              recordVideoView(currentVideos[newIndex].id)
             }
           }, 100)
-          return newIndex
-        })
+        }
       } else if (e.key === 'ArrowDown') {
         e.preventDefault()
-        setCurrentVideoIndex(prev => {
-          const newIndex = Math.min(videos.length - 1, prev + 1)
+        if (currentIdx < currentVideos.length - 1) {
+          const newIndex = currentIdx + 1
           // 暂停当前视频
-          const currentVideo = videoRefs.current.get(videos[prev]?.id)
+          const currentVideo = videoRefs.current.get(currentVideos[currentIdx]?.id)
           if (currentVideo) currentVideo.pause()
+          // 更新索引
+          setCurrentVideoIndex(newIndex)
           // 播放新视频
           setTimeout(() => {
-            const newVideo = videoRefs.current.get(videos[newIndex]?.id)
+            const newVideo = videoRefs.current.get(currentVideos[newIndex]?.id)
             if (newVideo) {
               newVideo.play().catch(() => {})
-              recordVideoView(videos[newIndex].id)
+              recordVideoView(currentVideos[newIndex].id)
             }
           }, 100)
-          return newIndex
-        })
-      } else if (e.key === 'Enter' && videos[currentVideoIndex]) {
-        navigate(`/works/${videos[currentVideoIndex].id}`)
+        }
+      } else if (e.key === 'Enter' && currentVideos[currentIdx]) {
+        navigate(`/works/${currentVideos[currentIdx].id}`)
       }
     }
 
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [videos, currentVideoIndex, navigate])
+    document.addEventListener('keydown', handleKeyDown, { capture: true })
+    return () => document.removeEventListener('keydown', handleKeyDown, { capture: true })
+  }, [navigate]) // 只依赖 navigate
 
-  // 滚轮导航（带防抖）
+  // 滚轮导航（带防抖）- 使用 ref 存储最新的 videos 和 currentVideoIndex
   const lastWheelTime = useRef<number>(0)
+  const videosRef = useRef(videos)
+  const currentIndexRef = useRef(currentVideoIndex)
+  
+  // 保持 ref 同步
+  useEffect(() => {
+    videosRef.current = videos
+  }, [videos])
+  
+  useEffect(() => {
+    currentIndexRef.current = currentVideoIndex
+  }, [currentVideoIndex])
+
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault()
+      e.stopPropagation()
       
-      if (videos.length === 0) return
+      const currentVideos = videosRef.current
+      const currentIdx = currentIndexRef.current
       
-      // 防抖：300ms内只处理一次
+      if (currentVideos.length === 0) return
+      
+      // 防抖：400ms内只处理一次
       const now = Date.now()
-      if (now - lastWheelTime.current < 300) return
+      if (now - lastWheelTime.current < 400) return
       lastWheelTime.current = now
       
-      const threshold = 30 // 滚轮阈值
+      const threshold = 20 // 滚轮阈值
 
       if (Math.abs(e.deltaY) > threshold) {
-        if (e.deltaY > 0) {
+        if (e.deltaY > 0 && currentIdx < currentVideos.length - 1) {
           // 向下滚动，切换到下一个视频
-          setCurrentVideoIndex(prev => {
-            const newIndex = Math.min(videos.length - 1, prev + 1)
-            if (newIndex !== prev) {
-              const currentVideo = videoRefs.current.get(videos[prev]?.id)
-              if (currentVideo) currentVideo.pause()
-              setTimeout(() => {
-                const newVideo = videoRefs.current.get(videos[newIndex]?.id)
-                if (newVideo) {
-                  newVideo.play().catch(() => {})
-                  recordVideoView(videos[newIndex].id)
-                }
-              }, 100)
+          const newIndex = currentIdx + 1
+          // 暂停当前视频
+          const currentVideo = videoRefs.current.get(currentVideos[currentIdx]?.id)
+          if (currentVideo) currentVideo.pause()
+          // 更新索引
+          setCurrentVideoIndex(newIndex)
+          // 播放新视频
+          setTimeout(() => {
+            const newVideo = videoRefs.current.get(currentVideos[newIndex]?.id)
+            if (newVideo) {
+              newVideo.play().catch(() => {})
+              recordVideoView(currentVideos[newIndex].id)
             }
-            return newIndex
-          })
-        } else {
+          }, 100)
+        } else if (e.deltaY < 0 && currentIdx > 0) {
           // 向上滚动，切换到上一个视频
-          setCurrentVideoIndex(prev => {
-            const newIndex = Math.max(0, prev - 1)
-            if (newIndex !== prev) {
-              const currentVideo = videoRefs.current.get(videos[prev]?.id)
-              if (currentVideo) currentVideo.pause()
-              setTimeout(() => {
-                const newVideo = videoRefs.current.get(videos[newIndex]?.id)
-                if (newVideo) {
-                  newVideo.play().catch(() => {})
-                  recordVideoView(videos[newIndex].id)
-                }
-              }, 100)
+          const newIndex = currentIdx - 1
+          // 暂停当前视频
+          const currentVideo = videoRefs.current.get(currentVideos[currentIdx]?.id)
+          if (currentVideo) currentVideo.pause()
+          // 更新索引
+          setCurrentVideoIndex(newIndex)
+          // 播放新视频
+          setTimeout(() => {
+            const newVideo = videoRefs.current.get(currentVideos[newIndex]?.id)
+            if (newVideo) {
+              newVideo.play().catch(() => {})
+              recordVideoView(currentVideos[newIndex].id)
             }
-            return newIndex
-          })
+          }, 100)
         }
       }
     }
 
-    window.addEventListener('wheel', handleWheel, { passive: false })
-    return () => window.removeEventListener('wheel', handleWheel)
-  }, [videos])
+    // 绑定到 document 而不是 window，确保捕获所有滚轮事件
+    document.addEventListener('wheel', handleWheel, { passive: false, capture: true })
+    return () => document.removeEventListener('wheel', handleWheel, { capture: true })
+  }, []) // 空依赖，只绑定一次
 
   // 自动播放当前视频
   useEffect(() => {
@@ -464,13 +485,14 @@ function WorksShowcase() {
       ) : (
         <div 
           ref={containerRef}
-          className="h-full overflow-y-scroll snap-y snap-mandatory"
-          style={{ scrollSnapType: 'y mandatory' }}
+          className="h-full overflow-hidden"
         >
           {videos.map((video, index) => (
             <div
               key={video.id}
-              className="h-screen w-screen snap-start relative flex items-center justify-center"
+              className={`h-screen w-screen absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${
+                index === currentVideoIndex ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
+              }`}
             >
               {/* 视频 */}
               {video.videoUrl ? (
@@ -611,39 +633,95 @@ function WorksShowcase() {
                 )}
               </div>
 
-              {/* 导航指示器（左侧） */}
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 flex flex-col items-center gap-2 z-30">
-                {/* 上一个视频按钮 */}
-                {currentVideoIndex > 0 && (
-                  <button
-                    onClick={() => switchToVideo(currentVideoIndex - 1)}
-                    className="w-10 h-10 bg-black bg-opacity-50 rounded-full flex items-center justify-center text-white hover:bg-opacity-70 transition-all"
-                  >
-                    <ChevronUp size={20} />
-                  </button>
-                )}
-                
-                {/* 当前位置指示器 */}
-                <div className="flex flex-col items-center gap-1">
-                  <span className="text-white text-xs">{currentVideoIndex + 1}</span>
-                  <div className="w-1 h-8 bg-white/30 rounded-full overflow-hidden">
-                    <div 
-                      className="w-full bg-white rounded-full transition-all duration-300"
-                      style={{ height: `${((currentVideoIndex + 1) / videos.length) * 100}%` }}
-                    />
+              {/* 导航指示器（左侧）- 悬停显示缩略图列表 */}
+              <div 
+                className="absolute left-4 top-1/2 -translate-y-1/2 z-30"
+                onMouseEnter={() => setShowThumbnailList(true)}
+                onMouseLeave={() => setShowThumbnailList(false)}
+              >
+                {/* 缩略图列表面板 */}
+                {showThumbnailList && (
+                  <div className="absolute left-12 top-1/2 -translate-y-1/2 bg-black/80 backdrop-blur-sm rounded-lg p-2 max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-white/30 scrollbar-track-transparent">
+                    <div className="flex flex-col gap-2 w-24">
+                      {videos.map((v, idx) => (
+                        <button
+                          key={v.id}
+                          onClick={() => switchToVideo(idx)}
+                          className={`relative w-full aspect-video rounded overflow-hidden transition-all ${
+                            idx === currentVideoIndex 
+                              ? 'ring-2 ring-purple-500 scale-105' 
+                              : 'opacity-70 hover:opacity-100'
+                          }`}
+                        >
+                          {v.thumbnailUrl ? (
+                            <img 
+                              src={v.thumbnailUrl} 
+                              alt={v.title}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : v.videoUrl ? (
+                            <video 
+                              src={v.videoUrl} 
+                              className="w-full h-full object-cover"
+                              muted
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gray-700 flex items-center justify-center">
+                              <Play size={12} className="text-white/50" />
+                            </div>
+                          )}
+                          {/* 序号标签 */}
+                          <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] px-1 py-0.5 truncate">
+                            {idx + 1}. {v.title?.slice(0, 8) || '无标题'}
+                          </div>
+                          {/* 当前播放指示 */}
+                          {idx === currentVideoIndex && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                              <div className="w-4 h-4 bg-purple-500 rounded-full flex items-center justify-center">
+                                <Play size={8} className="text-white fill-white ml-0.5" />
+                              </div>
+                            </div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <span className="text-white text-xs">{videos.length}</span>
-                </div>
-
-                {/* 下一个视频按钮 */}
-                {currentVideoIndex < videos.length - 1 && (
-                  <button
-                    onClick={() => switchToVideo(currentVideoIndex + 1)}
-                    className="w-10 h-10 bg-black bg-opacity-50 rounded-full flex items-center justify-center text-white hover:bg-opacity-70 transition-all"
-                  >
-                    <ChevronDown size={20} />
-                  </button>
                 )}
+
+                {/* 主导航指示器 */}
+                <div className="flex flex-col items-center gap-2">
+                  {/* 上一个视频按钮 */}
+                  {currentVideoIndex > 0 && (
+                    <button
+                      onClick={() => switchToVideo(currentVideoIndex - 1)}
+                      className="w-10 h-10 bg-black bg-opacity-50 rounded-full flex items-center justify-center text-white hover:bg-opacity-70 transition-all"
+                    >
+                      <ChevronUp size={20} />
+                    </button>
+                  )}
+                  
+                  {/* 当前位置指示器 */}
+                  <div className="flex flex-col items-center gap-1 cursor-pointer" title="悬停查看所有视频">
+                    <span className="text-white text-xs">{currentVideoIndex + 1}</span>
+                    <div className="w-1 h-8 bg-white/30 rounded-full overflow-hidden">
+                      <div 
+                        className="w-full bg-white rounded-full transition-all duration-300"
+                        style={{ height: `${((currentVideoIndex + 1) / videos.length) * 100}%` }}
+                      />
+                    </div>
+                    <span className="text-white text-xs">{videos.length}</span>
+                  </div>
+
+                  {/* 下一个视频按钮 */}
+                  {currentVideoIndex < videos.length - 1 && (
+                    <button
+                      onClick={() => switchToVideo(currentVideoIndex + 1)}
+                      className="w-10 h-10 bg-black bg-opacity-50 rounded-full flex items-center justify-center text-white hover:bg-opacity-70 transition-all"
+                    >
+                      <ChevronDown size={20} />
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           ))}
