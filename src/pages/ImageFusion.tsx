@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { X, Eye, Star, Trash2, Download, Loader2 } from 'lucide-react'
+import { X, Eye, Star, Trash2, Download, Loader2, ArrowLeft } from 'lucide-react'
 import ImageSelectionModal from '../components/ImageSelectionModal'
 import VideoPromptModelSelectionModal from '../components/VideoPromptModelSelectionModal'
 import VideoEditingDrawer from '../components/VideoEditingDrawer'
