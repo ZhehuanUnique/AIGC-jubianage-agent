@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Heart, Play, ArrowLeft, ChevronUp, ChevronDown, Trash2, Plus, Sparkles, Download, Share2, MoreVertical } from 'lucide-react'
+import { Heart, Play, ArrowLeft, ChevronUp, ChevronDown, Trash2, Plus, Sparkles, Download, Share2, MoreVertical, Link, AlertTriangle } from 'lucide-react'
 import { getCommunityVideos, toggleVideoLike, recordVideoView, deleteCommunityVideo, CommunityVideo } from '../services/api'
 import { alertError, alertSuccess, alertWarning } from '../utils/alert'
 import { AuthService } from '../services/auth'
@@ -28,6 +28,8 @@ function WorksShowcase() {
   const [deleteConfirmState, setDeleteConfirmState] = useState<{ isOpen: boolean; videoId: number | null }>({ isOpen: false, videoId: null })
   const [draggedVideoId, setDraggedVideoId] = useState<number | null>(null)
   const [dragOverVideoId, setDragOverVideoId] = useState<number | null>(null)
+  const [shareMenuVideoId, setShareMenuVideoId] = useState<number | null>(null)
+  const [moreMenuVideoId, setMoreMenuVideoId] = useState<number | null>(null)
 
   // 检查用户权限
   useEffect(() => {
@@ -232,6 +234,60 @@ function WorksShowcase() {
       console.error('点赞失败:', error)
       alertError(error instanceof Error ? error.message : '点赞失败，请稍后重试', '错误')
     }
+  }
+
+  // 处理下载视频
+  const handleDownload = async (video: CommunityVideo, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!video.videoUrl) {
+      alertError('视频地址不存在', '下载失败')
+      return
+    }
+    try {
+      // 使用fetch下载视频
+      const response = await fetch(video.videoUrl)
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${video.title || '视频'}.mp4`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+      alertSuccess('视频下载已开始', '下载中')
+    } catch (error) {
+      console.error('下载失败:', error)
+      // 如果fetch失败，尝试直接打开链接
+      window.open(video.videoUrl, '_blank')
+    }
+  }
+
+  // 复制链接到剪贴板
+  const handleCopyLink = async (videoId: number, e: React.MouseEvent) => {
+    e.stopPropagation()
+    const url = `${window.location.origin}/works/${videoId}`
+    try {
+      await navigator.clipboard.writeText(url)
+      alertSuccess('链接已复制到剪贴板', '复制成功')
+    } catch (error) {
+      // 降级方案
+      const textArea = document.createElement('textarea')
+      textArea.value = url
+      document.body.appendChild(textArea)
+      textArea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textArea)
+      alertSuccess('链接已复制到剪贴板', '复制成功')
+    }
+    setShareMenuVideoId(null)
+  }
+
+  // 处理举报
+  const handleReport = (videoId: number, e: React.MouseEvent) => {
+    e.stopPropagation()
+    alertWarning('举报功能即将上线', '提示')
+    setMoreMenuVideoId(null)
   }
 
   // 格式化数字
@@ -542,6 +598,8 @@ function WorksShowcase() {
                   onMouseLeave={() => {
                     if (!draggedVideoId) {
                       setHoveredVideoId(null)
+                      setShareMenuVideoId(null)
+                      setMoreMenuVideoId(null)
                       if (window.innerWidth >= 640) {
                         const videoEl = videoRefs.current.get(video.id)
                         if (videoEl) {
@@ -699,10 +757,13 @@ function WorksShowcase() {
                   {/* 悬停时显示的悬浮窗口 - 覆盖在视频底部，不影响布局 */}
                   {hoveredVideoId === video.id && (
                     <div 
-                      className="hover-window absolute left-0 right-0 bottom-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent z-[9999] flex flex-col p-3 pointer-events-auto"
-                      style={{ minHeight: '50%' }}
+                      className="hover-window absolute left-0 right-0 bottom-0 bg-gradient-to-t from-black/95 via-black/80 to-transparent z-[9999] flex flex-col p-3 pointer-events-auto"
                       onMouseEnter={() => setHoveredVideoId(video.id)}
-                      onMouseLeave={() => setHoveredVideoId(null)}
+                      onMouseLeave={() => {
+                        setHoveredVideoId(null)
+                        setShareMenuVideoId(null)
+                        setMoreMenuVideoId(null)
+                      }}
                     >
                       {/* 标题 */}
                       <h3 className="text-sm font-semibold text-white mb-1.5 line-clamp-2 drop-shadow-md">
@@ -774,35 +835,103 @@ function WorksShowcase() {
                           <span>使用模板</span>
                         </button>
                         <button 
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            // TODO: 实现下载功能
-                          }}
+                          onClick={(e) => handleDownload(video, e)}
                           className="w-9 h-9 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center text-white transition-all"
                           title="下载"
                         >
                           <Download className="w-4 h-4" />
                         </button>
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            // TODO: 实现分享功能
-                          }}
-                          className="w-9 h-9 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center text-white transition-all"
-                          title="分享"
-                        >
-                          <Share2 className="w-4 h-4" />
-                        </button>
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            // TODO: 实现更多选项
-                          }}
-                          className="w-9 h-9 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center text-white transition-all"
-                          title="更多"
-                        >
-                          <MoreVertical className="w-5 h-5" />
-                        </button>
+                        {/* 分享按钮和菜单 */}
+                        <div className="relative">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setShareMenuVideoId(shareMenuVideoId === video.id ? null : video.id)
+                              setMoreMenuVideoId(null)
+                            }}
+                            className="w-9 h-9 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center text-white transition-all"
+                            title="分享"
+                          >
+                            <Share2 className="w-4 h-4" />
+                          </button>
+                          {/* 分享菜单 */}
+                          {shareMenuVideoId === video.id && (
+                            <div 
+                              className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-white rounded-xl shadow-xl py-2 min-w-[140px] z-[10000]"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  alertWarning('小红书分享功能即将上线', '提示')
+                                  setShareMenuVideoId(null)
+                                }}
+                                className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-gray-100 transition-colors text-gray-700"
+                              >
+                                <span className="text-sm font-medium text-red-500">小红书</span>
+                                <span className="text-sm">小红书</span>
+                              </button>
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  alertWarning('微博分享功能即将上线', '提示')
+                                  setShareMenuVideoId(null)
+                                }}
+                                className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-gray-100 transition-colors text-gray-700"
+                              >
+                                <span className="text-sm">🔴</span>
+                                <span className="text-sm">微博</span>
+                              </button>
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  alertWarning('微信分享功能即将上线', '提示')
+                                  setShareMenuVideoId(null)
+                                }}
+                                className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-gray-100 transition-colors text-gray-700"
+                              >
+                                <span className="text-sm">💬</span>
+                                <span className="text-sm">微信</span>
+                              </button>
+                              <button 
+                                onClick={(e) => handleCopyLink(video.id, e)}
+                                className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-gray-100 transition-colors text-gray-700"
+                              >
+                                <Link className="w-4 h-4" />
+                                <span className="text-sm">复制链接</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                        {/* 更多按钮和菜单 */}
+                        <div className="relative">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setMoreMenuVideoId(moreMenuVideoId === video.id ? null : video.id)
+                              setShareMenuVideoId(null)
+                            }}
+                            className="w-9 h-9 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center text-white transition-all"
+                            title="更多"
+                          >
+                            <MoreVertical className="w-5 h-5" />
+                          </button>
+                          {/* 更多菜单 */}
+                          {moreMenuVideoId === video.id && (
+                            <div 
+                              className="absolute bottom-full right-0 mb-2 bg-white rounded-xl shadow-xl py-2 min-w-[120px] z-[10000]"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <button 
+                                onClick={(e) => handleReport(video.id, e)}
+                                className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-gray-100 transition-colors text-gray-700"
+                              >
+                                <AlertTriangle className="w-4 h-4" />
+                                <span className="text-sm">举报</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )}
