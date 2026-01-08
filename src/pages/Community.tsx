@@ -14,13 +14,10 @@ const leftMenuItems = [
   { id: 'trending', label: '剧变热榜', icon: TrendingUp },
 ]
 
-// 榜单类型
+// 榜单类型（只保留前两个）
 const rankingTypes = [
   { id: 'anime', label: '动态漫剧榜' },
   { id: 'ai-real', label: 'AI短剧榜' },
-  { id: 'short-drama', label: '短剧榜' },
-  { id: 'trending', label: '热搜榜' },
-  { id: 'popular', label: '热门榜' },
 ]
 
 function Community() {
