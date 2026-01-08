@@ -1990,9 +1990,7 @@ function FirstLastFrameVideo() {
           }}
         >
           <div className="h-full flex items-end justify-center pb-2">
-            <div className="bg-white/95 backdrop-blur-sm rounded-t-xl shadow-lg border-t border-x border-gray-200 px-6 py-3 cursor-pointer hover:bg-white transition-all hover:shadow-xl flex items-center gap-3">
-              <ChevronUp className="w-5 h-5 text-gray-500" />
-              <span className="text-sm text-gray-600 font-medium">展开输入栏</span>
+            <div className="bg-white/95 backdrop-blur-sm rounded-t-xl shadow-lg border-t border-x border-gray-200 px-6 py-3 cursor-pointer hover:bg-white transition-all hover:shadow-xl flex items-center justify-center">
               <ChevronUp className="w-5 h-5 text-gray-500" />
             </div>
           </div>

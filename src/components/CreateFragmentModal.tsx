@@ -135,7 +135,15 @@ function CreateFragmentModal({ onClose, onFragmentCreated }: CreateFragmentModal
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={onClose}>
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" 
+      onClick={(e) => {
+        // 只有点击背景时才关闭，点击内容区域不关闭
+        if (e.target === e.currentTarget) {
+          onClose()
+        }
+      }}
+    >
       <div
         className="bg-white rounded-lg border border-purple-500 w-full max-w-md p-6"
         onClick={(e) => e.stopPropagation()}

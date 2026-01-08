@@ -1297,3 +1297,66 @@ select.text-center::-ms-expand {
 .custom-radio-disabled .custom-radio-circle {
   cursor: not-allowed;
 }
+
+
+/* 视频加载动画 - 基于 https://uiverse.io/alexruix/tame-fly-42 */
+.video-loading-bounce {
+  position: relative;
+  width: 120px;
+  height: 90px;
+  margin: 0 auto;
+}
+
+.video-loading-bounce:before {
+  content: "";
+  position: absolute;
+  bottom: 30px;
+  left: 50px;
+  height: 30px;
+  width: 30px;
+  border-radius: 50%;
+  background: #8b5cf6;
+  animation: video-loading-bounce 0.5s ease-in-out infinite alternate;
+}
+
+.video-loading-bounce:after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 0;
+  height: 7px;
+  width: 45px;
+  border-radius: 4px;
+  box-shadow: 0 5px 0 #e5e7eb, -35px 50px 0 #e5e7eb, -70px 95px 0 #e5e7eb;
+  animation: video-loading-step 1s ease-in-out infinite;
+}
+
+@keyframes video-loading-bounce {
+  0% {
+    transform: scale(1, 0.7);
+  }
+  40% {
+    transform: scale(0.8, 1.2);
+  }
+  60% {
+    transform: scale(1, 1);
+  }
+  100% {
+    bottom: 140px;
+  }
+}
+
+@keyframes video-loading-step {
+  0% {
+    box-shadow: 0 10px 0 rgba(0, 0, 0, 0),
+      0 10px 0 #e5e7eb,
+      -35px 50px 0 #e5e7eb,
+      -70px 90px 0 #e5e7eb;
+  }
+  100% {
+    box-shadow: 0 10px 0 #e5e7eb,
+      -35px 50px 0 #e5e7eb,
+      -70px 90px 0 #e5e7eb,
+      -70px 90px 0 rgba(0, 0, 0, 0);
+  }
+}

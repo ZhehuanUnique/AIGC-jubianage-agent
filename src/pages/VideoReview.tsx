@@ -515,7 +515,7 @@ function VideoReview() {
             : d
         ))
         
-        alertSuccess('批注发送成功', '发送成功')
+        // 不显示成功提示，静默完成
       } catch (error) {
         console.error('保存批注失败:', error)
         // 保存失败时回滚UI
@@ -950,35 +950,18 @@ function VideoReview() {
         <div className="flex-1 flex flex-col p-3 sm:p-6 order-2 lg:order-1">
           {/* 视频播放器 */}
           <div className="flex-1 bg-gray-50 border border-gray-200 rounded-lg mb-4 flex items-center justify-center relative overflow-hidden">
-            {videoUrl || videoThumbnail ? (
+            {videoUrl ? (
               <>
-                {/* 乐观更新：显示视频第一帧作为占位符 */}
-                {isVideoLoading && videoThumbnail && (
-                  <div className="absolute inset-0 z-10">
-                    <img
-                      src={videoThumbnail}
-                      alt="视频预览"
-                      className="w-full h-full object-contain"
-                    />
-                    <div className="absolute inset-0 bg-gray-900 bg-opacity-30 flex items-center justify-center">
-                      <div className="text-center">
-                        <HamsterLoader size={18} />
-                        <p className="text-white text-lg font-medium mt-4">视频加载中...</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {/* 视频加载状态（没有缩略图时显示） */}
-                {isVideoLoading && !videoThumbnail && (
-                  <div className="absolute inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-20">
+                {/* 视频加载状态 - 使用新的加载动画 */}
+                {isVideoLoading && (
+                  <div className="absolute inset-0 bg-white flex items-center justify-center z-20">
                     <div className="text-center">
-                      <HamsterLoader size={18} />
-                      <p className="text-white text-lg font-medium mt-4">视频加载中...</p>
+                      <div className="video-loading-bounce"></div>
+                      <p className="text-gray-600 text-lg font-medium mt-8">视频加载中...</p>
                     </div>
                   </div>
                 )}
                 {/* 视频播放 */}
-                {videoUrl && (
                 <video
                   ref={videoRef}
                   src={videoUrl}
@@ -992,8 +975,6 @@ function VideoReview() {
                     }}
                     onCanPlay={() => {
                       setIsVideoLoading(false)
-                      // 视频加载完成后，可以清空缩略图（可选，保留也可以）
-                      // setVideoThumbnail(null)
                     }}
                     onLoadedData={() => {
                       setIsVideoLoading(false)
@@ -1061,7 +1042,6 @@ function VideoReview() {
                     setVideoFile(null)
                   }}
                 />
-                )}
                 
                 {/* 上传进度覆盖层 */}
                 {isUploading && (
