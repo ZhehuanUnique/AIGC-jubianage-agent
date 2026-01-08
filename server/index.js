@@ -1535,6 +1535,29 @@ app.get('/api/projects/:projectId/first-last-frame-videos', authenticateToken, a
       [projectId, userId, oneWeekAgo]
     )
     
+    // 获取补帧任务（frame_interpolation）
+    let frameInterpolationTasks = []
+    try {
+      const frameInterpolationResult = await db.query(
+        `SELECT vpt.id, vpt.source_video_task_id, vpt.source_video_url, vpt.output_video_url,
+                vpt.processing_type, vpt.status, vpt.error_message, vpt.metadata,
+                vpt.created_at, vpt.updated_at,
+                flv.first_frame_url, flv.last_frame_url, flv.model, flv.resolution, 
+                flv.ratio, flv.duration, flv.text, flv.prompt
+         FROM video_processing_tasks vpt
+         LEFT JOIN first_last_frame_videos flv ON flv.task_id = vpt.source_video_task_id
+         WHERE vpt.project_id = $1 AND vpt.user_id = $2 
+           AND vpt.processing_type = 'frame_interpolation'
+           AND vpt.created_at >= $3
+         ORDER BY vpt.created_at DESC
+         LIMIT 100`,
+        [projectId, userId, oneWeekAgo]
+      )
+      frameInterpolationTasks = frameInterpolationResult.rows
+    } catch (fiError) {
+      console.warn('查询补帧任务失败（表可能不存在）:', fiError.message)
+    }
+    
     // 获取当前用户的点赞和收藏状态
     const taskIds = videosResult.rows.map(v => v.task_id)
     let likedTaskIds = new Set()
@@ -1585,7 +1608,7 @@ app.get('/api/projects/:projectId/first-last-frame-videos', authenticateToken, a
       }
     }
     
-    // 格式化返回数据
+    // 格式化返回数据 - 原始视频
     const videos = videosResult.rows.map((video) => {
       return {
         id: video.id.toString(),
@@ -1608,12 +1631,49 @@ app.get('/api/projects/:projectId/first-last-frame-videos', authenticateToken, a
         isLiked: likedTaskIds.has(video.task_id),
         isFavorited: favoritedTaskIds.has(video.task_id),
         isUltraHd: ultraHdTaskIds.has(video.task_id),
+        processingType: null, // 原始视频没有处理类型
       }
     })
     
+    // 格式化返回数据 - 补帧任务
+    const frameInterpolationVideos = frameInterpolationTasks.map((task) => {
+      const metadata = task.metadata ? (typeof task.metadata === 'string' ? JSON.parse(task.metadata) : task.metadata) : {}
+      return {
+        id: `fi-${task.id}`, // 使用前缀区分补帧任务
+        taskId: `fi-${task.id}`,
+        videoUrl: task.output_video_url || null,
+        status: task.status || 'pending',
+        firstFrameUrl: task.first_frame_url || null,
+        lastFrameUrl: task.last_frame_url || null,
+        model: task.model || 'volcengine-video-3.0-pro',
+        resolution: task.resolution || '720p',
+        ratio: task.ratio || '16:9',
+        duration: task.duration || 5,
+        text: `补帧 ${metadata.targetFps || 60}FPS - ${task.text || task.prompt || ''}`,
+        estimatedCredit: null,
+        actualCredit: null,
+        shotId: null,
+        errorMessage: task.error_message || null,
+        createdAt: task.created_at,
+        updatedAt: task.updated_at,
+        isLiked: false,
+        isFavorited: false,
+        isUltraHd: false,
+        processingType: 'frame_interpolation', // 标记为补帧任务
+        sourceVideoTaskId: task.source_video_task_id,
+        targetFps: metadata.targetFps || null,
+        method: metadata.method || null,
+      }
+    })
+    
+    // 合并并按创建时间排序
+    const allVideos = [...videos, ...frameInterpolationVideos].sort((a, b) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )
+    
     res.json({
       success: true,
-      data: videos
+      data: allVideos
     })
   } catch (error) {
     console.error('获取首尾帧视频历史失败:', error)

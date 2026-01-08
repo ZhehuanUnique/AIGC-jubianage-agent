@@ -26,6 +26,9 @@ interface VideoTask {
   isFavorited?: boolean
   isUltraHd?: boolean
   progress?: number // 后端返回的实际进度（异步模型）
+  processingType?: 'frame_interpolation' | 'super_resolution' | null // 处理类型
+  targetFps?: number // 补帧目标帧率
+  method?: 'rife' | 'ffmpeg' // 补帧技术
 }
 
 function FirstLastFrameVideo() {
@@ -1721,6 +1724,17 @@ function FirstLastFrameVideo() {
                   
                   {/* 视频信息 */}
                   <div className="p-3">
+                    {/* 补帧任务标识 */}
+                    {task.processingType === 'frame_interpolation' && (
+                      <div className="flex items-center gap-1 mb-1">
+                        <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full font-medium">
+                          补帧
+                        </span>
+                        {task.targetFps && (
+                          <span className="text-xs text-gray-500">{task.targetFps}FPS</span>
+                        )}
+                      </div>
+                    )}
                     <p className="text-sm text-gray-700 line-clamp-2 mb-2">{task.text || '无描述'}</p>
                               <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
                       <span>
@@ -1731,7 +1745,8 @@ function FirstLastFrameVideo() {
                         })()}
                       </span>
                               </div>
-                              {/* 操作按钮 */}
+                              {/* 操作按钮 - 补帧任务不显示重新编辑和再次生成 */}
+                              {!task.processingType && (
                               <div className="flex items-center gap-2">
                                 <button
                                   onClick={async (e) => {
@@ -1954,6 +1969,7 @@ function FirstLastFrameVideo() {
                                   再次生成
                                 </button>
                     </div>
+                              )}
                   </div>
                 </div>
               ))}

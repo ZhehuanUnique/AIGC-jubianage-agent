@@ -30,6 +30,9 @@ function WorksShowcase() {
   const [dragOverVideoId, setDragOverVideoId] = useState<number | null>(null)
   const [shareMenuVideoId, setShareMenuVideoId] = useState<number | null>(null)
   const [moreMenuVideoId, setMoreMenuVideoId] = useState<number | null>(null)
+  const [playingVideoId, setPlayingVideoId] = useState<number | null>(null) // 当前小窗播放的视频ID
+  const [hoveredAvatarVideoId, setHoveredAvatarVideoId] = useState<number | null>(null) // 悬停头像的视频ID
+  const playingVideoRef = useRef<HTMLVideoElement>(null)
 
   // 检查用户权限
   useEffect(() => {
@@ -288,6 +291,18 @@ function WorksShowcase() {
     e.stopPropagation()
     alertWarning('举报功能即将上线', '提示')
     setMoreMenuVideoId(null)
+  }
+
+  // 处理关注
+  const handleFollow = (username: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    alertWarning('关注功能即将上线', '提示')
+    setHoveredAvatarVideoId(null)
+  }
+
+  // 关闭小窗播放
+  const closeVideoPlayer = () => {
+    setPlayingVideoId(null)
   }
 
   // 格式化数字
@@ -615,8 +630,9 @@ function WorksShowcase() {
                       e.preventDefault()
                       return
                     }
+                    // 小窗播放视频
                     recordVideoView(video.id)
-                    navigate(`/works/${video.id}`)
+                    setPlayingVideoId(video.id)
                   }}
                 >
                   {/* 视频容器 - 自适应高度 */}
@@ -752,6 +768,36 @@ function WorksShowcase() {
                         )}
                       </button>
                     )}
+
+                    {/* 右下角作者头像（始终显示） */}
+                    <div 
+                      className="absolute bottom-3 right-3 z-30"
+                      onMouseEnter={() => setHoveredAvatarVideoId(video.id)}
+                      onMouseLeave={() => setHoveredAvatarVideoId(null)}
+                    >
+                      <div className="relative">
+                        {video.avatar ? (
+                          <img
+                            src={video.avatar}
+                            alt={video.username}
+                            className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-lg cursor-pointer"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-white text-sm font-medium border-2 border-white shadow-lg cursor-pointer">
+                            {video.username.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        {/* 悬停时显示关注按钮 */}
+                        {hoveredAvatarVideoId === video.id && (
+                          <button
+                            onClick={(e) => handleFollow(video.username, e)}
+                            className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-red-500 hover:bg-red-600 text-white text-xs rounded-full whitespace-nowrap transition-colors shadow-lg"
+                          >
+                            + 关注
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
                   {/* 悬停时显示的悬浮窗口 - 覆盖在视频底部，不影响布局 */}
@@ -983,6 +1029,86 @@ function WorksShowcase() {
         onConfirm={handleConfirmDelete}
         message="确定要删除/下架这个视频吗？此操作不可恢复。"
       />
+
+      {/* 小窗视频播放器 */}
+      {playingVideoId && (() => {
+        const playingVideo = videos.find(v => v.id === playingVideoId)
+        if (!playingVideo) return null
+        return (
+          <div 
+            className="fixed inset-0 bg-black/80 z-[10000] flex items-center justify-center"
+            onClick={closeVideoPlayer}
+          >
+            <div 
+              className="relative max-w-4xl max-h-[90vh] w-full mx-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* 关闭按钮 */}
+              <button
+                onClick={closeVideoPlayer}
+                className="absolute -top-12 right-0 text-white hover:text-gray-300 transition-colors"
+              >
+                <span className="text-2xl">✕</span>
+              </button>
+              
+              {/* 视频播放器 */}
+              <div className="relative bg-black rounded-lg overflow-hidden">
+                <video
+                  ref={playingVideoRef}
+                  src={playingVideo.videoUrl}
+                  className="w-full h-auto max-h-[80vh]"
+                  controls
+                  autoPlay
+                  playsInline
+                />
+                
+                {/* 右下角作者信息和关注按钮 */}
+                <div className="absolute bottom-16 right-4 flex items-center gap-3">
+                  <span className="text-white text-sm truncate max-w-[150px]">
+                    {playingVideo.username}
+                  </span>
+                  <div 
+                    className="relative"
+                    onMouseEnter={() => setHoveredAvatarVideoId(playingVideo.id)}
+                    onMouseLeave={() => setHoveredAvatarVideoId(null)}
+                  >
+                    {playingVideo.avatar ? (
+                      <img
+                        src={playingVideo.avatar}
+                        alt={playingVideo.username}
+                        className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-lg cursor-pointer"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center text-white text-lg font-medium border-2 border-white shadow-lg cursor-pointer">
+                        {playingVideo.username.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    {/* 悬停时显示关注按钮 */}
+                    {hoveredAvatarVideoId === playingVideo.id && (
+                      <button
+                        onClick={(e) => handleFollow(playingVideo.username, e)}
+                        className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-xs rounded-full whitespace-nowrap transition-colors shadow-lg"
+                      >
+                        + 关注
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              {/* 视频信息 */}
+              <div className="mt-4 text-white">
+                <h3 className="text-lg font-semibold">{playingVideo.title || '未命名视频'}</h3>
+                <div className="flex items-center gap-4 mt-2 text-sm text-gray-300">
+                  <span>{formatNumber(playingVideo.viewsCount)} 次观看</span>
+                  <span>{formatTime(playingVideo.publishedAt)}</span>
+                  {playingVideo.model && <span>{playingVideo.model}</span>}
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }
