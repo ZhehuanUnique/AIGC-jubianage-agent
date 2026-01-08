@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Upload, Loader2, Share2, Download, Heart, ThumbsUp, Edit, Sparkles, Zap, Trash2, Eye, X } from 'lucide-react'
+import { ArrowLeft, Upload, Loader2, Share2, Download, Heart, ThumbsUp, Edit, Sparkles, Zap, Trash2, Eye, X, ChevronUp } from 'lucide-react'
 import { alertSuccess, alertError } from '../utils/alert'
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
 import HamsterLoader from '../components/HamsterLoader'
@@ -36,11 +36,13 @@ function FirstLastFrameVideo() {
   const { projectId } = useParams()
   const navigate = useNavigate()
   const [enterKeySubmit, setEnterKeySubmit] = useState(false)
+  const [bottomBarMode, setBottomBarMode] = useState<'auto' | 'fixed'>('auto') // 底部栏模式
   
   // 加载设置
   useEffect(() => {
     const settings = getUserSettings()
     setEnterKeySubmit(settings.workflow?.enterKeySubmit || false)
+    setBottomBarMode(settings.firstLastFrame?.bottomBarMode || 'auto')
   }, [])
   
   const [firstFrameFile, setFirstFrameFile] = useState<File | null>(null)
@@ -361,8 +363,13 @@ function FirstLastFrameVideo() {
   useEffect(() => {
     loadHistory()
     
-    // 滚动处理 - 参考Vue项目，使用 useRef 避免闭包问题
+    // 滚动处理 - 根据设置决定是否自动收缩
     const handleScroll = () => {
+      // 如果是固定模式，不处理滚动
+      if (bottomBarMode === 'fixed') {
+        return
+      }
+      
       if (scrollTimeoutRef.current) {
         clearTimeout(scrollTimeoutRef.current)
       }
@@ -382,27 +389,31 @@ function FirstLastFrameVideo() {
         const documentHeight = document.documentElement.scrollHeight
         const distanceFromBottom = documentHeight - (scrollY + windowHeight)
         
-        // 不再自动收缩，保持展开状态
-        // if (distanceFromBottom > 100) {
-        //   setIsBottomBarCollapsed(true)
-        // }
-      }, 100) // 防抖时间100ms，参考Vue项目
+        // 自动收缩模式：如果不在底部附近（超过100px），收缩
+        if (distanceFromBottom > 100) {
+          setIsBottomBarCollapsed(true)
+        } else {
+          setIsBottomBarCollapsed(false)
+        }
+      }, 100) // 防抖时间100ms
     }
     
     window.addEventListener('scroll', handleScroll, { passive: true })
     
-    // 初始状态：保持展开，不再自动收缩
-    // setTimeout(() => {
-    //   const scrollY = window.scrollY
-    //   const windowHeight = window.innerHeight
-    //   const documentHeight = document.documentElement.scrollHeight
-    //   const distanceFromBottom = documentHeight - (scrollY + windowHeight)
-    //   
-    //   // 如果不在底部附近（超过100px），默认收缩
-    //   if (distanceFromBottom > 100) {
-    //     setIsBottomBarCollapsed(true)
-    //   }
-    // }, 200)
+    // 初始状态：根据设置决定
+    if (bottomBarMode === 'auto') {
+      setTimeout(() => {
+        const scrollY = window.scrollY
+        const windowHeight = window.innerHeight
+        const documentHeight = document.documentElement.scrollHeight
+        const distanceFromBottom = documentHeight - (scrollY + windowHeight)
+        
+        // 如果不在底部附近（超过100px），默认收缩
+        if (distanceFromBottom > 100) {
+          setIsBottomBarCollapsed(true)
+        }
+      }, 200)
+    }
     
     // 点击外部关闭下拉菜单
     const handleClickOutside = (event: MouseEvent) => {
@@ -890,53 +901,61 @@ function FirstLastFrameVideo() {
     }, 2000) // 每2秒轮询一次，更频繁地更新进度
   }
 
-  // 底部边缘悬停处理 - 参考Vue项目
+  // 底部边缘悬停处理
   const handleBottomEdgeHover = (isHovering: boolean) => {
-    // 不再自动收缩，保持展开状态
-    // if (bottomEdgeHoverTimeoutRef.current) {
-    //   clearTimeout(bottomEdgeHoverTimeoutRef.current)
-    // }
-    // 
-    // setIsBottomEdgeHovered(isHovering)
-    // 
-    // if (isHovering) {
-    //   // 鼠标靠近底部边缘时，立即展开悬浮窗口
-    //   setIsBottomBarCollapsed(false)
-    // } else {
-    //   // 延迟检查是否需要收缩
-    //   bottomEdgeHoverTimeoutRef.current = setTimeout(() => {
-    //     // 如果输入框没有焦点且鼠标不在悬浮窗口上，则收缩
-    //     if (!isInputFocused && !isBottomBarHovered) {
-    //       setIsBottomBarCollapsed(true)
-    //     }
-    //   }, 300) // 延迟300ms，参考Vue项目
-    // }
+    // 如果是固定模式，不处理
+    if (bottomBarMode === 'fixed') {
+      return
+    }
+    
+    if (bottomEdgeHoverTimeoutRef.current) {
+      clearTimeout(bottomEdgeHoverTimeoutRef.current)
+    }
+    
+    setIsBottomEdgeHovered(isHovering)
+    
+    if (isHovering) {
+      // 鼠标靠近底部边缘时，立即展开悬浮窗口
+      setIsBottomBarCollapsed(false)
+    } else {
+      // 延迟检查是否需要收缩
+      bottomEdgeHoverTimeoutRef.current = setTimeout(() => {
+        // 如果输入框没有焦点且鼠标不在悬浮窗口上，则收缩
+        if (!isInputFocused && !isBottomBarHovered) {
+          setIsBottomBarCollapsed(true)
+        }
+      }, 300) // 延迟300ms
+    }
   }
 
-  // 底部悬浮栏悬停处理 - 参考Vue项目
+  // 底部悬浮栏悬停处理
   const handleBottomBarHover = (isHovering: boolean) => {
-    // 不再自动收缩，保持展开状态
-    // if (bottomBarHoverTimeoutRef.current) {
-    //   clearTimeout(bottomBarHoverTimeoutRef.current)
-    // }
-    // 
-    // setIsBottomBarHovered(isHovering)
-    // 
-    // if (isHovering) {
-    //   // 鼠标悬停在悬浮窗口上时，保持展开
-    //   setIsBottomBarCollapsed(false)
-    // } else {
-    //   // 延迟检查是否需要收缩
-    //   bottomBarHoverTimeoutRef.current = setTimeout(() => {
-    //     // 如果输入框没有焦点且鼠标不在底部边缘，则收缩
-    //     if (!isInputFocused && !isBottomEdgeHovered) {
-    //       setIsBottomBarCollapsed(true)
-    //     }
-    //   }, 300) // 延迟300ms，参考Vue项目
-    // }
+    // 如果是固定模式，不处理
+    if (bottomBarMode === 'fixed') {
+      return
+    }
+    
+    if (bottomBarHoverTimeoutRef.current) {
+      clearTimeout(bottomBarHoverTimeoutRef.current)
+    }
+    
+    setIsBottomBarHovered(isHovering)
+    
+    if (isHovering) {
+      // 鼠标悬停在悬浮窗口上时，保持展开
+      setIsBottomBarCollapsed(false)
+    } else {
+      // 延迟检查是否需要收缩
+      bottomBarHoverTimeoutRef.current = setTimeout(() => {
+        // 如果输入框没有焦点且鼠标不在底部边缘，则收缩
+        if (!isInputFocused && !isBottomEdgeHovered) {
+          setIsBottomBarCollapsed(true)
+        }
+      }, 300) // 延迟300ms
+    }
   }
 
-  // 输入框焦点处理 - 参考Vue项目
+  // 输入框焦点处理
   const handleInputFocus = () => {
     setIsInputFocused(true)
     setIsBottomBarCollapsed(false)
@@ -944,19 +963,21 @@ function FirstLastFrameVideo() {
 
   const handleInputBlur = () => {
     setIsInputFocused(false)
-    // 不再自动收缩，保持展开状态
-    // setTimeout(() => {
-    //   if (!isBottomBarHovered && !isBottomEdgeHovered) {
-    //     const scrollY = window.scrollY
-    //     const windowHeight = window.innerHeight
-    //     const documentHeight = document.documentElement.scrollHeight
-    //     const distanceFromBottom = documentHeight - (scrollY + windowHeight)
-    //     
-    //     if (distanceFromBottom > 100) {
-    //       setIsBottomBarCollapsed(true)
-    //     }
-    //   }
-    // }, 200) // 延迟200ms，参考Vue项目
+    // 如果是自动收缩模式，延迟检查是否需要收缩
+    if (bottomBarMode === 'auto') {
+      setTimeout(() => {
+        if (!isBottomBarHovered && !isBottomEdgeHovered) {
+          const scrollY = window.scrollY
+          const windowHeight = window.innerHeight
+          const documentHeight = document.documentElement.scrollHeight
+          const distanceFromBottom = documentHeight - (scrollY + windowHeight)
+          
+          if (distanceFromBottom > 100) {
+            setIsBottomBarCollapsed(true)
+          }
+        }
+      }, 200) // 延迟200ms
+    }
   }
 
   // 获取状态文本
@@ -1958,31 +1979,31 @@ function FirstLastFrameVideo() {
         </div>
       </div>
 
-      {/* 底部边缘触发区域 - 已禁用，保持展开状态 */}
-      {/* <div
-        className={`fixed bottom-0 left-0 right-0 z-50 transition-all duration-300 ${
-          isBottomBarCollapsed ? 'h-16' : 'h-4'
-        }`}
-        onMouseEnter={() => handleBottomEdgeHover(true)}
-        onMouseLeave={() => handleBottomEdgeHover(false)}
-        onClick={() => {
-          setIsBottomBarCollapsed(false)
-        }}
-      >
-        {isBottomBarCollapsed && (
-          <div className="h-full flex items-end justify-center pb-1">
-            <div className="bg-white/95 backdrop-blur-sm rounded-t-lg shadow-md border-t border-x border-gray-200 px-2 py-1.5 cursor-pointer hover:bg-white transition-all hover:shadow-lg">
-              <svg className="w-3 h-3 text-gray-400 hover:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 15l7-7 7 7" />
-              </svg>
+      {/* 底部边缘触发区域 - 自动收缩模式时显示 */}
+      {bottomBarMode === 'auto' && isBottomBarCollapsed && (
+        <div
+          className="fixed bottom-0 left-0 right-0 z-50 h-16"
+          onMouseEnter={() => handleBottomEdgeHover(true)}
+          onMouseLeave={() => handleBottomEdgeHover(false)}
+          onClick={() => {
+            setIsBottomBarCollapsed(false)
+          }}
+        >
+          <div className="h-full flex items-end justify-center pb-2">
+            <div className="bg-white/95 backdrop-blur-sm rounded-t-xl shadow-lg border-t border-x border-gray-200 px-6 py-3 cursor-pointer hover:bg-white transition-all hover:shadow-xl flex items-center gap-3">
+              <ChevronUp className="w-5 h-5 text-gray-500" />
+              <span className="text-sm text-gray-600 font-medium">展开输入栏</span>
+              <ChevronUp className="w-5 h-5 text-gray-500" />
             </div>
           </div>
-        )}
-      </div> */}
+        </div>
+      )}
 
-      {/* 底部悬浮输入区域 - 始终保持展开 */}
+      {/* 底部悬浮输入区域 */}
       <div
-        className="fixed bottom-0 left-0 right-0 z-40"
+        className={`fixed bottom-0 left-0 right-0 z-40 transition-all duration-300 ${
+          isBottomBarCollapsed ? 'translate-y-full opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'
+        }`}
         onMouseEnter={() => handleBottomBarHover(true)}
         onMouseLeave={() => handleBottomBarHover(false)}
       >

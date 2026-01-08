@@ -23,6 +23,10 @@ export interface UserSettings {
   workflow: {
     enterKeySubmit: boolean // Enter键代替鼠标点击"下一步"，同时换行快捷键变更为Ctrl+Enter
   }
+  // 首尾帧生视频设置
+  firstLastFrame: {
+    bottomBarMode: 'auto' | 'fixed' // 底部栏模式：'auto' 自动收缩, 'fixed' 固定显示
+  }
 }
 
 const SETTINGS_KEY = 'user_settings'
@@ -43,6 +47,9 @@ const DEFAULT_SETTINGS: UserSettings = {
   },
   workflow: {
     enterKeySubmit: false, // 默认关闭Enter键提交
+  },
+  firstLastFrame: {
+    bottomBarMode: 'auto', // 默认自动收缩
   },
 }
 
@@ -73,6 +80,10 @@ export function getUserSettings(): UserSettings {
         workflow: {
           ...DEFAULT_SETTINGS.workflow,
           ...parsed.workflow,
+        },
+        firstLastFrame: {
+          ...DEFAULT_SETTINGS.firstLastFrame,
+          ...parsed.firstLastFrame,
         },
       }
     }
@@ -117,6 +128,10 @@ export function updateUserSettings(updates: Partial<UserSettings>): void {
     workflow: {
       ...current.workflow,
       ...updates.workflow,
+    },
+    firstLastFrame: {
+      ...current.firstLastFrame,
+      ...updates.firstLastFrame,
     },
   }
   saveUserSettings(updated)

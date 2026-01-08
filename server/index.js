@@ -1841,6 +1841,9 @@ async function processVideoTask(taskId, sourceVideoUrl, processingType, userId, 
   const pool = await import('./db/connection.js')
   const db = pool.default
   
+  // 在函数级别定义 metadata，避免作用域问题
+  let metadata = {}
+  
   try {
     // 更新任务状态为处理中
     await db.query(
@@ -1857,7 +1860,6 @@ async function processVideoTask(taskId, sourceVideoUrl, processingType, userId, 
       const { interpolateVideoWithRife, interpolateVideoWithFfmpeg } = await import('./services/rifeService.js')
       
       // 从metadata中获取目标帧率和技术选择
-      let metadata = {}
       try {
         const taskMetaResult = await db.query(
           'SELECT metadata FROM video_processing_tasks WHERE id = $1',
@@ -1900,7 +1902,6 @@ async function processVideoTask(taskId, sourceVideoUrl, processingType, userId, 
       const { upscaleVideoWithRealESRGAN } = await import('./services/realESRGANService.js')
       
       // 从metadata中获取放大倍数（如果前端传递了）
-      let metadata = {}
       let scale = 2 // 默认2倍放大
       try {
         const taskMetaResult = await db.query(

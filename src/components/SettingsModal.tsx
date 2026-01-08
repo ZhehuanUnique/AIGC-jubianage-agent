@@ -52,6 +52,9 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         workflow: {
           enterKeySubmit: false,
         },
+        firstLastFrame: {
+          bottomBarMode: 'auto',
+        },
       })
     }
   }
@@ -236,6 +239,73 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   </div>
                 </div>
               </label>
+            </div>
+          </div>
+
+          {/* 首尾帧生视频设置 */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+              <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+              首尾帧生视频设置
+            </h3>
+            
+            <div className="space-y-4 pl-4">
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-gray-700 mb-2">底部输入栏模式：</div>
+                <label className="flex items-center gap-3 cursor-pointer group">
+                  <input
+                    type="radio"
+                    name="bottomBarMode"
+                    value="auto"
+                    checked={settings.firstLastFrame?.bottomBarMode === 'auto'}
+                    onChange={() =>
+                      setSettings({
+                        ...settings,
+                        firstLastFrame: {
+                          ...settings.firstLastFrame,
+                          bottomBarMode: 'auto',
+                        },
+                      })
+                    }
+                    className="w-4 h-4 text-purple-600 focus:ring-purple-500 focus:ring-2"
+                  />
+                  <div className="flex-1">
+                    <div className="font-medium text-gray-700 group-hover:text-gray-900">
+                      自动收缩
+                    </div>
+                    <div className="text-sm text-gray-500 mt-1">
+                      滚动页面时底部输入栏自动收缩为小按钮，鼠标悬停时展开
+                    </div>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-3 cursor-pointer group">
+                  <input
+                    type="radio"
+                    name="bottomBarMode"
+                    value="fixed"
+                    checked={settings.firstLastFrame?.bottomBarMode === 'fixed'}
+                    onChange={() =>
+                      setSettings({
+                        ...settings,
+                        firstLastFrame: {
+                          ...settings.firstLastFrame,
+                          bottomBarMode: 'fixed',
+                        },
+                      })
+                    }
+                    className="w-4 h-4 text-purple-600 focus:ring-purple-500 focus:ring-2"
+                  />
+                  <div className="flex-1">
+                    <div className="font-medium text-gray-700 group-hover:text-gray-900">
+                      固定显示
+                    </div>
+                    <div className="text-sm text-gray-500 mt-1">
+                      底部输入栏始终完整显示，不会自动收缩
+                    </div>
+                  </div>
+                </label>
+              </div>
             </div>
           </div>
 
