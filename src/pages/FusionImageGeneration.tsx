@@ -38,16 +38,6 @@ function FusionImageGeneration() {
               <ImageIcon className="text-pink-500 mb-2" size={48} />
               <span className="text-pink-400 font-medium">新建图片</span>
             </div>
-
-            {/* 右侧空状�?*/}
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center">
-                <div className="w-32 h-32 mx-auto mb-4 bg-gray-50 rounded-lg flex items-center justify-center">
-                  <div className="text-gray-500 text-4xl">💻</div>
-                </div>
-                <p className="text-gray-500">暂无数据</p>
-              </div>
-            </div>
           </div>
         </div>
       </div>

@@ -50,16 +50,6 @@ function ImageRecreation() {
               <Sparkles className="text-gray-900 mb-2" size={48} />
               <span className="text-gray-900 font-medium">图片改创</span>
             </div>
-
-            {/* 右侧空状�?*/}
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center">
-                <div className="w-32 h-32 mx-auto mb-4 bg-gray-50 rounded-lg flex items-center justify-center">
-                  <div className="text-gray-500 text-4xl">💻</div>
-                </div>
-                <p className="text-gray-500">暂无数据</p>
-              </div>
-            </div>
           </div>
         </div>
       </div>

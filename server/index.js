@@ -1393,6 +1393,54 @@ app.delete('/api/first-last-frame-videos/:taskId', authenticateToken, async (req
     const pool = await import('./db/connection.js')
     const db = pool.default
     
+    // 检查是否是补帧任务（fi- 前缀）
+    if (taskId.startsWith('fi-')) {
+      const processingTaskId = parseInt(taskId.replace('fi-', ''))
+      
+      // 查询补帧任务记录
+      const taskResult = await db.query(
+        `SELECT id, result_video_url, result_cos_key, user_id
+         FROM video_processing_tasks
+         WHERE id = $1 AND user_id = $2`,
+        [processingTaskId, userId]
+      )
+      
+      if (taskResult.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: '补帧任务不存在或无权访问',
+        })
+      }
+      
+      const task = taskResult.rows[0]
+      
+      // 删除COS中的视频文件
+      if (task.result_cos_key) {
+        try {
+          const { deleteFile } = await import('./services/cosService.js')
+          await deleteFile(task.result_cos_key).catch(err => {
+            console.warn('删除COS补帧视频文件失败:', err)
+          })
+        } catch (cosError) {
+          console.warn('删除COS补帧视频文件失败（继续删除数据库记录）:', cosError)
+        }
+      }
+      
+      // 删除数据库记录
+      await db.query(
+        'DELETE FROM video_processing_tasks WHERE id = $1 AND user_id = $2',
+        [processingTaskId, userId]
+      )
+      
+      console.log(`✅ 删除补帧任务成功: ${taskId}`)
+      
+      return res.json({
+        success: true,
+        message: '补帧任务已删除',
+      })
+    }
+    
+    // 原有的首尾帧视频删除逻辑
     // 查询视频记录，验证权限
     const videoResult = await db.query(
       `SELECT id, video_url, cos_key, first_frame_url, last_frame_url, project_id, user_id
