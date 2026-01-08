@@ -27,6 +27,7 @@ function WorksGallery() {
   const [deleteConfirmState, setDeleteConfirmState] = useState<{ isOpen: boolean; videoId: number | null }>({ isOpen: false, videoId: null })
   const [draggedVideoId, setDraggedVideoId] = useState<number | null>(null)
   const [dragOverVideoId, setDragOverVideoId] = useState<number | null>(null)
+  const [failedThumbnails, setFailedThumbnails] = useState<Set<number>>(new Set())
 
   useEffect(() => {
     const user = AuthService.getCurrentUser()
@@ -279,14 +280,15 @@ function WorksGallery() {
               >
                 {/* 视频容器 */}
                 <div className="relative bg-black">
-                  {video.thumbnailUrl ? (
+                  {video.thumbnailUrl && !failedThumbnails.has(video.id) ? (
                     <>
                       <img
                         src={video.thumbnailUrl}
                         alt={video.title}
                         className="w-full h-auto block"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none'
+                        onError={() => {
+                          // 图片加载失败时，标记为失败，显示视频
+                          setFailedThumbnails(prev => new Set(prev).add(video.id))
                         }}
                       />
                       {video.videoUrl && (
@@ -317,11 +319,20 @@ function WorksGallery() {
                         else videoRefs.current.delete(video.id)
                       }}
                       src={video.videoUrl}
-                      className="w-full aspect-[9/16] object-cover object-top block"
+                      className="w-full object-cover object-top block"
+                      style={{ 
+                        aspectRatio: videoAspectRatios.get(video.id) 
+                          ? `${videoAspectRatios.get(video.id)}` 
+                          : '16/9' // 默认横屏比例
+                      }}
                       muted
                       loop
                       preload="metadata"
                       playsInline
+                      onLoadedMetadata={(e) => {
+                        const videoEl = e.currentTarget
+                        setVideoAspectRatios(prev => new Map(prev).set(video.id, videoEl.videoWidth / videoEl.videoHeight))
+                      }}
                     />
                   ) : (
                     <div className="w-full aspect-video flex items-center justify-center bg-gray-200">
