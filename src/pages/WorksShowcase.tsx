@@ -695,20 +695,20 @@ function WorksShowcase() {
                     )}
                   </div>
 
-                  {/* 悬停时显示的悬浮窗口 - 绝对定位悬浮在视频上方 */}
+                  {/* 悬停时显示的悬浮窗口 - 从底部向上展开，高度自适应内容 */}
                   {hoveredVideoId === video.id && (
                     <div 
-                      className="hover-window absolute inset-0 bg-white bg-opacity-98 backdrop-blur-sm shadow-2xl z-[9999] flex flex-col p-3 pointer-events-auto rounded-lg border border-gray-200"
+                      className="hover-window absolute left-0 right-0 bottom-0 bg-white bg-opacity-98 backdrop-blur-sm shadow-2xl z-[9999] flex flex-col p-3 pointer-events-auto rounded-t-lg border border-gray-200 border-b-0"
                       onMouseEnter={() => setHoveredVideoId(video.id)}
                       onMouseLeave={() => setHoveredVideoId(null)}
                     >
                       {/* 标题 */}
-                      <h3 className="text-sm font-semibold text-gray-900 mb-1.5 line-clamp-2 flex-shrink-0">
+                      <h3 className="text-sm font-semibold text-gray-900 mb-1.5 line-clamp-2">
                         {video.title || '未命名视频'}
                       </h3>
                       
                       {/* 用户信息 */}
-                      <div className="flex items-center gap-2 mb-1.5 flex-shrink-0">
+                      <div className="flex items-center gap-2 mb-1.5">
                         {video.avatar ? (
                           <img
                             src={video.avatar}
@@ -724,7 +724,7 @@ function WorksShowcase() {
                       </div>
 
                       {/* 互动数据 */}
-                      <div className="flex items-center gap-4 text-xs text-gray-600 mb-1.5 flex-shrink-0">
+                      <div className="flex items-center gap-4 text-xs text-gray-600 mb-1.5">
                         <button
                           onClick={(e) => handleLike(video.id, e)}
                           className="flex items-center gap-1 hover:text-red-500 transition-colors"
@@ -737,66 +737,66 @@ function WorksShowcase() {
                       </div>
                       
                       {/* 模型和规格信息 */}
-                      <div className="flex items-center gap-2 mb-1.5 flex-wrap flex-shrink-0">
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
                         {video.model ? (
-                          <span className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-700">
+                          <span className="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-700">
                             {video.model}
                           </span>
                         ) : (
-                          <span className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-500">
+                          <span className="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-500">
                             未知模型
                           </span>
                         )}
                         {video.duration ? (
-                          <span className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-700">
+                          <span className="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-700">
                             {video.duration}s
                           </span>
                         ) : null}
                         {video.resolution ? (
-                          <span className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-700">
+                          <span className="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-700">
                             {video.resolution}
                           </span>
                         ) : null}
                       </div>
                       
-                      {/* 操作按钮行 - 参考海螺AI网站的设计 */}
-                      <div className="flex items-center gap-2 pt-2 border-t border-gray-200 mt-auto flex-shrink-0">
+                      {/* 操作按钮行 */}
+                      <div className="flex items-center gap-2 pt-2 border-t border-gray-200">
                         <button 
                           onClick={(e) => {
                             e.stopPropagation()
                             // TODO: 实现使用模板功能
                           }}
-                          className="flex-1 bg-purple-600 hover:bg-purple-700 rounded-lg px-4 py-2.5 text-white text-sm font-medium transition-all flex flex-col items-center justify-center gap-0.5 shadow-md"
+                          className="flex-1 bg-purple-600 hover:bg-purple-700 rounded-lg px-3 py-2 text-white text-xs font-medium transition-all flex items-center justify-center gap-1 shadow-md"
                         >
-                          <Sparkles className="w-4 h-4 mb-0.5" />
-                          <span className="leading-tight text-xs">使用模板</span>
+                          <Sparkles className="w-4 h-4" />
+                          <span>使用模板</span>
                         </button>
                         <button 
                           onClick={(e) => {
                             e.stopPropagation()
                             // TODO: 实现下载功能
                           }}
-                          className="w-11 h-11 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center text-gray-700 transition-all shadow-sm"
+                          className="w-9 h-9 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center text-gray-700 transition-all"
                           title="下载"
                         >
-                          <Download className="w-5 h-5" />
+                          <Download className="w-4 h-4" />
                         </button>
                         <button 
                           onClick={(e) => {
                             e.stopPropagation()
                             // TODO: 实现分享功能
                           }}
-                          className="w-11 h-11 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center text-gray-700 transition-all shadow-sm"
+                          className="w-9 h-9 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center text-gray-700 transition-all"
                           title="分享"
                         >
-                          <Share2 className="w-5 h-5" />
+                          <Share2 className="w-4 h-4" />
                         </button>
                         <button 
                           onClick={(e) => {
                             e.stopPropagation()
                             // TODO: 实现更多选项
                           }}
-                          className="w-11 h-11 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center text-gray-700 transition-all shadow-sm"
+                          className="w-9 h-9 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center text-gray-700 transition-all"
                           title="更多"
                         >
                           <MoreVertical className="w-5 h-5" />
