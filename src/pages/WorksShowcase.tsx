@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { Heart, Play, ArrowLeft, ChevronUp, ChevronDown, Trash2, Plus, Sparkles, Download, Share2, MoreVertical, Link, AlertTriangle, MessageCircle } from 'lucide-react'
 import { getCommunityVideos, toggleVideoLike, recordVideoView, deleteCommunityVideo, CommunityVideo } from '../services/api'
 import { alertError, alertSuccess, alertWarning } from '../utils/alert'
@@ -11,6 +11,7 @@ import HamsterLoader from '../components/HamsterLoader'
 
 function WorksShowcase() {
   const navigate = useNavigate()
+  const { videoId } = useParams<{ videoId: string }>()
   const [videos, setVideos] = useState<CommunityVideo[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0)
@@ -117,6 +118,16 @@ function WorksShowcase() {
   useEffect(() => {
     loadVideos()
   }, [page, sortBy])
+
+  // 当视频加载完成后，定位到指定的视频
+  useEffect(() => {
+    if (videoId && videos.length > 0) {
+      const targetIndex = videos.findIndex(v => v.id === parseInt(videoId))
+      if (targetIndex !== -1 && targetIndex !== currentVideoIndex) {
+        setCurrentVideoIndex(targetIndex)
+      }
+    }
+  }, [videoId, videos])
 
   // 监听社区视频上传事件，自动刷新
   useEffect(() => {
@@ -337,7 +348,7 @@ function WorksShowcase() {
     >
       {/* 返回按钮 */}
       <button
-        onClick={() => navigate('/community')}
+        onClick={() => navigate('/works')}
         className="absolute top-4 left-4 z-50 w-10 h-10 bg-black bg-opacity-50 rounded-full flex items-center justify-center text-white"
       >
         <ArrowLeft size={20} />

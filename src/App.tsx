@@ -25,6 +25,7 @@ import FragmentDetail from './pages/FragmentDetail'
 import CreditRecharge from './pages/CreditRecharge'
 import PaymentServiceAgreement from './pages/PaymentServiceAgreement'
 import WorksShowcase from './pages/WorksShowcase'
+import WorksGallery from './pages/WorksGallery'
 import CommunityVideoDetail from './pages/CommunityVideoDetail'
 import Community from './pages/Community'
 import RankingDetail from './pages/RankingDetail'
@@ -260,6 +261,10 @@ function App() {
         />
         <Route
           path="/works"
+          element={<WorksGallery />}
+        />
+        <Route
+          path="/works/play/:videoId"
           element={<WorksShowcase />}
         />
         <Route
