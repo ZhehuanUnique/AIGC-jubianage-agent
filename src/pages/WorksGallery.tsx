@@ -155,14 +155,22 @@ function WorksGallery() {
       groups[groupKey].push(video)
     })
     
-    // 按日期排序分组，最新的在最下面
+    // 按日期排序分组，最早的在上面（升序）
     const sortedGroups = Object.entries(groups).sort(([keyA, videosA], [keyB, videosB]) => {
       const dateA = new Date(videosA[0].publishedAt || videosA[0].createdAt)
       const dateB = new Date(videosB[0].publishedAt || videosB[0].createdAt)
       return dateA.getTime() - dateB.getTime() // 升序，最早的在上面
     })
     
-    return sortedGroups
+    // 每个组内的视频也按时间升序排列（最早的在前面/上面）
+    return sortedGroups.map(([key, groupVideos]) => [
+      key,
+      groupVideos.sort((a, b) => {
+        const dateA = new Date(a.publishedAt || a.createdAt)
+        const dateB = new Date(b.publishedAt || b.createdAt)
+        return dateA.getTime() - dateB.getTime() // 升序，最早的在前面
+      })
+    ] as [string, CommunityVideo[]])
   }
 
   const formatNumber = (num: number): string => {
