@@ -339,65 +339,66 @@ function WorksGallery() {
                       {deletingVideoId === video.id ? <HamsterLoader size={3} /> : <Trash2 size={18} />}
                     </button>
                   )}
+
+                  {/* 悬停窗口 - 放在视频容器内部 */}
+                  {hoveredVideoId === video.id && (
+                    <div 
+                      className="absolute left-0 right-0 bottom-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent z-[9999] flex flex-col p-3"
+                    >
+                      <h3 className="text-sm font-semibold text-white mb-1.5 line-clamp-2">
+                        {video.title || '未命名视频'}
+                      </h3>
+                      
+                      <div className="flex items-center gap-2 mb-1.5">
+                        {video.avatar ? (
+                          <img src={video.avatar} alt={video.username} className="w-6 h-6 rounded-full object-cover" />
+                        ) : (
+                          <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center text-white text-xs">
+                            {video.username.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <span className="text-xs text-white/90 truncate">{video.username}</span>
+                      </div>
+
+                      <div className="flex items-center gap-4 text-xs text-white/80 mb-1.5">
+                        <button onClick={(e) => handleLike(video.id, e)} className="flex items-center gap-1 hover:text-red-400">
+                          <Heart className={`w-4 h-4 ${video.isLiked ? 'fill-current text-red-400' : ''}`} />
+                          <span>{formatNumber(video.likesCount)}</span>
+                        </button>
+                        <span>{formatNumber(video.viewsCount)}次观看</span>
+                        <span className="ml-auto">{formatTime(video.publishedAt)}</span>
+                      </div>
+                      
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
+                        <span className="px-2 py-0.5 bg-white/20 rounded text-xs text-white/90">
+                          {video.model || '未知模型'}
+                        </span>
+                        {video.duration && (
+                          <span className="px-2 py-0.5 bg-white/20 rounded text-xs text-white/90">{video.duration}s</span>
+                        )}
+                        {video.resolution && (
+                          <span className="px-2 py-0.5 bg-white/20 rounded text-xs text-white/90">{video.resolution}</span>
+                        )}
+                      </div>
+                      
+                      <div className="flex items-center gap-2 pt-2 border-t border-white/20">
+                        <button className="flex-1 bg-purple-600 hover:bg-purple-700 rounded-lg px-3 py-2 text-white text-xs font-medium flex items-center justify-center gap-1">
+                          <Sparkles className="w-4 h-4" />
+                          <span>使用模板</span>
+                        </button>
+                        <button className="w-9 h-9 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center text-white">
+                          <Download className="w-4 h-4" />
+                        </button>
+                        <button className="w-9 h-9 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center text-white">
+                          <Share2 className="w-4 h-4" />
+                        </button>
+                        <button className="w-9 h-9 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center text-white">
+                          <MoreVertical className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-
-                {/* 悬停窗口 */}
-                {hoveredVideoId === video.id && (
-                  <div 
-                    className="absolute left-0 right-0 bottom-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent z-[9999] flex flex-col p-3"
-                  >
-                    <h3 className="text-sm font-semibold text-white mb-1.5 line-clamp-2">
-                      {video.title || '未命名视频'}
-                    </h3>
-                    
-                    <div className="flex items-center gap-2 mb-1.5">
-                      {video.avatar ? (
-                        <img src={video.avatar} alt={video.username} className="w-6 h-6 rounded-full object-cover" />
-                      ) : (
-                        <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center text-white text-xs">
-                          {video.username.charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                      <span className="text-xs text-white/90 truncate">{video.username}</span>
-                    </div>
-
-                    <div className="flex items-center gap-4 text-xs text-white/80 mb-1.5">
-                      <button onClick={(e) => handleLike(video.id, e)} className="flex items-center gap-1 hover:text-red-400">
-                        <Heart className={`w-4 h-4 ${video.isLiked ? 'fill-current text-red-400' : ''}`} />
-                        <span>{formatNumber(video.likesCount)}</span>
-                      </button>
-                      <span>{formatNumber(video.viewsCount)}次观看</span>
-                      <span className="ml-auto">{formatTime(video.publishedAt)}</span>
-                    </div>
-                    
-                    <div className="flex items-center gap-2 mb-2 flex-wrap">
-                      <span className="px-2 py-0.5 bg-white/20 rounded text-xs text-white/90">
-                        {video.model || '未知模型'}
-                      </span>
-                      {video.duration && (
-                        <span className="px-2 py-0.5 bg-white/20 rounded text-xs text-white/90">{video.duration}s</span>
-                      )}
-                      {video.resolution && (
-                        <span className="px-2 py-0.5 bg-white/20 rounded text-xs text-white/90">{video.resolution}</span>
-                      )}
-                    </div>
-                    
-                    <div className="flex items-center gap-2 pt-2 border-t border-white/20">
-                      <button className="flex-1 bg-purple-600 hover:bg-purple-700 rounded-lg px-3 py-2 text-white text-xs font-medium flex items-center justify-center gap-1">
-                        <Sparkles className="w-4 h-4" />
-                        <span>使用模板</span>
-                      </button>
-                      <button className="w-9 h-9 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center text-white">
-                        <Download className="w-4 h-4" />
-                      </button>
-                      <button className="w-9 h-9 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center text-white">
-                        <Share2 className="w-4 h-4" />
-                      </button>
-                      <button className="w-9 h-9 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center text-white">
-                        <MoreVertical className="w-5 h-5" />
-                      </button>
-                    </div>
-                  </div>
                 )}
               </div>
             ))}
