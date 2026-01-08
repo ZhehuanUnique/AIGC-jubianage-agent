@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Heart, Play, ArrowLeft, ChevronUp, ChevronDown, Trash2, Plus, Sparkles, Download, Share2, MoreVertical, Link, AlertTriangle } from 'lucide-react'
+import { Heart, Play, ArrowLeft, ChevronUp, ChevronDown, Trash2, Plus, Sparkles, Download, Share2, MoreVertical, Link, AlertTriangle, MessageCircle } from 'lucide-react'
 import { getCommunityVideos, toggleVideoLike, recordVideoView, deleteCommunityVideo, CommunityVideo } from '../services/api'
 import { alertError, alertSuccess, alertWarning } from '../utils/alert'
 import { AuthService } from '../services/auth'
