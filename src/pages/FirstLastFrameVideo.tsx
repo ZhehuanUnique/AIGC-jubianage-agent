@@ -1314,29 +1314,29 @@ function FirstLastFrameVideo() {
                 return groups
               }, {} as Record<string, VideoTask[]>)
 
-              // 对每个日期组内的任务进行排序（新的在前面，旧的在后面）
+              // 对每个日期组内的任务进行排序（旧的在前面/上面，新的在后面/下面）
               Object.keys(groupedTasks).forEach(dateKey => {
                 groupedTasks[dateKey].sort((a, b) => {
                   const timeA = new Date(a.createdAt).getTime()
                   const timeB = new Date(b.createdAt).getTime()
-                  return timeB - timeA // 新的在前面
+                  return timeA - timeB // 旧的在前面，新的在后面
                 })
               })
 
-              // 按日期排序（新的在上面，旧的在下面）
-              // 特殊处理：今天在最上面，昨天在第二
+              // 按日期排序（旧的在上面，新的在下面）
+              // 特殊处理：今天在最下面，昨天在倒数第二
               const sortedDates = Object.keys(groupedTasks).sort((a, b) => {
-                // 今天始终在最上面
-                if (a === '今天') return -1
-                if (b === '今天') return 1
-                // 昨天在第二（今天下面）
-                if (a === '昨天') return -1
-                if (b === '昨天') return 1
+                // 今天始终在最下面
+                if (a === '今天') return 1
+                if (b === '今天') return -1
+                // 昨天在倒数第二（今天上面）
+                if (a === '昨天') return 1
+                if (b === '昨天') return -1
                 
-                // 其他日期按时间排序（新的在前面，旧的在后面，与后端排序一致）
+                // 其他日期按时间排序（旧的在前面/上面，新的在后面/下面）
                 const dateA = new Date(groupedTasks[a][0].createdAt).getTime()
                 const dateB = new Date(groupedTasks[b][0].createdAt).getTime()
-                return dateB - dateA // 新的在前面
+                return dateA - dateB // 旧的在前面，新的在后面
               })
 
               return (
