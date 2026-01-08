@@ -14,7 +14,6 @@ function WorksGallery() {
   const [videos, setVideos] = useState<CommunityVideo[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const videoRefs = useRef<Map<number, HTMLVideoElement>>(new Map())
-  const containerRef = useRef<HTMLDivElement>(null)
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [sortBy, setSortBy] = useState<'latest' | 'popular' | 'likes'>('latest')
@@ -25,8 +24,6 @@ function WorksGallery() {
   const [deletingVideoId, setDeletingVideoId] = useState<number | null>(null)
   const [showPublishModal, setShowPublishModal] = useState(false)
   const [deleteConfirmState, setDeleteConfirmState] = useState<{ isOpen: boolean; videoId: number | null }>({ isOpen: false, videoId: null })
-  const [draggedVideoId, setDraggedVideoId] = useState<number | null>(null)
-  const [dragOverVideoId, setDragOverVideoId] = useState<number | null>(null)
 
   useEffect(() => {
     const user = AuthService.getCurrentUser()
@@ -133,22 +130,44 @@ function WorksGallery() {
     }
   }
 
+  // 按日期分组视频
+  const groupVideosByDate = (videos: CommunityVideo[]) => {
+    const groups: { [key: string]: CommunityVideo[] } = {}
+    
+    videos.forEach(video => {
+      const date = new Date(video.publishedAt || video.createdAt)
+      const now = new Date()
+      const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
+      
+      let groupKey: string
+      if (diffDays === 0) {
+        groupKey = '今天'
+      } else if (diffDays === 1) {
+        groupKey = '昨天'
+      } else {
+        // 格式化为 "1月6日" 的形式
+        groupKey = `${date.getMonth() + 1}月${date.getDate()}日`
+      }
+      
+      if (!groups[groupKey]) {
+        groups[groupKey] = []
+      }
+      groups[groupKey].push(video)
+    })
+    
+    // 按日期排序分组，最新的在最下面
+    const sortedGroups = Object.entries(groups).sort(([keyA, videosA], [keyB, videosB]) => {
+      const dateA = new Date(videosA[0].publishedAt || videosA[0].createdAt)
+      const dateB = new Date(videosB[0].publishedAt || videosB[0].createdAt)
+      return dateA.getTime() - dateB.getTime() // 升序，最早的在上面
+    })
+    
+    return sortedGroups
+  }
+
   const formatNumber = (num: number): string => {
     if (num >= 10000) return `${(num / 10000).toFixed(1)}万`
     return num.toString()
-  }
-
-  const formatTime = (dateString: string): string => {
-    const date = new Date(dateString)
-    const now = new Date()
-    const diff = now.getTime() - date.getTime()
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-    if (days === 0) return '今天'
-    if (days === 1) return '昨天'
-    if (days < 7) return `${days}天前`
-    if (days < 30) return `${Math.floor(days / 7)}周前`
-    if (days < 365) return `${Math.floor(days / 30)}个月前`
-    return `${Math.floor(days / 365)}年前`
   }
 
   return (
@@ -193,7 +212,7 @@ function WorksGallery() {
           </div>
         </div>
 
-        {/* 视频瀑布流 */}
+        {/* 按日期分组的视频列表 */}
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20">
             <HamsterLoader size={10} />
@@ -205,201 +224,138 @@ function WorksGallery() {
             <p className="text-sm mt-2">还没有用户发布视频到社区</p>
           </div>
         ) : (
-          <div 
-            ref={containerRef}
-            className="masonry-grid"
-            style={{ columnCount: 5, columnGap: 0, gap: 0, lineHeight: 0 }}
-          >
-            {videos.map((video) => (
-              <div
-                key={video.id}
-                draggable
-                className={`masonry-item group cursor-grab active:cursor-grabbing relative ${
-                  draggedVideoId === video.id ? 'opacity-50' : ''
-                } ${dragOverVideoId === video.id ? 'ring-2 ring-purple-500 ring-inset' : ''}`}
-                style={{ breakInside: 'avoid', marginBottom: 0, padding: 0, margin: 0, lineHeight: 0, fontSize: 0, display: 'block' }}
-                onDragStart={(e) => {
-                  setDraggedVideoId(video.id)
-                  e.dataTransfer.effectAllowed = 'move'
-                  e.dataTransfer.setData('text/plain', video.id.toString())
-                }}
-                onDragOver={(e) => {
-                  e.preventDefault()
-                  if (dragOverVideoId !== video.id && draggedVideoId !== video.id) {
-                    setDragOverVideoId(video.id)
-                  }
-                }}
-                onDragLeave={() => setDragOverVideoId(null)}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  const draggedId = parseInt(e.dataTransfer.getData('text/plain'))
-                  if (draggedId !== video.id) {
-                    const draggedIndex = videos.findIndex(v => v.id === draggedId)
-                    const dropIndex = videos.findIndex(v => v.id === video.id)
-                    if (draggedIndex !== -1 && dropIndex !== -1) {
-                      const newVideos = [...videos]
-                      const [removed] = newVideos.splice(draggedIndex, 1)
-                      newVideos.splice(dropIndex, 0, removed)
-                      setVideos(newVideos)
-                      localStorage.setItem('worksShowcaseOrder', JSON.stringify(newVideos.map(v => v.id)))
-                    }
-                  }
-                  setDraggedVideoId(null)
-                  setDragOverVideoId(null)
-                }}
-                onDragEnd={() => {
-                  setDraggedVideoId(null)
-                  setDragOverVideoId(null)
-                }}
-                onMouseEnter={() => {
-                  if (!draggedVideoId) {
-                    setHoveredVideoId(video.id)
-                    const videoEl = videoRefs.current.get(video.id)
-                    if (videoEl) videoEl.play().catch(() => {})
-                  }
-                }}
-                onMouseLeave={() => {
-                  if (!draggedVideoId) {
-                    setHoveredVideoId(null)
-                    const videoEl = videoRefs.current.get(video.id)
-                    if (videoEl) {
-                      videoEl.pause()
-                      videoEl.currentTime = 0
-                    }
-                  }
-                }}
-                onClick={(e) => {
-                  if (draggedVideoId) {
-                    e.preventDefault()
-                    return
-                  }
-                  recordVideoView(video.id)
-                  navigate(`/works/play/${video.id}`)
-                }}
-              >
-                {/* 视频容器 */}
-                <div className="relative bg-black" style={{ lineHeight: 0, fontSize: 0 }}>
-                  {video.thumbnailUrl ? (
-                    <>
-                      <img
-                        src={video.thumbnailUrl}
-                        alt={video.title}
-                        className="w-full h-auto block"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none'
-                        }}
-                      />
-                      {video.videoUrl && (
-                        <video
-                          ref={(el) => {
-                            if (el) videoRefs.current.set(video.id, el)
-                            else videoRefs.current.delete(video.id)
-                          }}
-                          src={video.videoUrl}
-                          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
-                            hoveredVideoId === video.id ? 'opacity-100' : 'opacity-0'
-                          }`}
-                          muted
-                          loop
-                          preload="metadata"
-                          playsInline
-                          onLoadedMetadata={(e) => {
-                            const videoEl = e.currentTarget
-                            setVideoAspectRatios(prev => new Map(prev).set(video.id, videoEl.videoWidth / videoEl.videoHeight))
-                          }}
-                        />
-                      )}
-                    </>
-                  ) : video.videoUrl ? (
-                    <video
-                      ref={(el) => {
-                        if (el) videoRefs.current.set(video.id, el)
-                        else videoRefs.current.delete(video.id)
+          <div className="px-4 pb-8">
+            {groupVideosByDate(videos).map(([dateGroup, groupVideos]) => (
+              <div key={dateGroup} className="mb-8">
+                {/* 日期标题 */}
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">{dateGroup}</h2>
+                
+                {/* 该日期的视频网格 */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                  {groupVideos.map((video) => (
+                    <div
+                      key={video.id}
+                      className="group cursor-pointer relative bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+                      onClick={(e) => {
+                        recordVideoView(video.id)
+                        navigate(`/works/play/${video.id}`)
                       }}
-                      src={video.videoUrl}
-                      className="w-full h-auto block"
-                      muted
-                      loop
-                      preload="metadata"
-                      playsInline
-                    />
-                  ) : (
-                    <div className="w-full aspect-video flex items-center justify-center bg-gray-200">
-                      <Play className="w-12 h-12 text-gray-400" />
-                    </div>
-                  )}
-                  
-                  {/* 管理员删除按钮 */}
-                  {hoveredVideoId === video.id && isAdmin && (
-                    <button
-                      onClick={(e) => handleDeleteVideo(video.id, e)}
-                      disabled={deletingVideoId === video.id}
-                      className="absolute top-4 right-4 w-10 h-10 bg-red-500 bg-opacity-80 hover:bg-opacity-100 rounded-lg flex items-center justify-center text-white z-20"
+                      onMouseEnter={() => {
+                        setHoveredVideoId(video.id)
+                        const videoEl = videoRefs.current.get(video.id)
+                        if (videoEl) videoEl.play().catch(() => {})
+                      }}
+                      onMouseLeave={() => {
+                        setHoveredVideoId(null)
+                        const videoEl = videoRefs.current.get(video.id)
+                        if (videoEl) {
+                          videoEl.pause()
+                          videoEl.currentTime = 0
+                        }
+                      }}
                     >
-                      {deletingVideoId === video.id ? <HamsterLoader size={3} /> : <Trash2 size={18} />}
-                    </button>
-                  )}
-                </div>
+                      {/* 视频容器 */}
+                      <div className="relative bg-black aspect-video">
+                        {video.thumbnailUrl ? (
+                          <>
+                            <img
+                              src={video.thumbnailUrl}
+                              alt={video.title}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none'
+                              }}
+                            />
+                            {video.videoUrl && (
+                              <video
+                                ref={(el) => {
+                                  if (el) videoRefs.current.set(video.id, el)
+                                  else videoRefs.current.delete(video.id)
+                                }}
+                                src={video.videoUrl}
+                                className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
+                                  hoveredVideoId === video.id ? 'opacity-100' : 'opacity-0'
+                                }`}
+                                muted
+                                loop
+                                preload="metadata"
+                                playsInline
+                                onLoadedMetadata={(e) => {
+                                  const videoEl = e.currentTarget
+                                  setVideoAspectRatios(prev => new Map(prev).set(video.id, videoEl.videoWidth / videoEl.videoHeight))
+                                }}
+                              />
+                            )}
+                          </>
+                        ) : video.videoUrl ? (
+                          <video
+                            ref={(el) => {
+                              if (el) videoRefs.current.set(video.id, el)
+                              else videoRefs.current.delete(video.id)
+                            }}
+                            src={video.videoUrl}
+                            className="w-full h-full object-cover"
+                            muted
+                            loop
+                            preload="metadata"
+                            playsInline
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                            <Play className="w-12 h-12 text-gray-400" />
+                          </div>
+                        )}
+                        
+                        {/* 管理员删除按钮 */}
+                        {hoveredVideoId === video.id && isAdmin && (
+                          <button
+                            onClick={(e) => handleDeleteVideo(video.id, e)}
+                            disabled={deletingVideoId === video.id}
+                            className="absolute top-2 right-2 w-8 h-8 bg-red-500 bg-opacity-80 hover:bg-opacity-100 rounded-lg flex items-center justify-center text-white z-20"
+                          >
+                            {deletingVideoId === video.id ? <HamsterLoader size={2} /> : <Trash2 size={14} />}
+                          </button>
+                        )}
+                      </div>
 
-                {/* 悬停窗口 */}
-                {hoveredVideoId === video.id && (
-                  <div 
-                    className="absolute left-0 right-0 bottom-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent z-[9999] flex flex-col p-3"
-                    style={{ minHeight: '50%' }}
-                  >
-                    <h3 className="text-sm font-semibold text-white mb-1.5 line-clamp-2">
-                      {video.title || '未命名视频'}
-                    </h3>
-                    
-                    <div className="flex items-center gap-2 mb-1.5">
-                      {video.avatar ? (
-                        <img src={video.avatar} alt={video.username} className="w-6 h-6 rounded-full object-cover" />
-                      ) : (
-                        <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center text-white text-xs">
-                          {video.username.charAt(0).toUpperCase()}
+                      {/* 视频信息 */}
+                      <div className="p-3">
+                        <h3 className="text-sm font-medium text-gray-900 line-clamp-2 mb-2">
+                          {video.title || '未命名视频'}
+                        </h3>
+                        
+                        <div className="flex items-center gap-2 mb-2">
+                          {video.avatar ? (
+                            <img src={video.avatar} alt={video.username} className="w-5 h-5 rounded-full object-cover" />
+                          ) : (
+                            <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center text-white text-xs">
+                              {video.username.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                          <span className="text-xs text-gray-600 truncate">{video.username}</span>
                         </div>
-                      )}
-                      <span className="text-xs text-white/90 truncate">{video.username}</span>
-                    </div>
 
-                    <div className="flex items-center gap-4 text-xs text-white/80 mb-1.5">
-                      <button onClick={(e) => handleLike(video.id, e)} className="flex items-center gap-1 hover:text-red-400">
-                        <Heart className={`w-4 h-4 ${video.isLiked ? 'fill-current text-red-400' : ''}`} />
-                        <span>{formatNumber(video.likesCount)}</span>
-                      </button>
-                      <span>{formatNumber(video.viewsCount)}次观看</span>
-                      <span className="ml-auto">{formatTime(video.publishedAt)}</span>
+                        <div className="flex items-center justify-between text-xs text-gray-500">
+                          <div className="flex items-center gap-3">
+                            <button onClick={(e) => handleLike(video.id, e)} className="flex items-center gap-1 hover:text-red-400">
+                              <Heart className={`w-3 h-3 ${video.isLiked ? 'fill-current text-red-400' : ''}`} />
+                              <span>{formatNumber(video.likesCount)}</span>
+                            </button>
+                            <span>{formatNumber(video.viewsCount)}次观看</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            {video.model && (
+                              <span className="px-1.5 py-0.5 bg-gray-100 rounded text-xs">{video.model}</span>
+                            )}
+                            {video.duration && (
+                              <span className="px-1.5 py-0.5 bg-gray-100 rounded text-xs">{video.duration}s</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    
-                    <div className="flex items-center gap-2 mb-2 flex-wrap">
-                      <span className="px-2 py-0.5 bg-white/20 rounded text-xs text-white/90">
-                        {video.model || '未知模型'}
-                      </span>
-                      {video.duration && (
-                        <span className="px-2 py-0.5 bg-white/20 rounded text-xs text-white/90">{video.duration}s</span>
-                      )}
-                      {video.resolution && (
-                        <span className="px-2 py-0.5 bg-white/20 rounded text-xs text-white/90">{video.resolution}</span>
-                      )}
-                    </div>
-                    
-                    <div className="flex items-center gap-2 pt-2 border-t border-white/20">
-                      <button className="flex-1 bg-purple-600 hover:bg-purple-700 rounded-lg px-3 py-2 text-white text-xs font-medium flex items-center justify-center gap-1">
-                        <Sparkles className="w-4 h-4" />
-                        <span>使用模板</span>
-                      </button>
-                      <button className="w-9 h-9 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center text-white">
-                        <Download className="w-4 h-4" />
-                      </button>
-                      <button className="w-9 h-9 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center text-white">
-                        <Share2 className="w-4 h-4" />
-                      </button>
-                      <button className="w-9 h-9 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center text-white">
-                        <MoreVertical className="w-5 h-5" />
-                      </button>
-                    </div>
-                  </div>
-                )}
+                  ))}
+                </div>
               </div>
             ))}
           </div>
