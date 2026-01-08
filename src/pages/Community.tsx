@@ -46,6 +46,7 @@ function Community() {
   const [playingVideoId, setPlayingVideoId] = useState<number | null>(null) // 当前播放的视频ID
   const [hoveredAvatarVideoId, setHoveredAvatarVideoId] = useState<number | null>(null) // 悬停头像的视频ID
   const videoRefs = useRef<Map<number, HTMLVideoElement>>(new Map())
+  const [videoProgress, setVideoProgress] = useState<Map<number, number>>(new Map()) // 视频播放进度（百分比）
 
   useEffect(() => {
     const user = AuthService.getCurrentUser()
@@ -609,6 +610,13 @@ function Community() {
                               const ratio = videoEl.videoWidth / videoEl.videoHeight
                               setVideoAspectRatios(prev => new Map(prev).set(video.id, ratio))
                             }}
+                            onTimeUpdate={(e) => {
+                              const videoEl = e.currentTarget
+                              if (videoEl.duration > 0) {
+                                const progress = (videoEl.currentTime / videoEl.duration) * 100
+                                setVideoProgress(prev => new Map(prev).set(video.id, progress))
+                              }
+                            }}
                           />
                         ) : video.thumbnailUrl ? (
                           <img
@@ -636,51 +644,69 @@ function Community() {
                           </div>
                         )}
 
-                        {/* 右下角作者头像 */}
-                        <div 
-                          className="absolute bottom-4 right-4 z-10"
-                          onMouseEnter={() => setHoveredAvatarVideoId(video.id)}
-                          onMouseLeave={() => setHoveredAvatarVideoId(null)}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <div className="relative">
-                            {video.avatar ? (
-                              <img
-                                src={video.avatar}
-                                alt={video.username}
-                                className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-lg cursor-pointer"
-                                onClick={() => navigate(`/user/${video.username}`)}
-                              />
-                            ) : (
-                              <div 
-                                className="w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center text-white text-lg font-medium border-2 border-white shadow-lg cursor-pointer"
-                                onClick={() => navigate(`/user/${video.username}`)}
-                              >
-                                {video.username?.charAt(0).toUpperCase() || 'U'}
-                              </div>
-                            )}
-                            {/* 悬停时显示关注按钮 */}
-                            {hoveredAvatarVideoId === video.id && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  // TODO: 实现关注功能
-                                }}
-                                className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-xs rounded-full whitespace-nowrap transition-colors shadow-lg"
-                              >
-                                + 关注
-                              </button>
-                            )}
+                        {/* 右下角作者头像 - 仅在播放时显示 */}
+                        {isPlaying && (
+                          <div 
+                            className="absolute bottom-4 right-4 z-10"
+                            onMouseEnter={() => setHoveredAvatarVideoId(video.id)}
+                            onMouseLeave={() => setHoveredAvatarVideoId(null)}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="relative">
+                              {video.avatar ? (
+                                <img
+                                  src={video.avatar}
+                                  alt={video.username}
+                                  className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-lg cursor-pointer"
+                                  onClick={() => navigate(`/user/${video.username}`)}
+                                />
+                              ) : (
+                                <div 
+                                  className="w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center text-white text-lg font-medium border-2 border-white shadow-lg cursor-pointer"
+                                  onClick={() => navigate(`/user/${video.username}`)}
+                                >
+                                  {video.username?.charAt(0).toUpperCase() || 'U'}
+                                </div>
+                              )}
+                              {/* 悬停时显示关注按钮 */}
+                              {hoveredAvatarVideoId === video.id && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    // TODO: 实现关注功能
+                                  }}
+                                  className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-xs rounded-full whitespace-nowrap transition-colors shadow-lg"
+                                >
+                                  + 关注
+                                </button>
+                              )}
+                            </div>
                           </div>
-                        </div>
+                        )}
 
-                        {/* 视频底部信息（观看次数和时长） */}
-                        <div className="absolute bottom-0 left-0 right-16 bg-gradient-to-t from-black via-black/80 to-transparent p-3">
-                          <div className="flex items-center justify-between text-white text-sm">
-                            <span>{formatViews(video.viewsCount || 0)}次观看</span>
-                            <span>{formatDuration(video.duration)}</span>
+                        {/* 视频底部信息 - 未播放时显示观看次数和时长 */}
+                        {!isPlaying && (
+                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent p-3">
+                            <div className="flex items-center justify-between text-white text-sm">
+                              <span>{formatViews(video.viewsCount || 0)}次观看</span>
+                              <span>{formatDuration(video.duration)}</span>
+                            </div>
                           </div>
-                        </div>
+                        )}
+
+                        {/* 播放时显示进度条 */}
+                        {isPlaying && (
+                          <div className="absolute bottom-0 left-0 right-16 bg-gradient-to-t from-black via-black/80 to-transparent p-3">
+                            <div className="flex items-center gap-2 text-white text-sm">
+                              <div className="flex-1 h-1 bg-gray-600 rounded-full overflow-hidden">
+                                <div 
+                                  className="h-full bg-white transition-all duration-300"
+                                  style={{ width: `${videoProgress.get(video.id) || 0}%` }}
+                                ></div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* 视频下方互动数据 */}

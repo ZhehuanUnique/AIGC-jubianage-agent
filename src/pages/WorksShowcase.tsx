@@ -337,7 +337,7 @@ function WorksShowcase() {
     >
       {/* 返回按钮 */}
       <button
-        onClick={() => navigate('/')}
+        onClick={() => navigate('/community')}
         className="absolute top-4 left-4 z-50 w-10 h-10 bg-black bg-opacity-50 rounded-full flex items-center justify-center text-white"
       >
         <ArrowLeft size={20} />
