@@ -440,30 +440,62 @@ function WorksShowcase() {
           >
             {/* 缩略图列表 */}
             {showThumbnailList && (
-              <div className="absolute left-12 top-1/2 -translate-y-1/2 bg-black/80 backdrop-blur-sm rounded-lg p-2 max-h-[70vh] overflow-y-auto">
-                <div className="flex flex-col gap-2 w-24">
+              <div className="absolute left-12 top-1/2 -translate-y-1/2 bg-black/90 backdrop-blur-sm rounded-lg p-3 max-h-[80vh] overflow-y-auto scrollbar-thin scrollbar-thumb-white/30">
+                <div className="flex flex-col gap-3 w-32">
                   {videos.map((v, idx) => (
                     <button
                       key={v.id}
-                      onClick={() => switchToVideo(idx)}
-                      className={`relative w-full aspect-video rounded overflow-hidden transition-all ${
-                        idx === currentVideoIndex ? 'ring-2 ring-purple-500 scale-105' : 'opacity-70 hover:opacity-100'
+                      onClick={() => {
+                        // 点击时跳过防抖直接切换
+                        lastSwitchTime.current = 0
+                        switchToVideo(idx)
+                      }}
+                      className={`relative w-full aspect-video rounded-lg overflow-hidden transition-all ${
+                        idx === currentVideoIndex 
+                          ? 'ring-2 ring-purple-500 scale-105 shadow-lg shadow-purple-500/30' 
+                          : 'opacity-80 hover:opacity-100 hover:scale-102'
                       }`}
                     >
+                      {/* 优先使用 thumbnailUrl，否则用 video 元素显示首帧 */}
                       {v.thumbnailUrl ? (
-                        <img src={v.thumbnailUrl} alt={v.title} className="w-full h-full object-cover" />
+                        <img 
+                          src={v.thumbnailUrl} 
+                          alt={v.title} 
+                          className="w-full h-full object-cover bg-gray-800"
+                          onError={(e) => {
+                            // 图片加载失败时隐藏
+                            e.currentTarget.style.display = 'none'
+                          }}
+                        />
+                      ) : v.videoUrl ? (
+                        <video 
+                          src={v.videoUrl} 
+                          className="w-full h-full object-cover bg-gray-800"
+                          muted
+                          preload="metadata"
+                          onLoadedMetadata={(e) => {
+                            // 视频加载后跳到第一帧
+                            e.currentTarget.currentTime = 0.1
+                          }}
+                        />
                       ) : (
-                        <div className="w-full h-full bg-gray-700 flex items-center justify-center">
-                          <Play size={12} className="text-white/50" />
+                        <div className="w-full h-full bg-gray-800 flex items-center justify-center">
+                          <Play size={16} className="text-white/50" />
                         </div>
                       )}
-                      <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] px-1 py-0.5 truncate">
-                        {idx + 1}. {v.title?.slice(0, 8) || '无标题'}
+                      
+                      {/* 底部标题 */}
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-1.5">
+                        <p className="text-white text-[11px] truncate font-medium">
+                          {idx + 1}. {v.title || '无标题'}
+                        </p>
                       </div>
+                      
+                      {/* 当前播放指示 */}
                       {idx === currentVideoIndex && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                          <div className="w-4 h-4 bg-purple-500 rounded-full flex items-center justify-center">
-                            <Play size={8} className="text-white fill-white ml-0.5" />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                          <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center shadow-lg">
+                            <Play size={12} className="text-white fill-white ml-0.5" />
                           </div>
                         </div>
                       )}
