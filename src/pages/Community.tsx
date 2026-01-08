@@ -462,15 +462,15 @@ function Community() {
               </button>
             </div>
 
-            {/* 帖子列表 */}
-            <div className="space-y-4">
+            {/* 视频网格 */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               {isLoading ? (
-                <div className="bg-white rounded-lg shadow-sm p-12 text-center flex flex-col items-center">
+                <div className="col-span-full bg-white rounded-lg shadow-sm p-12 text-center flex flex-col items-center">
                   <HamsterLoader size={8} />
                   <p className="mt-4 text-gray-600">加载中...</p>
                 </div>
               ) : videos.length === 0 ? (
-                <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+                <div className="col-span-full bg-white rounded-lg shadow-sm p-12 text-center">
                   <p className="text-gray-600">暂无内容</p>
                 </div>
               ) : (
@@ -486,191 +486,106 @@ function Community() {
                   // 格式化观看次数
                   const formatViews = (count: number): string => {
                     if (count >= 10000) {
-                      return `${(count / 10000).toFixed(1)} 万次观看`
+                      return `${(count / 10000).toFixed(1)}万`
                     }
-                    return `${count} 次观看`
+                    return count.toString()
                   }
 
                   return (
                     <div
                       key={video.id}
-                      className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden"
+                      className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden cursor-pointer group"
+                      onClick={() => navigate(`/works/${video.id}`)}
                     >
-                      {/* 用户信息（顶部） */}
-                      <div className="p-4 pb-3">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-3 flex-1">
-                            <div 
-                              className="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-lg cursor-pointer relative flex-shrink-0"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                navigate(`/user/${video.username}`)
-                              }}
-                              onMouseEnter={async (e) => {
-                                const rect = e.currentTarget.getBoundingClientRect()
-                                const username = video.username || ''
-                                setHoveredUserId(username)
-                                setHoveredUserPosition({
-                                  x: rect.left + rect.width / 2,
-                                  y: rect.bottom + 8
-                                })
-                                
-                                // 检查关注状态
-                                if (username && !hoveredUserFollowStatus.hasOwnProperty(username)) {
-                                  try {
-                                    const { checkFollowStatus } = await import('../services/api')
-                                    const isFollowing = await checkFollowStatus(username)
-                                    setHoveredUserFollowStatus(prev => ({
-                                      ...prev,
-                                      [username]: isFollowing,
-                                    }))
-                                  } catch (error) {
-                                    console.error('检查关注状态失败:', error)
-                                  }
-                                }
-                              }}
-                              onMouseLeave={() => {
-                                setTimeout(() => {
-                                  if (!document.querySelector('.user-hover-card:hover')) {
-                                    setHoveredUserId(null)
-                                    setHoveredUserPosition(null)
-                                  }
-                                }, 100)
-                              }}
-                            >
-                              {video.avatar ? (
-                                <img
-                                  src={video.avatar}
-                                  alt={video.username}
-                                  className="w-full h-full rounded-full object-cover"
-                                  onError={(e) => {
-                                    e.currentTarget.style.display = 'none'
-                                  }}
-                                />
-                              ) : (
-                                <span>{video.username?.[0]?.toUpperCase() || 'U'}</span>
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="font-semibold text-gray-900 text-base">{video.username || '匿名用户'}</span>
-                                {video.username === 'Chiefavefan' && (
-                                  <div className="flex items-center gap-1">
-                                    <Crown className="w-4 h-4 text-yellow-500" />
-                                    <span className="text-xs bg-yellow-400 text-yellow-900 px-1.5 py-0.5 rounded">II</span>
-                                  </div>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2 text-xs text-gray-500">
-                                <span>{formatTimeAgo(video.publishedAt)}</span>
-                                {video.model && (
-                                  <>
-                                    <span>·</span>
-                                    <span>来自{video.model}</span>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* 文本内容 */}
-                      {(video.title || video.description) && (
-                        <div className="px-4 pb-3">
-                          {video.title && (
-                            <p className="text-gray-900 text-base leading-relaxed mb-1">{video.title}</p>
-                          )}
-                          {video.description && (
-                            <p className="text-gray-700 text-sm leading-relaxed">{video.description}</p>
-                          )}
-                        </div>
-                      )}
-
-                      {/* 视频播放器 */}
-                      <div 
-                        className="relative bg-black cursor-pointer"
-                        style={{ aspectRatio: `${videoAspectRatios.get(video.id) || 16/9}` }}
-                        onClick={() => navigate(`/works/${video.id}`)}
-                      >
-                        {video.videoUrl ? (
-                          <video
-                            src={video.videoUrl}
-                            className="w-full h-full object-contain"
-                            muted
-                            preload="metadata"
-                            onLoadedMetadata={(e) => {
-                              const videoEl = e.currentTarget
-                              const ratio = videoEl.videoWidth / videoEl.videoHeight
-                              setVideoAspectRatios(prev => new Map(prev).set(video.id, ratio))
-                            }}
-                          />
-                        ) : video.thumbnailUrl ? (
+                      {/* 视频缩略图 */}
+                      <div className="relative bg-black aspect-video">
+                        {video.thumbnailUrl ? (
                           <img
                             src={video.thumbnailUrl}
                             alt={video.title}
-                            className="w-full h-full object-contain"
-                            onLoad={(e) => {
-                              // 如果是图片，也尝试获取宽高比
-                              const img = e.currentTarget
-                              const ratio = img.naturalWidth / img.naturalHeight
-                              setVideoAspectRatios(prev => new Map(prev).set(video.id, ratio))
-                            }}
+                            className="w-full h-full object-cover"
                             onError={(e) => {
                               const target = e.target as HTMLImageElement
                               target.style.display = 'none'
                             }}
                           />
-                        ) : null}
+                        ) : video.videoUrl ? (
+                          <video
+                            src={video.videoUrl}
+                            className="w-full h-full object-cover"
+                            muted
+                            preload="metadata"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                            <Play className="w-8 h-8 text-gray-400" />
+                          </div>
+                        )}
                         
                         {/* 播放按钮覆盖层 */}
-                        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 opacity-0 hover:opacity-100 transition-opacity">
-                          <div className="w-16 h-16 bg-white bg-opacity-90 rounded-full flex items-center justify-center">
-                            <Play className="w-8 h-8 text-gray-900 ml-1" />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="w-12 h-12 bg-white bg-opacity-90 rounded-full flex items-center justify-center">
+                            <Play className="w-6 h-6 text-gray-900 ml-0.5" />
                           </div>
                         </div>
 
-                        {/* 视频底部信息（观看次数和时长） */}
-                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent p-3">
-                          <div className="flex items-center justify-between text-white text-sm">
-                            <span>{formatViews(video.viewsCount || 0)}</span>
-                            <span>{formatDuration(video.duration)}</span>
+                        {/* 时长标签 */}
+                        {video.duration && (
+                          <div className="absolute bottom-2 right-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded">
+                            {formatDuration(video.duration)}
                           </div>
-                        </div>
+                        )}
                       </div>
 
-                      {/* 视频下方互动数据 */}
-                      <div className="px-4 py-3 border-t border-gray-100">
-                        <div className="flex items-center gap-6 text-gray-600">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              // TODO: 实现转发功能
-                            }}
-                            className="flex items-center gap-2 hover:text-green-600 transition-colors"
-                          >
-                            <Share2 className="w-5 h-5" />
-                            <span className="text-sm">转发</span>
-                          </button>
-                          <button 
-                            className="flex items-center gap-2 hover:text-blue-600 transition-colors"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <MessageCircle className="w-5 h-5" />
-                            <span className="text-sm">评论</span>
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleToggleLike(video.id, e)
-                            }}
-                            className={`flex items-center gap-2 transition-colors ${
-                              video.isLiked ? 'text-red-600' : 'hover:text-red-600'
-                            }`}
-                          >
-                            <Heart className={`w-5 h-5 ${video.isLiked ? 'fill-current' : ''}`} />
-                            <span className="text-sm">{video.likesCount || 0}</span>
-                          </button>
+                      {/* 视频信息 */}
+                      <div className="p-3">
+                        <h3 className="text-sm font-medium text-gray-900 line-clamp-2 mb-2">
+                          {video.title || '未命名视频'}
+                        </h3>
+                        
+                        {/* 用户信息 */}
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-6 h-6 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                            {video.avatar ? (
+                              <img
+                                src={video.avatar}
+                                alt={video.username}
+                                className="w-full h-full rounded-full object-cover"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none'
+                                }}
+                              />
+                            ) : (
+                              <span>{video.username?.[0]?.toUpperCase() || 'U'}</span>
+                            )}
+                          </div>
+                          <span className="text-xs text-gray-600 truncate">{video.username || '匿名用户'}</span>
+                          {video.username === 'Chiefavefan' && (
+                            <Crown className="w-3 h-3 text-yellow-500 flex-shrink-0" />
+                          )}
+                        </div>
+
+                        {/* 互动数据 */}
+                        <div className="flex items-center justify-between text-xs text-gray-500">
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleToggleLike(video.id, e)
+                              }}
+                              className={`flex items-center gap-1 transition-colors ${
+                                video.isLiked ? 'text-red-600' : 'hover:text-red-600'
+                              }`}
+                            >
+                              <Heart className={`w-3 h-3 ${video.isLiked ? 'fill-current' : ''}`} />
+                              <span>{formatViews(video.likesCount || 0)}</span>
+                            </button>
+                            <span className="flex items-center gap-1">
+                              <Eye className="w-3 h-3" />
+                              <span>{formatViews(video.viewsCount || 0)}</span>
+                            </span>
+                          </div>
+                          <span>{formatTimeAgo(video.publishedAt)}</span>
                         </div>
                       </div>
                     </div>

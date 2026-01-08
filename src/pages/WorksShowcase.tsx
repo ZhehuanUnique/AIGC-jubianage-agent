@@ -20,19 +20,10 @@ function WorksShowcase() {
   const [total, setTotal] = useState(0)
   const [sortBy, setSortBy] = useState<'latest' | 'popular' | 'likes'>('latest')
   const limit = 20
-  const [hoveredVideoId, setHoveredVideoId] = useState<number | null>(null)
-  const [videoAspectRatios, setVideoAspectRatios] = useState<Map<number, number>>(new Map())
   const [currentUser, setCurrentUser] = useState<{ username: string } | null>(null)
   const [deletingVideoId, setDeletingVideoId] = useState<number | null>(null)
   const [showPublishModal, setShowPublishModal] = useState(false)
   const [deleteConfirmState, setDeleteConfirmState] = useState<{ isOpen: boolean; videoId: number | null }>({ isOpen: false, videoId: null })
-  const [draggedVideoId, setDraggedVideoId] = useState<number | null>(null)
-  const [dragOverVideoId, setDragOverVideoId] = useState<number | null>(null)
-  const [shareMenuVideoId, setShareMenuVideoId] = useState<number | null>(null)
-  const [moreMenuVideoId, setMoreMenuVideoId] = useState<number | null>(null)
-  const [playingVideoId, setPlayingVideoId] = useState<number | null>(null) // 当前小窗播放的视频ID
-  const [hoveredAvatarVideoId, setHoveredAvatarVideoId] = useState<number | null>(null) // 悬停头像的视频ID
-  const playingVideoRef = useRef<HTMLVideoElement>(null)
 
   // 检查用户权限
   useEffect(() => {
@@ -41,9 +32,6 @@ function WorksShowcase() {
   }, [])
 
   const isAdmin = currentUser?.username === 'Chiefavefan' || currentUser?.username === 'jubian888'
-
-  // 检测是否为移动设备
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
 
   // 触摸滑动相关
   const touchStartY = useRef<number>(0)
@@ -210,12 +198,6 @@ function WorksShowcase() {
     }
   }
 
-  // 检查是否登录
-  const checkAuth = () => {
-    const token = localStorage.getItem('auth_token')
-    return !!token
-  }
-
   // 处理点赞
   const handleLike = async (videoId: number, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -237,6 +219,12 @@ function WorksShowcase() {
       console.error('点赞失败:', error)
       alertError(error instanceof Error ? error.message : '点赞失败，请稍后重试', '错误')
     }
+  }
+
+  // 检查是否登录
+  const checkAuth = () => {
+    const token = localStorage.getItem('auth_token')
+    return !!token
   }
 
   // 处理下载视频
@@ -266,45 +254,6 @@ function WorksShowcase() {
     }
   }
 
-  // 复制链接到剪贴板
-  const handleCopyLink = async (videoId: number, e: React.MouseEvent) => {
-    e.stopPropagation()
-    const url = `${window.location.origin}/works/${videoId}`
-    try {
-      await navigator.clipboard.writeText(url)
-      alertSuccess('链接已复制到剪贴板', '复制成功')
-    } catch (error) {
-      // 降级方案
-      const textArea = document.createElement('textarea')
-      textArea.value = url
-      document.body.appendChild(textArea)
-      textArea.select()
-      document.execCommand('copy')
-      document.body.removeChild(textArea)
-      alertSuccess('链接已复制到剪贴板', '复制成功')
-    }
-    setShareMenuVideoId(null)
-  }
-
-  // 处理举报
-  const handleReport = (videoId: number, e: React.MouseEvent) => {
-    e.stopPropagation()
-    alertWarning('举报功能即将上线', '提示')
-    setMoreMenuVideoId(null)
-  }
-
-  // 处理关注
-  const handleFollow = (username: string, e: React.MouseEvent) => {
-    e.stopPropagation()
-    alertWarning('关注功能即将上线', '提示')
-    setHoveredAvatarVideoId(null)
-  }
-
-  // 关闭小窗播放
-  const closeVideoPlayer = () => {
-    setPlayingVideoId(null)
-  }
-
   // 格式化数字
   const formatNumber = (num: number): string => {
     if (num >= 10000) {
@@ -328,10 +277,8 @@ function WorksShowcase() {
     return `${Math.floor(days / 365)}年前`
   }
 
-  // 键盘导航（桌面端）
+  // 键盘导航
   useEffect(() => {
-    if (isMobile) return
-
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowUp') {
         e.preventDefault()
@@ -346,14 +293,28 @@ function WorksShowcase() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [currentVideoIndex, videos, navigate, isMobile])
+  }, [currentVideoIndex, videos, navigate])
 
-  // 滚轮导航（桌面端 - 仅用于移动端全屏模式，桌面端网格模式不需要）
-  // 注意：桌面端网格模式应该允许正常滚动，所以这里不添加滚轮监听
-  // useEffect(() => {
-  //   if (isMobile) return
-  //   // 桌面端网格模式不需要滚轮切换视频，应该允许正常页面滚动
-  // }, [currentVideoIndex, videos, isMobile])
+  // 滚轮导航
+  useEffect(() => {
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      const threshold = 50 // 滚轮阈值
+
+      if (Math.abs(e.deltaY) > threshold) {
+        if (e.deltaY > 0) {
+          // 向下滚动，切换到下一个视频
+          switchToVideo(currentVideoIndex + 1)
+        } else {
+          // 向上滚动，切换到上一个视频
+          switchToVideo(currentVideoIndex - 1)
+        }
+      }
+    }
+
+    window.addEventListener('wheel', handleWheel, { passive: false })
+    return () => window.removeEventListener('wheel', handleWheel)
+  }, [currentVideoIndex, videos])
 
   // 自动播放当前视频
   useEffect(() => {
@@ -366,380 +327,281 @@ function WorksShowcase() {
     }
   }, [currentVideoIndex, videos])
 
-  // 移动端全屏垂直滚动模式
-  if (isMobile) {
-    return (
-      <div 
-        className="fixed inset-0 bg-black overflow-hidden"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
+  // 垂直全屏滑动模式
+  return (
+    <div 
+      className="fixed inset-0 bg-black overflow-hidden"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* 返回按钮 */}
+      <button
+        onClick={() => navigate('/')}
+        className="absolute top-4 left-4 z-50 w-10 h-10 bg-black bg-opacity-50 rounded-full flex items-center justify-center text-white"
       >
-        {/* 返回按钮 */}
+        <ArrowLeft size={20} />
+      </button>
+
+      {/* 排序选项（右上角） */}
+      <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
         <button
-          onClick={() => navigate('/')}
-          className="absolute top-4 left-4 z-50 w-10 h-10 bg-black bg-opacity-50 rounded-full flex items-center justify-center text-white touch-manipulation"
+          onClick={() => setShowPublishModal(true)}
+          className="flex items-center gap-2 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
         >
-          <ArrowLeft size={20} />
+          <Plus size={16} />
+          <span>发布</span>
         </button>
+        <button
+          onClick={() => setSortBy('latest')}
+          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+            sortBy === 'latest'
+              ? 'bg-purple-600 text-white'
+              : 'bg-black bg-opacity-50 text-white hover:bg-opacity-70'
+          }`}
+        >
+          最新
+        </button>
+        <button
+          onClick={() => setSortBy('popular')}
+          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+            sortBy === 'popular'
+              ? 'bg-purple-600 text-white'
+              : 'bg-black bg-opacity-50 text-white hover:bg-opacity-70'
+          }`}
+        >
+          最热
+        </button>
+        <button
+          onClick={() => setSortBy('likes')}
+          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+            sortBy === 'likes'
+              ? 'bg-purple-600 text-white'
+              : 'bg-black bg-opacity-50 text-white hover:bg-opacity-70'
+          }`}
+        >
+          最多点赞
+        </button>
+      </div>
 
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center h-full">
-            <HamsterLoader size={10} />
-            <p className="mt-4 text-white">加载中...</p>
-          </div>
-        ) : videos.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-white">
-            <p className="text-lg">暂无视频</p>
-            <p className="text-sm mt-2 opacity-70">还没有用户发布视频到社区</p>
-          </div>
-        ) : (
-          <div 
-            ref={containerRef}
-            className="h-full overflow-y-scroll snap-y snap-mandatory"
-            style={{ scrollSnapType: 'y mandatory' }}
-          >
-            {videos.map((video, index) => (
-              <div
-                key={video.id}
-                className="h-screen w-screen snap-start relative flex items-center justify-center"
-              >
-                {/* 视频 */}
-                {video.videoUrl ? (
-                  <video
-                    ref={(el) => {
-                      if (el) {
-                        videoRefs.current.set(video.id, el)
-                      } else {
-                        videoRefs.current.delete(video.id)
-                      }
-                    }}
-                    src={video.videoUrl}
-                    className="w-full h-full object-contain"
-                    muted
-                    loop
-                    playsInline
-                    autoPlay={index === currentVideoIndex}
-                  />
-                ) : video.thumbnailUrl ? (
-                  <img
-                    src={video.thumbnailUrl}
-                    alt={video.title}
-                    className="w-full h-full object-contain"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-gray-900">
-                    <Play className="w-16 h-16 text-white opacity-50" />
-                  </div>
-                )}
+      {isLoading ? (
+        <div className="flex flex-col items-center justify-center h-full">
+          <HamsterLoader size={10} />
+          <p className="mt-4 text-white">加载中...</p>
+        </div>
+      ) : videos.length === 0 ? (
+        <div className="flex flex-col items-center justify-center h-full text-white">
+          <p className="text-lg">暂无视频</p>
+          <p className="text-sm mt-2 opacity-70">还没有用户发布视频到社区</p>
+        </div>
+      ) : (
+        <div 
+          ref={containerRef}
+          className="h-full overflow-y-scroll snap-y snap-mandatory"
+          style={{ scrollSnapType: 'y mandatory' }}
+        >
+          {videos.map((video, index) => (
+            <div
+              key={video.id}
+              className="h-screen w-screen snap-start relative flex items-center justify-center"
+            >
+              {/* 视频 */}
+              {video.videoUrl ? (
+                <video
+                  ref={(el) => {
+                    if (el) {
+                      videoRefs.current.set(video.id, el)
+                    } else {
+                      videoRefs.current.delete(video.id)
+                    }
+                  }}
+                  src={video.videoUrl}
+                  className="w-full h-full object-contain"
+                  muted
+                  loop
+                  playsInline
+                  autoPlay={index === currentVideoIndex}
+                />
+              ) : video.thumbnailUrl ? (
+                <img
+                  src={video.thumbnailUrl}
+                  alt={video.title}
+                  className="w-full h-full object-contain"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-gray-900">
+                  <Play className="w-16 h-16 text-white opacity-50" />
+                </div>
+              )}
 
-                {/* 视频信息覆盖层（右下角） */}
-                <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black via-black/80 to-transparent">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      {video.avatar ? (
-                        <img
-                          src={video.avatar}
-                          alt={video.username}
-                          className="w-8 h-8 rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-white text-xs">
-                          {video.username.charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                      <span className="text-white text-sm font-medium">{video.username}</span>
+              {/* 管理员删除按钮（右上角） */}
+              {isAdmin && (
+                <button
+                  onClick={(e) => handleDeleteVideo(video.id, e)}
+                  disabled={deletingVideoId === video.id}
+                  className="absolute top-20 right-4 w-10 h-10 bg-red-500 bg-opacity-80 hover:bg-opacity-100 rounded-lg flex items-center justify-center text-white transition-all shadow-lg z-20 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="删除/下架视频"
+                >
+                  {deletingVideoId === video.id ? (
+                    <HamsterLoader size={3} />
+                  ) : (
+                    <Trash2 size={18} />
+                  )}
+                </button>
+              )}
+
+              {/* 右侧操作栏 */}
+              <div className="absolute right-4 bottom-20 flex flex-col items-center gap-4 z-30">
+                {/* 作者头像 */}
+                <div className="relative">
+                  {video.avatar ? (
+                    <img
+                      src={video.avatar}
+                      alt={video.username}
+                      className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-lg"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center text-white text-lg font-medium border-2 border-white shadow-lg">
+                      {video.username.charAt(0).toUpperCase()}
                     </div>
+                  )}
+                  {/* 关注按钮 */}
+                  <button className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-6 h-6 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center text-white text-lg font-bold transition-colors shadow-lg">
+                    +
+                  </button>
+                </div>
+
+                {/* 点赞 */}
+                <button
+                  onClick={(e) => handleLike(video.id, e)}
+                  className="flex flex-col items-center gap-1 text-white"
+                >
+                  <div className="w-12 h-12 bg-black bg-opacity-30 rounded-full flex items-center justify-center hover:bg-opacity-50 transition-all">
+                    <Heart className={`w-6 h-6 ${video.isLiked ? 'fill-current text-red-500' : ''}`} />
                   </div>
-                  
-                  <p className="text-white text-sm mb-2 line-clamp-2">{video.title}</p>
-                  
+                  <span className="text-xs">{formatNumber(video.likesCount)}</span>
+                </button>
+
+                {/* 评论 */}
+                <button className="flex flex-col items-center gap-1 text-white">
+                  <div className="w-12 h-12 bg-black bg-opacity-30 rounded-full flex items-center justify-center hover:bg-opacity-50 transition-all">
+                    <MessageCircle className="w-6 h-6" />
+                  </div>
+                  <span className="text-xs">0</span>
+                </button>
+
+                {/* 分享 */}
+                <button className="flex flex-col items-center gap-1 text-white">
+                  <div className="w-12 h-12 bg-black bg-opacity-30 rounded-full flex items-center justify-center hover:bg-opacity-50 transition-all">
+                    <Share2 className="w-6 h-6" />
+                  </div>
+                  <span className="text-xs">分享</span>
+                </button>
+
+                {/* 下载 */}
+                <button 
+                  onClick={(e) => handleDownload(video, e)}
+                  className="flex flex-col items-center gap-1 text-white"
+                >
+                  <div className="w-12 h-12 bg-black bg-opacity-30 rounded-full flex items-center justify-center hover:bg-opacity-50 transition-all">
+                    <Download className="w-6 h-6" />
+                  </div>
+                  <span className="text-xs">下载</span>
+                </button>
+              </div>
+
+              {/* 底部信息栏 */}
+              <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black via-black/80 to-transparent">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-white text-sm font-medium">@{video.username}</span>
+                  </div>
                   <div className="flex items-center gap-4 text-white text-xs">
-                    <button
-                      onClick={(e) => handleLike(video.id, e)}
-                      className="flex items-center gap-1"
-                    >
-                      <Heart className="w-5 h-5" />
-                      <span>{formatNumber(video.likesCount)}</span>
-                    </button>
                     <span>{formatNumber(video.viewsCount)} 次观看</span>
                     <span>{formatTime(video.publishedAt)}</span>
                   </div>
                 </div>
+                
+                <p className="text-white text-sm mb-2 line-clamp-2">{video.title}</p>
+                
+                {/* 模型信息 */}
+                {video.model && (
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-1 bg-white/20 rounded text-xs text-white/90">
+                      {video.model}
+                    </span>
+                    {video.duration && (
+                      <span className="px-2 py-1 bg-white/20 rounded text-xs text-white/90">
+                        {video.duration}s
+                      </span>
+                    )}
+                    {video.resolution && (
+                      <span className="px-2 py-1 bg-white/20 rounded text-xs text-white/90">
+                        {video.resolution}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
-            ))}
-          </div>
-        )}
-      </div>
-    )
-  }
 
-  // 桌面端网格模式
-  return (
-    <div className="min-h-screen bg-white">
-      <NavigationBar activeTab="works" />
-      
-      <div className="max-w-full mx-auto bg-white" style={{ padding: 0, margin: 0 }}>
-        {/* 头部：排序选项 */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-end gap-3 sm:gap-0 mb-0 px-4 py-2" style={{ marginBottom: 0 }}>
-          <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto justify-end">
-            <button
-              onClick={() => setShowPublishModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
-            >
-              <Plus size={18} />
-              <span>发布作品</span>
-            </button>
-            <button
-              onClick={() => setSortBy('latest')}
-              className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors touch-manipulation ${
-                sortBy === 'latest'
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-gray-100 text-gray-700 active:bg-gray-200'
-              }`}
-            >
-              最新
-            </button>
-            <button
-              onClick={() => setSortBy('popular')}
-              className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors touch-manipulation ${
-                sortBy === 'popular'
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-gray-100 text-gray-700 active:bg-gray-200'
-              }`}
-            >
-              最热
-            </button>
-            <button
-              onClick={() => setSortBy('likes')}
-              className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors touch-manipulation ${
-                sortBy === 'likes'
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-gray-100 text-gray-700 active:bg-gray-200'
-              }`}
-            >
-              最多点赞
-            </button>
-          </div>
+              {/* 导航指示器（左侧） */}
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 flex flex-col items-center gap-2 z-30">
+                {/* 上一个视频按钮 */}
+                {currentVideoIndex > 0 && (
+                  <button
+                    onClick={() => switchToVideo(currentVideoIndex - 1)}
+                    className="w-10 h-10 bg-black bg-opacity-50 rounded-full flex items-center justify-center text-white hover:bg-opacity-70 transition-all"
+                  >
+                    <ChevronUp size={20} />
+                  </button>
+                )}
+                
+                {/* 当前位置指示器 */}
+                <div className="flex flex-col items-center gap-1">
+                  <span className="text-white text-xs">{currentVideoIndex + 1}</span>
+                  <div className="w-1 h-8 bg-white/30 rounded-full overflow-hidden">
+                    <div 
+                      className="w-full bg-white rounded-full transition-all duration-300"
+                      style={{ height: `${((currentVideoIndex + 1) / videos.length) * 100}%` }}
+                    />
+                  </div>
+                  <span className="text-white text-xs">{videos.length}</span>
+                </div>
+
+                {/* 下一个视频按钮 */}
+                {currentVideoIndex < videos.length - 1 && (
+                  <button
+                    onClick={() => switchToVideo(currentVideoIndex + 1)}
+                    className="w-10 h-10 bg-black bg-opacity-50 rounded-full flex items-center justify-center text-white hover:bg-opacity-70 transition-all"
+                  >
+                    <ChevronDown size={20} />
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
+      )}
 
-        {/* 视频瀑布流 */}
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-20">
-            <HamsterLoader size={10} />
-            <p className="mt-4 text-gray-600">加载中...</p>
-          </div>
-        ) : videos.length === 0 ? (
-          <div className="text-center py-20 text-gray-500">
-            <p className="text-lg">暂无视频</p>
-            <p className="text-sm mt-2">还没有用户发布视频到社区</p>
-          </div>
-        ) : (
-          <div 
-            ref={containerRef}
-            className="masonry-grid"
-            style={{
-              columnCount: 5,
-              columnGap: 0,
-            }}
-          >
-            {/* 视频卡片 */}
-            {videos.map((video, index) => {
-              const aspectRatio = videoAspectRatios.get(video.id)
-              const isPortrait = aspectRatio !== undefined && aspectRatio < 1
-              
-              return (
-                <div
-                  key={video.id}
-                  id={`video-${video.id}`}
-                  draggable
-                  className={`masonry-item group cursor-grab active:cursor-grabbing relative ${
-                    draggedVideoId === video.id ? 'opacity-50 cursor-grabbing' : ''
-                  } ${dragOverVideoId === video.id ? 'ring-2 ring-purple-500 ring-inset' : ''}`}
-                  style={{ 
-                    breakInside: 'avoid',
-                    marginBottom: 0,
-                  }}
-                  onDragStart={(e) => {
-                    setDraggedVideoId(video.id)
-                    e.dataTransfer.effectAllowed = 'move'
-                    e.dataTransfer.setData('text/plain', video.id.toString())
-                  }}
-                  onDragOver={(e) => {
-                    e.preventDefault()
-                    e.dataTransfer.dropEffect = 'move'
-                    if (dragOverVideoId !== video.id && draggedVideoId !== video.id) {
-                      setDragOverVideoId(video.id)
-                    }
-                  }}
-                  onDragLeave={() => {
-                    setDragOverVideoId(null)
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault()
-                    const draggedId = parseInt(e.dataTransfer.getData('text/plain'))
-                    if (draggedId !== video.id && draggedId !== null) {
-                      // 重新排序视频
-                      const draggedIndex = videos.findIndex(v => v.id === draggedId)
-                      const dropIndex = videos.findIndex(v => v.id === video.id)
-                      if (draggedIndex !== -1 && dropIndex !== -1) {
-                        const newVideos = [...videos]
-                        const [removed] = newVideos.splice(draggedIndex, 1)
-                        newVideos.splice(dropIndex, 0, removed)
-                        setVideos(newVideos)
-                        // 保存排序到本地存储
-                        const sortedIds = newVideos.map(v => v.id)
-                        localStorage.setItem('worksShowcaseOrder', JSON.stringify(sortedIds))
-                      }
-                    }
-                    setDraggedVideoId(null)
-                    setDragOverVideoId(null)
-                  }}
-                  onDragEnd={() => {
-                    setDraggedVideoId(null)
-                    setDragOverVideoId(null)
-                  }}
-                  onMouseEnter={() => {
-                    if (!draggedVideoId) {
-                      setHoveredVideoId(video.id)
-                      if (window.innerWidth >= 640) {
-                        const videoEl = videoRefs.current.get(video.id)
-                        if (videoEl) {
-                          videoEl.play().catch(() => {})
-                        }
-                      }
-                    }
-                  }}
-                  onMouseLeave={() => {
-                    if (!draggedVideoId) {
-                      setHoveredVideoId(null)
-                      setShareMenuVideoId(null)
-                      setMoreMenuVideoId(null)
-                      if (window.innerWidth >= 640) {
-                        const videoEl = videoRefs.current.get(video.id)
-                        if (videoEl) {
-                          videoEl.pause()
-                          videoEl.currentTime = 0
-                        }
-                      }
-                    }
-                  }}
-                  onClick={(e) => {
-                    // 如果正在拖拽，不触发点击事件
-                    if (draggedVideoId) {
-                      e.preventDefault()
-                      return
-                    }
-                    // 小窗播放视频
-                    recordVideoView(video.id)
-                    setPlayingVideoId(video.id)
-                  }}
-                >
-                  {/* 视频容器 - 自适应高度 */}
-                  <div className="relative bg-black">
-                    {/* 优先显示缩略图（如果存在），悬停时再显示视频 */}
-                    {video.thumbnailUrl && video.thumbnailUrl.trim() !== '' ? (
-                      <>
-                        {/* 缩略图 - 始终显示，自适应高度 */}
-                        <img
-                          src={video.thumbnailUrl}
-                          alt={video.title}
-                          className="w-full h-auto block"
-                          onError={(e) => {
-                            // 如果缩略图加载失败，尝试显示视频或占位符
-                            const target = e.currentTarget
-                            target.style.display = 'none'
-                            const parent = target.parentElement
-                            if (parent && video.videoUrl && video.videoUrl.trim() !== '') {
-                              // 如果有视频URL，创建视频元素
-                              const videoEl = document.createElement('video')
-                              videoEl.src = video.videoUrl
-                              videoEl.className = 'w-full h-full object-cover'
-                              videoEl.muted = true
-                              videoEl.loop = true
-                              videoEl.playsInline = true
-                              videoEl.preload = 'metadata'
-                              videoEl.onerror = () => {
-                                // 视频也加载失败，显示占位符
-                                videoEl.style.display = 'none'
-                                if (parent && !parent.querySelector('.placeholder')) {
-                                  const placeholder = document.createElement('div')
-                                  placeholder.className = 'w-full h-full flex items-center justify-center bg-gray-200 placeholder'
-                                  placeholder.innerHTML = '<svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>'
-                                  parent.appendChild(placeholder)
-                                }
-                              }
-                              parent.appendChild(videoEl)
-                            } else if (parent && !parent.querySelector('.placeholder')) {
-                              // 没有视频URL，显示占位符
-                              const placeholder = document.createElement('div')
-                              placeholder.className = 'w-full h-full flex items-center justify-center bg-gray-200 placeholder'
-                              placeholder.innerHTML = '<svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>'
-                              parent.appendChild(placeholder)
-                            }
-                          }}
-                        />
-                        {/* 视频 - 悬停时显示并播放 */}
-                        {video.videoUrl && video.videoUrl.trim() !== '' && (
-                          <video
-                            ref={(el) => {
-                              if (el) {
-                                videoRefs.current.set(video.id, el)
-                              } else {
-                                videoRefs.current.delete(video.id)
-                              }
-                            }}
-                            src={video.videoUrl}
-                            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
-                              hoveredVideoId === video.id ? 'opacity-100' : 'opacity-0'
-                            }`}
-                            style={{ zIndex: hoveredVideoId === video.id ? 1 : 0 }}
-                            muted
-                            loop
-                            preload="metadata"
-                            playsInline
-                            onLoadedMetadata={(e) => {
-                              const videoEl = e.currentTarget
-                              const ratio = videoEl.videoWidth / videoEl.videoHeight
-                              setVideoAspectRatios(prev => new Map(prev).set(video.id, ratio))
-                            }}
-                            onError={(e) => {
-                              // 视频加载失败，隐藏视频，保持显示缩略图
-                              console.error('视频加载失败:', video.videoUrl, video.id)
-                              e.currentTarget.style.display = 'none'
-                            }}
-                          />
-                        )}
-                      </>
-                    ) : video.videoUrl && video.videoUrl.trim() !== '' ? (
-                      // 没有缩略图，直接显示视频
-                      <video
-                        ref={(el) => {
-                          if (el) {
-                            videoRefs.current.set(video.id, el)
-                          } else {
-                            videoRefs.current.delete(video.id)
-                          }
-                        }}
-                        src={video.videoUrl}
-                        className="w-full h-auto block"
-                        muted
-                        loop
-                        preload="metadata"
-                        playsInline
-                        onLoadedMetadata={(e) => {
-                          const videoEl = e.currentTarget
-                          const ratio = videoEl.videoWidth / videoEl.videoHeight
-                          setVideoAspectRatios(prev => new Map(prev).set(video.id, ratio))
-                        }}
-                        onError={(e) => {
-                          // 视频加载失败，显示占位符
-                          console.error('视频加载失败:', video.videoUrl, video.id)
-                          const videoEl = e.currentTarget
-                          videoEl.style.display = 'none'
-                          const parent = videoEl.parentElement
-                          if (parent && !parent.querySelector('.placeholder')) {
-                            const placeholder = document.createElement('div')
+      {/* 发布作品模态框 */}
+      <PublishVideoModal
+        isOpen={showPublishModal}
+        onClose={() => setShowPublishModal(false)}
+        onSuccess={() => {
+          loadVideos()
+          window.dispatchEvent(new CustomEvent('community-video-uploaded'))
+        }}
+      />
+
+      {/* 删除确认对话框 */}
+      <DeleteConfirmModal
+        isOpen={deleteConfirmState.isOpen}
+        onClose={() => setDeleteConfirmState({ isOpen: false, videoId: null })}
+        onConfirm={handleConfirmDelete}
+        message="确定要删除/下架这个视频吗？此操作不可恢复。"
+      />
+    </div>
+  )iv')
                             placeholder.className = 'w-full aspect-video flex items-center justify-center bg-gray-200 placeholder'
                             placeholder.innerHTML = '<svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>'
                             parent.appendChild(placeholder)

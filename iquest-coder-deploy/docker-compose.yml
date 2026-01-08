@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  iquest-coder:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: iquest-coder-api
+    restart: unless-stopped
+    
+    # GPU 配置
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    
+    # 端口映射
+    ports:
+      - "8000:8000"
+    
+    # 环境变量
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    
+    # 数据卷（缓存模型文件）
+    volumes:
+      - huggingface-cache:/root/.cache/huggingface
+      - ./logs:/app/logs
+    
+    # 健康检查
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 300s
+    
+    # 日志配置
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+
+volumes:
+  huggingface-cache:
+    driver: local

@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  iquest-coder-14b:
+    build:
+      context: .
+      dockerfile: Dockerfile.国内镜像
+    container_name: iquest-coder-14b
+    restart: unless-stopped
+    
+    # GPU 配置
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    
+    # 端口映射
+    ports:
+      - "8000:8000"
+    
+    # 环境变量（使用 14B 模型）
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - MODEL_NAME=IQuestLab/IQuest-Coder-V1-14B-Instruct
+      - HF_ENDPOINT=https://hf-mirror.com
+      - GPU_MEMORY_UTILIZATION=0.85
+      - MAX_MODEL_LEN=32768
+      - MAX_NUM_SEQS=256
+    
+    # 数据卷（缓存模型文件）
+    volumes:
+      - huggingface-cache:/root/.cache/huggingface
+      - ./logs:/app/logs
+    
+    # 健康检查
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 300s
+    
+    # 日志配置
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+
+volumes:
+  huggingface-cache:
+    driver: local
