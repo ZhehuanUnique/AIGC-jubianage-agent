@@ -208,7 +208,7 @@ function WorksGallery() {
           <div 
             ref={containerRef}
             className="masonry-grid"
-            style={{ columnCount: 5, columnGap: 0 }}
+            style={{ columnCount: 5, columnGap: 0, gap: 0, lineHeight: 0 }}
           >
             {videos.map((video) => (
               <div
@@ -217,7 +217,7 @@ function WorksGallery() {
                 className={`masonry-item group cursor-grab active:cursor-grabbing relative ${
                   draggedVideoId === video.id ? 'opacity-50' : ''
                 } ${dragOverVideoId === video.id ? 'ring-2 ring-purple-500 ring-inset' : ''}`}
-                style={{ breakInside: 'avoid', marginBottom: 0 }}
+                style={{ breakInside: 'avoid', marginBottom: 0, padding: 0, margin: 0, lineHeight: 0, fontSize: 0, display: 'block' }}
                 onDragStart={(e) => {
                   setDraggedVideoId(video.id)
                   e.dataTransfer.effectAllowed = 'move'
@@ -278,7 +278,7 @@ function WorksGallery() {
                 }}
               >
                 {/* 视频容器 */}
-                <div className="relative bg-black">
+                <div className="relative bg-black" style={{ lineHeight: 0, fontSize: 0 }}>
                   {video.thumbnailUrl ? (
                     <>
                       <img

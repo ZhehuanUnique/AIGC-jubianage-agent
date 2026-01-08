@@ -48,26 +48,25 @@ function WorksShowcase() {
       const result = await getCommunityVideos({ page, limit, sortBy })
       let loadedVideos = result.videos
       
-      // 尝试从本地存储恢复排序
-      const savedOrder = localStorage.getItem('worksShowcaseOrder')
-      if (savedOrder) {
-        try {
-          const sortedIds = JSON.parse(savedOrder) as number[]
-          // 按照保存的顺序重新排列
-          const sortedVideos = sortedIds
-            .map(id => loadedVideos.find(v => v.id === id))
-            .filter((v): v is CommunityVideo => v !== undefined)
-          // 添加不在排序列表中的新视频
-          const existingIds = new Set(sortedIds)
-          const newVideos = loadedVideos.filter(v => !existingIds.has(v.id))
-          loadedVideos = [...sortedVideos, ...newVideos]
-        } catch (e) {
-          console.error('恢复排序失败:', e)
-        }
-      }
+      // 反转顺序：最新的视频在最下面，越往上越早
+      loadedVideos = [...loadedVideos].reverse()
       
       setVideos(loadedVideos)
       setTotal(result.total)
+      
+      // 如果有指定的videoId，定位到该视频；否则从最后一个（最新的）开始
+      if (videoId) {
+        const targetIndex = loadedVideos.findIndex(v => v.id === parseInt(videoId))
+        if (targetIndex !== -1) {
+          setCurrentVideoIndex(targetIndex)
+        } else {
+          // 如果找不到指定视频，从最后一个开始
+          setCurrentVideoIndex(loadedVideos.length - 1)
+        }
+      } else {
+        // 默认从最后一个（最新的）开始
+        setCurrentVideoIndex(loadedVideos.length - 1)
+      }
     } catch (error) {
       console.error('加载视频失败:', error)
       const errorMessage = error instanceof Error ? error.message : '加载视频失败，请稍后重试'
@@ -118,16 +117,6 @@ function WorksShowcase() {
   useEffect(() => {
     loadVideos()
   }, [page, sortBy])
-
-  // 当视频加载完成后，定位到指定的视频
-  useEffect(() => {
-    if (videoId && videos.length > 0) {
-      const targetIndex = videos.findIndex(v => v.id === parseInt(videoId))
-      if (targetIndex !== -1 && targetIndex !== currentVideoIndex) {
-        setCurrentVideoIndex(targetIndex)
-      }
-    }
-  }, [videoId, videos])
 
   // 监听社区视频上传事件，自动刷新
   useEffect(() => {
@@ -291,12 +280,42 @@ function WorksShowcase() {
   // 键盘导航
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (videos.length === 0) return
+      
       if (e.key === 'ArrowUp') {
         e.preventDefault()
-        switchToVideo(currentVideoIndex - 1)
+        setCurrentVideoIndex(prev => {
+          const newIndex = Math.max(0, prev - 1)
+          // 暂停当前视频
+          const currentVideo = videoRefs.current.get(videos[prev]?.id)
+          if (currentVideo) currentVideo.pause()
+          // 播放新视频
+          setTimeout(() => {
+            const newVideo = videoRefs.current.get(videos[newIndex]?.id)
+            if (newVideo) {
+              newVideo.play().catch(() => {})
+              recordVideoView(videos[newIndex].id)
+            }
+          }, 100)
+          return newIndex
+        })
       } else if (e.key === 'ArrowDown') {
         e.preventDefault()
-        switchToVideo(currentVideoIndex + 1)
+        setCurrentVideoIndex(prev => {
+          const newIndex = Math.min(videos.length - 1, prev + 1)
+          // 暂停当前视频
+          const currentVideo = videoRefs.current.get(videos[prev]?.id)
+          if (currentVideo) currentVideo.pause()
+          // 播放新视频
+          setTimeout(() => {
+            const newVideo = videoRefs.current.get(videos[newIndex]?.id)
+            if (newVideo) {
+              newVideo.play().catch(() => {})
+              recordVideoView(videos[newIndex].id)
+            }
+          }, 100)
+          return newIndex
+        })
       } else if (e.key === 'Enter' && videos[currentVideoIndex]) {
         navigate(`/works/${videos[currentVideoIndex].id}`)
       }
@@ -304,28 +323,65 @@ function WorksShowcase() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [currentVideoIndex, videos, navigate])
+  }, [videos, currentVideoIndex, navigate])
 
-  // 滚轮导航
+  // 滚轮导航（带防抖）
+  const lastWheelTime = useRef<number>(0)
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault()
-      const threshold = 50 // 滚轮阈值
+      
+      if (videos.length === 0) return
+      
+      // 防抖：300ms内只处理一次
+      const now = Date.now()
+      if (now - lastWheelTime.current < 300) return
+      lastWheelTime.current = now
+      
+      const threshold = 30 // 滚轮阈值
 
       if (Math.abs(e.deltaY) > threshold) {
         if (e.deltaY > 0) {
           // 向下滚动，切换到下一个视频
-          switchToVideo(currentVideoIndex + 1)
+          setCurrentVideoIndex(prev => {
+            const newIndex = Math.min(videos.length - 1, prev + 1)
+            if (newIndex !== prev) {
+              const currentVideo = videoRefs.current.get(videos[prev]?.id)
+              if (currentVideo) currentVideo.pause()
+              setTimeout(() => {
+                const newVideo = videoRefs.current.get(videos[newIndex]?.id)
+                if (newVideo) {
+                  newVideo.play().catch(() => {})
+                  recordVideoView(videos[newIndex].id)
+                }
+              }, 100)
+            }
+            return newIndex
+          })
         } else {
           // 向上滚动，切换到上一个视频
-          switchToVideo(currentVideoIndex - 1)
+          setCurrentVideoIndex(prev => {
+            const newIndex = Math.max(0, prev - 1)
+            if (newIndex !== prev) {
+              const currentVideo = videoRefs.current.get(videos[prev]?.id)
+              if (currentVideo) currentVideo.pause()
+              setTimeout(() => {
+                const newVideo = videoRefs.current.get(videos[newIndex]?.id)
+                if (newVideo) {
+                  newVideo.play().catch(() => {})
+                  recordVideoView(videos[newIndex].id)
+                }
+              }, 100)
+            }
+            return newIndex
+          })
         }
       }
     }
 
     window.addEventListener('wheel', handleWheel, { passive: false })
     return () => window.removeEventListener('wheel', handleWheel)
-  }, [currentVideoIndex, videos])
+  }, [videos])
 
   // 自动播放当前视频
   useEffect(() => {

@@ -8473,7 +8473,7 @@ async function startServer() {
     }
   })
 
-  app.listen(PORT, () => {
+  app.listen(PORT, async () => {
     console.log(`🚀 服务器运行在 http://localhost:${PORT}`)
     console.log(`📝 剧本分析服务已启动`)
     console.log(`📹 图生视频服务已启动 (默认模型: doubao-seedance-1-5-pro-251215)`)
@@ -8483,10 +8483,114 @@ async function startServer() {
     console.log(`🗄️  任务管理API已启动`)
     console.log(`👤 用户认证和管理API已启动`)
     console.log(`👥 小组管理API已启动`)
+    console.log(`📊 榜单定时更新任务已启动（每天0点自动更新）`)
     console.log(`\n💡 提示：`)
     console.log(`   - 初始化数据库: npm run init-db`)
     console.log(`   - 检查环境变量: npm run check-env`)
+    
+    // 启动榜单定时更新任务
+    startRankingScheduler()
   })
+}
+
+// ==================== 榜单定时更新任务 ====================
+/**
+ * 启动榜单定时更新调度器
+ * 每天0点自动更新动态漫剧榜和AI短剧榜
+ */
+async function startRankingScheduler() {
+  // 计算距离下一个0点的毫秒数
+  const getMillisecondsUntilMidnight = () => {
+    const now = new Date()
+    const midnight = new Date(now)
+    midnight.setDate(midnight.getDate() + 1)
+    midnight.setHours(0, 0, 0, 0)
+    return midnight.getTime() - now.getTime()
+  }
+
+  // 更新所有榜单
+  const updateAllRankings = async () => {
+    console.log('📊 开始自动更新榜单...')
+    try {
+      const { updateRanking } = await import('./services/trendingRankingService.js')
+      const pool = await import('./db/connection.js')
+      const db = pool.default
+      const today = new Date().toISOString().split('T')[0]
+
+      // 更新动态漫剧榜
+      try {
+        const animeRanking = await updateRanking('anime')
+        await db.query(
+          `INSERT INTO trending_rankings (ranking_type, ranking_data, date, updated_at)
+           VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+           ON CONFLICT (ranking_type, date) 
+           DO UPDATE SET 
+             ranking_data = EXCLUDED.ranking_data,
+             updated_at = CURRENT_TIMESTAMP`,
+          ['anime', JSON.stringify(animeRanking), today]
+        )
+        console.log('✅ 动态漫剧榜更新成功')
+      } catch (error) {
+        console.error('❌ 动态漫剧榜更新失败:', error.message)
+      }
+
+      // 更新AI短剧榜
+      try {
+        const aiRealRanking = await updateRanking('ai-real')
+        await db.query(
+          `INSERT INTO trending_rankings (ranking_type, ranking_data, date, updated_at)
+           VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+           ON CONFLICT (ranking_type, date) 
+           DO UPDATE SET 
+             ranking_data = EXCLUDED.ranking_data,
+             updated_at = CURRENT_TIMESTAMP`,
+          ['ai-real', JSON.stringify(aiRealRanking), today]
+        )
+        console.log('✅ AI短剧榜更新成功')
+      } catch (error) {
+        console.error('❌ AI短剧榜更新失败:', error.message)
+      }
+
+      console.log('📊 榜单自动更新完成')
+    } catch (error) {
+      console.error('❌ 榜单自动更新失败:', error)
+    }
+  }
+
+  // 检查今天是否已有榜单数据，如果没有则立即更新
+  try {
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+    const today = new Date().toISOString().split('T')[0]
+    
+    const result = await db.query(
+      `SELECT COUNT(*) as count FROM trending_rankings WHERE date = $1`,
+      [today]
+    )
+    
+    if (parseInt(result.rows[0].count) === 0) {
+      console.log('📊 今天还没有榜单数据，立即更新...')
+      await updateAllRankings()
+    } else {
+      console.log('📊 今天已有榜单数据，等待下次定时更新')
+    }
+  } catch (error) {
+    console.error('❌ 检查榜单数据失败:', error.message)
+  }
+
+  // 设置定时任务：每天0点执行
+  const scheduleNextUpdate = () => {
+    const msUntilMidnight = getMillisecondsUntilMidnight()
+    console.log(`📊 下次榜单更新时间: ${new Date(Date.now() + msUntilMidnight).toLocaleString('zh-CN')}`)
+    
+    setTimeout(async () => {
+      await updateAllRankings()
+      // 更新完成后，设置下一次更新
+      scheduleNextUpdate()
+    }, msUntilMidnight)
+  }
+
+  scheduleNextUpdate()
 }
 
 // ==================== 榜单 API ====================

@@ -160,10 +160,9 @@ function Community() {
 
   // 当榜单类型改变时，重新加载榜单
   useEffect(() => {
-    if (activeLeftMenu === 'trending') {
-      loadRanking(activeRankingType)
-    }
-  }, [activeRankingType, activeLeftMenu])
+    // 榜单显示在右侧边栏，页面加载时就获取
+    loadRanking(activeRankingType)
+  }, [activeRankingType])
 
   // 加载视频列表
   const loadVideos = async () => {
@@ -879,16 +878,6 @@ function Community() {
               <div className="bg-white rounded-lg shadow-sm p-4">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold text-gray-900">剧变热榜</h3>
-                  <button 
-                    onClick={() => loadRanking(activeRankingType, true)}
-                    disabled={isLoadingRanking}
-                    className="p-1 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed" 
-                    title="点击刷新"
-                  >
-                    <svg className={`w-4 h-4 text-gray-600 ${isLoadingRanking ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                  </button>
                 </div>
                 
                 {/* 榜单类型切换标签 */}

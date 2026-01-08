@@ -1065,36 +1065,7 @@ function VideoReview() {
                   </div>
                 )}
                 
-                {/* 批注输入框 - 固定在视频播放器右下角（仅在审片模式下显示） */}
-                {mode === 'review' && (
-                  <div className="absolute bottom-4 right-4 w-80 max-w-[calc(100%-2rem)] bg-white bg-opacity-95 backdrop-blur-sm rounded-lg shadow-lg border border-gray-200 p-3 z-30 pointer-events-auto">
-                    <textarea
-                      value={annotation}
-                      onChange={(e) => setAnnotation(e.target.value)}
-                      placeholder="请输入批注内容..."
-                      rows={3}
-                      maxLength={1000}
-                      className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 resize-none text-sm"
-                    />
-                    <div className="flex items-center justify-between gap-2 mt-2">
-                      <span className="text-xs text-gray-600">{annotation.length}/1000</span>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => setAnnotation('')}
-                          className="px-3 py-1.5 bg-gray-50 border border-gray-300 rounded-lg hover:bg-gray-100 text-xs"
-                        >
-                          清空
-                        </button>
-                        <button 
-                          onClick={handleSubmitAnnotation}
-                          className="px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-xs"
-                        >
-                          提交
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
+
               </>
             ) : (
               /* 上传区域 */
@@ -1226,7 +1197,7 @@ function VideoReview() {
         </div>
 
         {/* 右侧：预览模式下显示视频列表，审片模式下显示批注列表 */}
-        <div className="w-full lg:w-80 border-t lg:border-t-0 lg:border-l border-gray-200 p-3 sm:p-6 overflow-y-auto order-1 lg:order-2 max-h-[40vh] lg:max-h-none">
+        <div className="w-full lg:w-80 border-t lg:border-t-0 lg:border-l border-gray-200 p-3 sm:p-6 overflow-y-auto order-1 lg:order-2 max-h-[40vh] lg:max-h-none flex flex-col">
           {mode === 'preview' ? (
             <>
               <h3 className="text-sm sm:text-lg font-semibold mb-3 sm:mb-4">视频列表</h3>
