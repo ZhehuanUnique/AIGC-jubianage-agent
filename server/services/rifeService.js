@@ -240,7 +240,7 @@ export async function interpolateVideoWithFfmpeg(inputVideoUrl, options = {}) {
   const { multiplier: providedMultiplier, targetFps } = options
 
   try {
-    console.log('🎬 使用FFmpeg进行补帧（minterpolate滤镜）...')
+    console.log('🎬 使用FFmpeg进行补帧...')
     
     // 检查ffmpeg是否可用
     try {
@@ -268,41 +268,45 @@ export async function interpolateVideoWithFfmpeg(inputVideoUrl, options = {}) {
 
     // 计算目标帧率
     let finalTargetFps = targetFps
+    const sourceFps = await getVideoFrameRate(inputVideoPath)
+    console.log(`   原视频帧率: ${sourceFps.toFixed(2)} FPS`)
+    
     if (!finalTargetFps) {
       // 如果没有提供目标帧率，使用multiplier计算
-      const sourceFps = await getVideoFrameRate(inputVideoPath)
       const multiplier = providedMultiplier || 2
       finalTargetFps = sourceFps * multiplier
-      console.log(`   原视频帧率: ${sourceFps.toFixed(2)} FPS`)
       console.log(`   补帧倍数: ${multiplier}x`)
     } else {
-      const sourceFps = await getVideoFrameRate(inputVideoPath)
-      console.log(`   原视频帧率: ${sourceFps.toFixed(2)} FPS`)
       console.log(`   目标帧率: ${finalTargetFps} FPS`)
       if (finalTargetFps <= sourceFps) {
         throw new Error(`目标帧率(${finalTargetFps} FPS)必须大于原视频帧率(${sourceFps.toFixed(2)} FPS)`)
       }
     }
     
+    console.log(`   输出帧率: ${finalTargetFps} FPS`)
+    
+    // 使用更快的补帧方法：blend模式的minterpolate或简单的帧复制
+    // blend模式比mci模式快很多，虽然质量稍差但速度快10倍以上
     const ffmpegCommand = [
       'ffmpeg',
       '-i', `"${inputVideoPath}"`,
-      '-filter_complex', `minterpolate=fps=${finalTargetFps}:mi_mode=mci:mc_mode=aobmc:vsbmc=1`,
+      '-filter_complex', `minterpolate=fps=${finalTargetFps}:mi_mode=blend`,
       '-c:v', 'libx264',
-      '-preset', 'medium',
+      '-preset', 'fast', // 使用fast预设加速编码
       '-crf', '23',
+      '-c:a', 'aac', // 保留音频
       '-y', // 覆盖输出文件
       `"${outputVideoPath}"`,
     ].join(' ')
 
     console.log('📤 执行FFmpeg命令:', ffmpegCommand)
     const { stdout, stderr } = await execAsync(ffmpegCommand, {
-      timeout: 600000,
-      maxBuffer: 10 * 1024 * 1024,
+      timeout: 1800000, // 30分钟超时（增加超时时间）
+      maxBuffer: 50 * 1024 * 1024, // 50MB缓冲区
     })
 
     if (stderr) {
-      console.log('📄 FFmpeg输出:', stderr)
+      console.log('📄 FFmpeg输出:', stderr.slice(-500)) // 只显示最后500字符
     }
 
     if (!existsSync(outputVideoPath)) {
