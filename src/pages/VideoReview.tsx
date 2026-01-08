@@ -6,6 +6,7 @@ import { alertError, alertInfo, alertSuccess, alertWarning } from '../utils/aler
 import { uploadVideo, importVideosToJianying, getProjectFragments, deleteAnnotation, getAnnotations } from '../services/api'
 import { AuthService } from '../services/auth'
 import { getUserSettings, updateUserSettings } from '../services/settingsService'
+import HamsterLoader from '../components/HamsterLoader'
 
 function VideoReview() {
   const { projectId, fragmentId } = useParams()
@@ -206,12 +207,13 @@ function VideoReview() {
           
           // 找到当前片段
           if (fragmentId) {
-            const index = fragmentsData.findIndex((f: any) => f.id === fragmentId)
+            const index = fragmentsData.findIndex((f: any) => String(f.id) === String(fragmentId))
             if (index !== -1) {
               setCurrentFragmentIndex(index)
               
               // 获取当前片段的视频
               const currentFragment = fragmentsData[index]
+              console.log('📦 当前片段数据:', currentFragment)
               if (currentFragment && currentFragment.videoUrls && currentFragment.videoUrls.length > 0) {
                 // 使用最新的视频URL
                 const latestVideoUrl = currentFragment.videoUrls[0]
@@ -224,8 +226,12 @@ function VideoReview() {
                 extractVideoThumbnail(latestVideoUrl)
               } else {
                 // 如果没有视频，清空缩略图
+                console.log('⚠️ 当前片段没有视频')
                 setVideoThumbnail(null)
               }
+            } else {
+              console.log('⚠️ 未找到片段，fragmentId:', fragmentId, '可用片段:', fragmentsData.map((f: any) => f.id))
+            }
               
               // 加载批注列表
               try {
@@ -921,8 +927,8 @@ function VideoReview() {
                     />
                     <div className="absolute inset-0 bg-gray-900 bg-opacity-30 flex items-center justify-center">
                       <div className="text-center">
-                        <div className="w-16 h-16 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                        <p className="text-white text-lg font-medium">视频加载中...</p>
+                        <HamsterLoader size={18} />
+                        <p className="text-white text-lg font-medium mt-4">视频加载中...</p>
                       </div>
                     </div>
                   </div>
@@ -931,8 +937,8 @@ function VideoReview() {
                 {isVideoLoading && !videoThumbnail && (
                   <div className="absolute inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-20">
                     <div className="text-center">
-                      <div className="w-16 h-16 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                      <p className="text-white text-lg font-medium">视频加载中...</p>
+                      <HamsterLoader size={18} />
+                      <p className="text-white text-lg font-medium mt-4">视频加载中...</p>
                     </div>
                   </div>
                 )}
