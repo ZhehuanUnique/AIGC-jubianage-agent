@@ -1068,10 +1068,10 @@ function FirstLastFrameVideo() {
                     navigate(-1)
                   }
                 }}
-                className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
+                className="back-button"
               >
                 <ArrowLeft size={18} />
-                返回
+                <span>返回</span>
               </button>
             </div>
             
