@@ -399,7 +399,6 @@ function WorksGallery() {
                     </div>
                   )}
                 </div>
-                )}
               </div>
             ))}
           </div>
