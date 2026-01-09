@@ -579,7 +579,8 @@ function FirstLastFrameVideo() {
       return
     }
 
-    if (!firstFrameFile) {
+    // 支持File或URL方式
+    if (!firstFrameFile && !firstFramePreview) {
       alertError('请上传首帧图片', '缺少文件')
       return
     }
@@ -592,11 +593,45 @@ function FirstLastFrameVideo() {
     setIsGenerating(true)
     try {
       const formData = new FormData()
-      formData.append('firstFrame', firstFrameFile)
-      // 尾帧是可选的，只有在模型支持首尾帧时才添加
-      if (lastFrameFile && currentModelSupportsFirstLastFrame) {
-        formData.append('lastFrame', lastFrameFile)
+      
+      // 优先使用File，如果没有File但有URL，使用URL
+      if (firstFrameFile) {
+        formData.append('firstFrame', firstFrameFile)
+      } else if (firstFramePreview && !firstFramePreview.startsWith('data:')) {
+        // 如果是HTTP URL，使用URL方式
+        formData.append('firstFrameUrl', firstFramePreview)
+      } else if (firstFramePreview) {
+        // 如果是data URL，转换为Blob
+        try {
+          const response = await fetch(firstFramePreview)
+          const blob = await response.blob()
+          const file = new File([blob], 'first-frame.jpg', { type: blob.type || 'image/jpeg' })
+          formData.append('firstFrame', file)
+        } catch (err) {
+          alertError('首帧图片处理失败，请重新上传', '错误')
+          setIsGenerating(false)
+          return
+        }
       }
+      
+      // 尾帧是可选的，只有在模型支持首尾帧时才添加
+      if (currentModelSupportsFirstLastFrame) {
+        if (lastFrameFile) {
+          formData.append('lastFrame', lastFrameFile)
+        } else if (lastFramePreview && !lastFramePreview.startsWith('data:')) {
+          formData.append('lastFrameUrl', lastFramePreview)
+        } else if (lastFramePreview) {
+          try {
+            const response = await fetch(lastFramePreview)
+            const blob = await response.blob()
+            const file = new File([blob], 'last-frame.jpg', { type: blob.type || 'image/jpeg' })
+            formData.append('lastFrame', file)
+          } catch (err) {
+            console.warn('尾帧图片处理失败，将不使用尾帧')
+          }
+        }
+      }
+      
       formData.append('projectId', projectId)
       formData.append('model', selectedModel)
       formData.append('resolution', resolution)
@@ -2293,9 +2328,9 @@ function FirstLastFrameVideo() {
                 <button
                   type="button"
                   onClick={generateVideo}
-                  disabled={!prompt.trim() || isGenerating || !firstFrameFile}
+                  disabled={!prompt.trim() || isGenerating || (!firstFrameFile && !firstFramePreview)}
                   className={`px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg font-medium shadow-lg hover:shadow-xl hover:from-blue-600 hover:to-blue-700 active:scale-95 transition-all flex items-center gap-2 ${
-                    (!prompt.trim() || isGenerating || !firstFrameFile) && 'opacity-50 cursor-not-allowed'
+                    (!prompt.trim() || isGenerating || (!firstFrameFile && !firstFramePreview)) && 'opacity-50 cursor-not-allowed'
                   }`}
                 >
                   {isGenerating ? (
