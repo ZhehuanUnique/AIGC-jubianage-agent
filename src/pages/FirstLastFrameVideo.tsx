@@ -5,7 +5,7 @@ import { alertSuccess, alertError } from '../utils/alert'
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
 import HamsterLoader from '../components/HamsterLoader'
 import VideoGeneratingLoader from '../components/VideoGeneratingLoader'
-import { generateFirstLastFrameVideo, getFirstLastFrameVideoStatus, getFirstLastFrameVideos, createVideoProcessingTask } from '../services/api'
+import { generateFirstLastFrameVideo, getFirstLastFrameVideoStatus, getFirstLastFrameVideos, createVideoProcessingTask, getVideoFps } from '../services/api'
 import { FrameInterpolationModal } from '../components/FrameInterpolationModal'
 import { calculateVideoGenerationCredit } from '../utils/creditCalculator'
 import { getUserSettings } from '../services/settingsService'
@@ -1715,10 +1715,19 @@ function FirstLastFrameVideo() {
                                   {task.status === 'completed' && (
                                     <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between z-20">
                                       <button
-                                        onClick={(e) => {
+                                        onClick={async (e) => {
                                           e.stopPropagation()
-                                          // 打开补帧弹窗，默认使用24 FPS（可以从视频元数据获取，这里先用默认值）
-                                          setFrameInterpolationModal({ isOpen: true, taskId: task.id, currentFps: 24 })
+                                          // 获取视频帧率
+                                          let currentFps = 24 // 默认值
+                                          if (task.videoUrl) {
+                                            try {
+                                              currentFps = await getVideoFps(task.videoUrl)
+                                            } catch (err) {
+                                              console.warn('获取视频帧率失败，使用默认值:', err)
+                                            }
+                                          }
+                                          // 打开补帧弹窗
+                                          setFrameInterpolationModal({ isOpen: true, taskId: task.id, currentFps })
                                         }}
                                         className="px-3 py-1.5 bg-black bg-opacity-60 hover:bg-opacity-80 text-white rounded-lg text-sm transition-all flex items-center gap-2"
                                         title="补帧"

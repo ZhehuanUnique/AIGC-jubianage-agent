@@ -2185,6 +2185,38 @@ export async function createVideoProcessingTask(params: {
   }
 }
 
+/**
+ * 获取视频帧率
+ */
+export async function getVideoFps(videoUrl: string): Promise<number> {
+  try {
+    const token = AuthService.getToken()
+    if (!token) {
+      return 24 // 未登录时返回默认值
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/video/get-fps`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ videoUrl }),
+    })
+
+    if (!response.ok) {
+      console.warn('获取视频帧率失败，使用默认值')
+      return 24
+    }
+
+    const result = await response.json()
+    return result.data?.fps || 24
+  } catch (error) {
+    console.warn('获取视频帧率出错，使用默认值:', error)
+    return 24
+  }
+}
+
 export async function getFirstLastFrameVideos(projectId: number): Promise<Array<{
   id: string
   taskId: string

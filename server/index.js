@@ -2492,6 +2492,69 @@ app.get('/api/video-task/:taskId', authenticateToken, async (req, res) => {
   }
 })
 
+// ==================== 获取视频帧率 API ====================
+app.post('/api/video/get-fps', authenticateToken, async (req, res) => {
+  try {
+    const { videoUrl } = req.body
+    
+    if (!videoUrl) {
+      return res.status(400).json({
+        success: false,
+        error: '视频URL不能为空'
+      })
+    }
+    
+    console.log('📊 获取视频帧率:', videoUrl.substring(0, 100) + '...')
+    
+    // 使用ffprobe获取视频帧率
+    const { exec } = await import('child_process')
+    const { promisify } = await import('util')
+    const execAsync = promisify(exec)
+    
+    try {
+      const { stdout } = await execAsync(
+        `ffprobe -v error -select_streams v:0 -show_entries stream=r_frame_rate -of default=noprint_wrappers=1:nokey=1 "${videoUrl}"`,
+        { timeout: 30000 }
+      )
+      
+      // 解析帧率（格式可能是 "30/1" 或 "30000/1001"）
+      const fpsStr = stdout.trim()
+      let fps = 24 // 默认值
+      
+      if (fpsStr.includes('/')) {
+        const [num, den] = fpsStr.split('/').map(Number)
+        if (den > 0) {
+          fps = num / den
+        }
+      } else {
+        fps = parseFloat(fpsStr) || 24
+      }
+      
+      // 四舍五入到整数
+      fps = Math.round(fps)
+      
+      console.log(`✅ 视频帧率: ${fps} FPS`)
+      
+      res.json({
+        success: true,
+        data: { fps }
+      })
+    } catch (ffprobeError) {
+      console.warn('⚠️ ffprobe获取帧率失败，使用默认值:', ffprobeError.message)
+      res.json({
+        success: true,
+        data: { fps: 24 } // 默认24 FPS
+      })
+    }
+  } catch (error) {
+    console.error('获取视频帧率错误:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '获取视频帧率失败'
+    })
+  }
+})
+
 // ==================== Nano Banana Pro 文生图 API ====================
 
 // 文生图/图生图接口 - 支持多种模型（nano-banana-pro 或 midjourney-v7-t2i）
