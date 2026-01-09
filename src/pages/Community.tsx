@@ -219,31 +219,36 @@ function Community() {
             videoEl.pause()
             setPlayingVideoId(null)
           }
-          break
+          return false
         case 'KeyF': // F键：全屏
           e.preventDefault()
+          e.stopPropagation()
           if (videoEl.requestFullscreen) {
             videoEl.requestFullscreen()
           } else if ((videoEl as any).webkitRequestFullscreen) {
             (videoEl as any).webkitRequestFullscreen()
           }
-          break
+          return false
         case 'Escape': // ESC键：退出全屏
           if (document.fullscreenElement) {
             e.preventDefault()
+            e.stopPropagation()
             document.exitFullscreen()
           }
-          break
+          return false
         case 'ArrowLeft': // 左方向键：后退5秒
           e.preventDefault()
+          e.stopPropagation()
           videoEl.currentTime = Math.max(0, videoEl.currentTime - 5)
-          break
+          return false
         case 'ArrowRight': // 右方向键：前进5秒
           e.preventDefault()
+          e.stopPropagation()
           videoEl.currentTime = Math.min(videoEl.duration || 0, videoEl.currentTime + 5)
-          break
+          return false
         case 'ArrowUp': // 上方向键：增加音量
           e.preventDefault()
+          e.stopPropagation()
           {
             const newVolume = Math.min(100, videoVolume + 10)
             setVideoVolume(newVolume)
@@ -251,9 +256,10 @@ function Community() {
             videoEl.volume = newVolume / 100
             videoEl.muted = false
           }
-          break
+          return false
         case 'ArrowDown': // 下方向键：减少音量
           e.preventDefault()
+          e.stopPropagation()
           {
             const newVolume = Math.max(0, videoVolume - 10)
             setVideoVolume(newVolume)
@@ -263,23 +269,35 @@ function Community() {
             }
             videoEl.volume = newVolume / 100
           }
-          break
+          return false
         case 'KeyM': // M键：静音/取消静音
           e.preventDefault()
+          e.stopPropagation()
           {
             const newMuted = !videoMuted
             setVideoMuted(newMuted)
             videoEl.muted = newMuted
           }
-          break
+          return false
+        case 'KeyL': // L键：点赞当前视频
+          e.preventDefault()
+          e.stopPropagation()
+          {
+            const video = videos.find(v => v.id === playingVideoId)
+            if (video) {
+              handleToggleLike(playingVideoId, { stopPropagation: () => {} } as React.MouseEvent)
+            }
+          }
+          return false
       }
     }
 
+    // 使用 capture 模式优先捕获事件
     window.addEventListener('keydown', handleKeyDown, { capture: true })
     return () => {
       window.removeEventListener('keydown', handleKeyDown, { capture: true })
     }
-  }, [playingVideoId, videoVolume, videoMuted])
+  }, [playingVideoId, videoVolume, videoMuted, videos])
 
   // 切换点赞
   const handleToggleLike = async (videoId: number, e: React.MouseEvent) => {
