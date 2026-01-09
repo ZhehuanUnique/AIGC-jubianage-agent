@@ -2797,6 +2797,52 @@ app.get('/api/fusion-image/list', authenticateToken, async (req, res) => {
   }
 })
 
+// 上传融合生图素材图片到COS
+app.post('/api/upload-fusion-image', authenticateToken, uploadImage.single('image'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: '请上传图片文件'
+      })
+    }
+
+    const { assetType = 'fusion', projectId } = req.body
+    const userId = req.user?.id
+
+    // 生成COS key
+    const ext = req.file.mimetype.includes('jpeg') || req.file.mimetype.includes('jpg') ? 'jpg' :
+                req.file.mimetype.includes('png') ? 'png' :
+                req.file.mimetype.includes('webp') ? 'webp' : 'jpg'
+    
+    // 存储路径: images/fusion/{assetType}/{timestamp}.{ext}
+    const timestamp = Date.now()
+    const cosKey = projectId 
+      ? `projects/${projectId}/fusion/${assetType}/${timestamp}.${ext}`
+      : `images/fusion/${assetType}/${timestamp}.${ext}`
+
+    // 上传到COS
+    const uploadResult = await uploadBuffer(req.file.buffer, cosKey, req.file.mimetype)
+
+    console.log(`✅ 融合生图素材上传成功: ${uploadResult.url}`)
+
+    res.json({
+      success: true,
+      data: {
+        url: uploadResult.url,
+        key: uploadResult.key,
+        assetType,
+      }
+    })
+  } catch (error) {
+    console.error('❌ 融合生图素材上传失败:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '图片上传失败'
+    })
+  }
+})
+
 // ==================== 任务管理 API ====================
 
 // 获取所有任务（支持按用户过滤）
