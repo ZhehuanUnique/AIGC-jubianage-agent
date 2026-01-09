@@ -3779,6 +3779,54 @@ app.delete('/api/music/:id', authenticateToken, async (req, res) => {
   }
 })
 
+// 上传视频到COS（社区发布专用，不需要projectId）
+app.post('/api/upload-video-community', authenticateToken, uploadVideo.single('video'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: '请上传视频文件'
+      })
+    }
+
+    const userId = req.user?.id
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: '未登录，请先登录',
+      })
+    }
+    
+    // 直接从内存获取文件Buffer
+    const videoBuffer = req.file.buffer
+    
+    // 生成COS路径（社区视频专用目录）
+    const { generateCosKey, uploadBuffer } = await import('./services/cosService.js')
+    const ext = req.file.originalname.split('.').pop() || 'mp4'
+    const fileName = req.file.originalname || `video_${Date.now()}.${ext}`
+    const cosKey = `community/videos/${Date.now()}_${fileName}`
+    
+    // 上传到COS
+    const result = await uploadBuffer(videoBuffer, cosKey, req.file.mimetype)
+    
+    console.log(`✅ 社区视频上传成功: ${result.url}`)
+    
+    res.json({
+      success: true,
+      data: {
+        url: result.url,
+        key: cosKey,
+      },
+    })
+  } catch (error) {
+    console.error('社区视频上传失败:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '上传视频失败',
+    })
+  }
+})
+
 // 上传视频到COS并保存到数据库
 app.post('/api/upload-video', authenticateToken, uploadVideo.single('video'), async (req, res) => {
   try {

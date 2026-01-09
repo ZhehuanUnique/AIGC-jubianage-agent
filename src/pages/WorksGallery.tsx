@@ -194,7 +194,7 @@ function WorksGallery() {
           </div>
         </div>
 
-        {/* 视频网格 - 一行最多4个，居中，有间隙和圆角 */}
+        {/* 视频网格 - 瀑布流布局（Pinterest风格） */}
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20">
             <HamsterLoader size={10} />
@@ -208,13 +208,14 @@ function WorksGallery() {
         ) : (
           <div 
             ref={containerRef}
-            className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 justify-center"
+            className="columns-2 sm:columns-3 lg:columns-4 gap-3"
+            style={{ columnFill: 'balance' }}
           >
             {videos.map((video) => (
               <div
                 key={video.id}
                 draggable
-                className={`group cursor-grab active:cursor-grabbing relative overflow-hidden rounded-xl ${
+                className={`group cursor-grab active:cursor-grabbing relative overflow-hidden rounded-xl mb-3 break-inside-avoid ${
                   draggedVideoId === video.id ? 'opacity-50' : ''
                 } ${dragOverVideoId === video.id ? 'ring-2 ring-purple-500 ring-inset' : ''}`}
                 onDragStart={(e) => {

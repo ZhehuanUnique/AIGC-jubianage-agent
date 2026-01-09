@@ -1715,6 +1715,10 @@ export async function uploadVideo(
     if (projectId) formData.append('projectId', projectId)
     if (fragmentId) formData.append('fragmentId', fragmentId)
 
+    // 根据是否有projectId选择不同的上传端点
+    // 没有projectId时使用社区上传端点（不需要关联项目）
+    const uploadEndpoint = projectId ? '/api/upload-video' : '/api/upload-video-community'
+
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest()
       let isCompleted = false
@@ -1781,7 +1785,7 @@ export async function uploadVideo(
         reject(new Error('上传已取消'))
       })
 
-      xhr.open('POST', `${API_BASE_URL}/api/upload-video`)
+      xhr.open('POST', `${API_BASE_URL}${uploadEndpoint}`)
       xhr.setRequestHeader('Authorization', `Bearer ${token}`)
       xhr.send(formData)
     })
