@@ -16,6 +16,171 @@
  */
 
 /**
+ * 302.ai 模型价格配置（元/次或元/秒）
+ * 数据来源：https://302.ai/pricing/
+ */
+export const MODEL_PRICING = {
+  // ==================== 视频生成模型 ====================
+  // 即梦系列
+  'volcengine-video-3.0-pro': {
+    name: '即梦-3.0Pro',
+    // 5秒1080p = 3.645元，按秒计费
+    pricePerSecond: {
+      '480p': 0.182,   // 3.645 * 0.25 / 5
+      '720p': 0.408,   // 3.645 * 0.56 / 5
+      '1080p': 0.729   // 3.645 / 5
+    }
+  },
+  'doubao-seedance-1-5-pro-251215': {
+    name: '即梦-3.5Pro',
+    // 与3.0Pro价格相近
+    pricePerSecond: {
+      '480p': 0.182,
+      '720p': 0.408,
+      '1080p': 0.729
+    }
+  },
+  
+  // Hailuo 海螺系列（302.ai价格）
+  'minimax-hailuo-02': {
+    name: 'Hailuo-02',
+    // 6秒视频约2.5元
+    pricePerSecond: {
+      '512P': 0.35,
+      '768P': 0.42,
+      '1080P': 0.50
+    }
+  },
+  'minimax-hailuo-2.3': {
+    name: 'Hailuo-2.3',
+    // 6秒视频约3元
+    pricePerSecond: {
+      '512P': 0.42,
+      '768P': 0.50,
+      '1080P': 0.60
+    }
+  },
+  'minimax-hailuo-2.3-fast': {
+    name: 'Hailuo-2.3-fast',
+    // 快速版价格略低
+    pricePerSecond: {
+      '512P': 0.35,
+      '768P': 0.42,
+      '1080P': 0.50
+    }
+  },
+  
+  // Hailuo I2V-01 系列（新增）
+  'minimax-i2v-01-live': {
+    name: 'Hailuo-01-Live',
+    // 首尾帧生视频，6秒约3.5元
+    pricePerSecond: {
+      '512P': 0.48,
+      '768P': 0.58,
+      '1080P': 0.70
+    }
+  },
+  'minimax-i2v-01-director': {
+    name: 'Hailuo-01-Director',
+    // 导演模式，功能最强，6秒约4元
+    pricePerSecond: {
+      '512P': 0.55,
+      '768P': 0.67,
+      '1080P': 0.80
+    }
+  },
+  'minimax-s2v-01': {
+    name: 'Hailuo-S2V',
+    // 主体参考视频，6秒约3.5元
+    pricePerSecond: {
+      '512P': 0.48,
+      '768P': 0.58,
+      '1080P': 0.70
+    }
+  },
+  
+  // Kling 可灵系列
+  'kling-2.6': {
+    name: 'Kling-2.6',
+    // 5秒视频约3元
+    pricePerSecond: {
+      '720p': 0.50,
+      '1080p': 0.60
+    }
+  },
+  'kling-o1': {
+    name: 'Kling-O1',
+    // O1版本价格略高
+    pricePerSecond: {
+      '720p': 0.60,
+      '1080p': 0.72
+    }
+  },
+  
+  // Google Veo 系列
+  'veo3.1': {
+    name: 'Veo3.1',
+    // 5秒视频约4元
+    pricePerSecond: {
+      '720p': 0.67,
+      '1080p': 0.80
+    }
+  },
+  'veo3.1-pro': {
+    name: 'Veo3.1-Pro',
+    // Pro版本价格更高
+    pricePerSecond: {
+      '720p': 0.83,
+      '1080p': 1.00
+    }
+  },
+  
+  // Vidu 系列
+  'viduq2-turbo': {
+    name: 'Vidu Q2 Turbo',
+    // 4秒视频约2元
+    pricePerSecond: {
+      '720p': 0.42,
+      '1080p': 0.50
+    }
+  },
+  'viduq2-pro': {
+    name: 'Vidu Q2 Pro',
+    // Pro版本价格更高
+    pricePerSecond: {
+      '720p': 0.58,
+      '1080p': 0.70
+    }
+  },
+  
+  // ==================== 图片生成模型 ====================
+  'midjourney-v7': {
+    name: 'Midjourney V7',
+    pricePerImage: 0.5
+  },
+  'flux-2-max': {
+    name: 'Flux 2 Max',
+    pricePerImage: 0.3
+  },
+  'flux-2-pro': {
+    name: 'Flux 2 Pro',
+    pricePerImage: 0.2
+  },
+  'flux-2-flex': {
+    name: 'Flux 2 Flex',
+    pricePerImage: 0.15
+  },
+  'seedream-4.5': {
+    name: 'Seedream 4.5',
+    pricePerImage: 0.2
+  },
+  'seedream-4.0': {
+    name: 'Seedream 4.0',
+    pricePerImage: 0.15
+  }
+}
+
+/**
  * 根据实际成本（元）计算积分（普通用户显示）
  * @param {number} costInYuan - 实际成本（元）
  * @returns {number} 消耗的积分
@@ -81,38 +246,59 @@ export function calculateCreditFromCost(costInYuan) {
 }
 
 /**
- * 计算即梦-3.0Pro的实际成本
- * @param {string} resolution - 分辨率：'480p', '720p', '1080p'
+ * 计算视频生成的实际成本（元）
+ * @param {string} model - 模型名称
+ * @param {string} resolution - 分辨率
  * @param {number} duration - 视频时长（秒）
  * @returns {number} 实际成本（元）
  */
-export function calculateVolcengineCost(resolution, duration) {
-  // 根据用户提供的信息：
-  // 即梦3.0pro 5秒1080p视频 = 3.645元 = 40积分
+export function calculateVideoCost(model, resolution, duration) {
+  const modelConfig = MODEL_PRICING[model]
   
-  // 基础成本：5秒1080p视频 = 3.645元
-  const baseCost = 3.645
-  
-  // 分辨率系数（根据像素数比例）
-  const resolutionMultiplier = {
-    '480p': 0.25,  // 480p像素数约为1080p的25%
-    '720p': 0.56,  // 720p像素数约为1080p的56%
-    '1080p': 1.0   // 1080p是基准
+  if (!modelConfig || !modelConfig.pricePerSecond) {
+    console.warn(`未找到模型 ${model} 的价格配置，使用默认价格`)
+    // 默认价格：0.5元/秒
+    return duration * 0.5
   }
   
-  // 时长系数（线性比例）
-  const durationMultiplier = duration / 5
+  // 标准化分辨率格式
+  const normalizedResolution = normalizeResolution(resolution)
   
-  // 计算成本：基础成本 × 分辨率系数 × 时长系数
-  const cost = baseCost * (resolutionMultiplier[resolution] || 1.0) * durationMultiplier
+  // 获取对应分辨率的价格
+  let pricePerSecond = modelConfig.pricePerSecond[normalizedResolution]
   
-  return cost
+  // 如果没有找到对应分辨率，使用最接近的
+  if (!pricePerSecond) {
+    const availableResolutions = Object.keys(modelConfig.pricePerSecond)
+    pricePerSecond = modelConfig.pricePerSecond[availableResolutions[0]]
+  }
+  
+  return pricePerSecond * duration
+}
+
+/**
+ * 标准化分辨率格式
+ * @param {string} resolution - 原始分辨率
+ * @returns {string} 标准化后的分辨率
+ */
+function normalizeResolution(resolution) {
+  const resolutionMap = {
+    '480p': '480p',
+    '512p': '512P',
+    '512P': '512P',
+    '720p': '720p',
+    '768p': '768P',
+    '768P': '768P',
+    '1080p': '1080p',
+    '1080P': '1080P'
+  }
+  return resolutionMap[resolution] || resolution
 }
 
 /**
  * 计算视频生成的积分消耗
  * @param {string} model - 模型名称
- * @param {string} resolution - 分辨率：'480p', '720p', '1080p'
+ * @param {string} resolution - 分辨率
  * @param {number} duration - 视频时长（秒）
  * @param {number} customCost - 可选：自定义成本（元），如果提供则直接使用
  * @returns {number} 消耗的积分
@@ -124,31 +310,39 @@ export function calculateVideoGenerationCredit(model, resolution, duration, cust
   if (customCost !== null && customCost > 0) {
     costInYuan = customCost
   } else {
-    // 根据模型计算实际成本
-    if (model === 'volcengine-video-3.0-pro' || model === 'doubao-seedance-3.0-pro') {
-      costInYuan = calculateVolcengineCost(resolution, duration)
-    } else if (model === 'doubao-seedance-1-5-pro-251215' || model === 'doubao-seedance-1-0-pro') {
-      // 豆包 Seedance 成本计算
-      // Token = 宽 × 高 × 帧率 × 时长 / 1024
-      // 价格：2.2 PTC/1M token
-      // 1 PTC ≈ 0.15元（根据市场汇率）
-      
-      const resolutionPixels = {
-        '480p': { width: 854, height: 480 },
-        '720p': { width: 1280, height: 720 },
-        '1080p': { width: 1920, height: 1080 }
-      }
-      
-      const pixels = resolutionPixels[resolution] || resolutionPixels['720p']
-      const frameRate = 24 // 默认帧率
-      const tokens = (pixels.width * pixels.height * frameRate * duration) / 1024
-      const ptc = (tokens / 1000000) * 2.2
-      costInYuan = ptc * 0.15 // PTC转人民币
-    }
-    // 其他模型可以在这里添加成本计算逻辑
+    costInYuan = calculateVideoCost(model, resolution, duration)
   }
   
   // 将成本转换为积分
+  return calculateCreditFromCost(costInYuan)
+}
+
+/**
+ * 计算图片生成的实际成本（元）
+ * @param {string} model - 模型名称
+ * @param {number} count - 图片数量
+ * @returns {number} 实际成本（元）
+ */
+export function calculateImageCost(model, count = 1) {
+  const modelConfig = MODEL_PRICING[model]
+  
+  if (!modelConfig || !modelConfig.pricePerImage) {
+    console.warn(`未找到模型 ${model} 的价格配置，使用默认价格`)
+    // 默认价格：0.2元/张
+    return count * 0.2
+  }
+  
+  return modelConfig.pricePerImage * count
+}
+
+/**
+ * 计算图片生成的积分消耗
+ * @param {string} model - 模型名称
+ * @param {number} count - 图片数量
+ * @returns {number} 消耗的积分
+ */
+export function calculateImageGenerationCredit(model, count = 1) {
+  const costInYuan = calculateImageCost(model, count)
   return calculateCreditFromCost(costInYuan)
 }
 
@@ -168,3 +362,12 @@ export function getCreditDescription(model, resolution, duration, customCost = n
   return '不消耗积分'
 }
 
+/**
+ * 获取模型显示名称
+ * @param {string} model - 模型ID
+ * @returns {string} 显示名称
+ */
+export function getModelDisplayName(model) {
+  const modelConfig = MODEL_PRICING[model]
+  return modelConfig ? modelConfig.name : model
+}

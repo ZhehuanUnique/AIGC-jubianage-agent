@@ -1409,12 +1409,17 @@ function ImageFusion() {
                 className="px-3 py-1 bg-white border border-gray-300 rounded text-sm focus:outline-none focus:border-purple-500"
               >
                 <option value="volcengine-video-3.0-pro">即梦-3.0Pro</option>
-                <option value="viduq2-turbo">ViduQ2-Turbo</option>
-                <option value="veo3.1">Google Veo3.1</option>
-                <option value="veo3.1-pro">Google Veo3.1-Pro</option>
-                <option value="minimax-hailuo-02">MiniMax Hailuo-02</option>
-                <option value="minimax-hailuo-2.3">MiniMax Hailuo-2.3</option>
-                <option value="minimax-hailuo-2.3-fast">MiniMax Hailuo-2.3-fast</option>
+                <option value="doubao-seedance-1-5-pro-251215">即梦-3.5Pro</option>
+                <option value="viduq2-turbo">Vidu Q2 Turbo</option>
+                <option value="viduq2-pro">Vidu Q2 Pro</option>
+                <option value="veo3.1">Veo3.1</option>
+                <option value="veo3.1-pro">Veo3.1-Pro</option>
+                <option value="minimax-hailuo-02">Hailuo-02</option>
+                <option value="minimax-hailuo-2.3">Hailuo-2.3</option>
+                <option value="minimax-hailuo-2.3-fast">Hailuo-2.3-fast</option>
+                <option value="minimax-i2v-01-live">Hailuo-01-Live</option>
+                <option value="minimax-i2v-01-director">Hailuo-01-Director</option>
+                <option value="minimax-s2v-01">Hailuo-S2V</option>
                 <option value="kling-2.6">Kling-2.6</option>
                 <option value="kling-o1">Kling-O1</option>
               </select>
@@ -1563,12 +1568,17 @@ function ImageFusion() {
                       onClick={(e) => e.stopPropagation()}
                     >
                       <option value="volcengine-video-3.0-pro">即梦-3.0Pro</option>
-                      <option value="viduq2-turbo">ViduQ2-Turbo</option>
-                      <option value="veo3.1">Google Veo3.1</option>
-                      <option value="veo3.1-pro">Google Veo3.1-Pro</option>
-                      <option value="minimax-hailuo-02">MiniMax Hailuo-02</option>
-                      <option value="minimax-hailuo-2.3">MiniMax Hailuo-2.3</option>
-                      <option value="minimax-hailuo-2.3-fast">MiniMax Hailuo-2.3-fast</option>
+                      <option value="doubao-seedance-1-5-pro-251215">即梦-3.5Pro</option>
+                      <option value="viduq2-turbo">Vidu Q2 Turbo</option>
+                      <option value="viduq2-pro">Vidu Q2 Pro</option>
+                      <option value="veo3.1">Veo3.1</option>
+                      <option value="veo3.1-pro">Veo3.1-Pro</option>
+                      <option value="minimax-hailuo-02">Hailuo-02</option>
+                      <option value="minimax-hailuo-2.3">Hailuo-2.3</option>
+                      <option value="minimax-hailuo-2.3-fast">Hailuo-2.3-fast</option>
+                      <option value="minimax-i2v-01-live">Hailuo-01-Live</option>
+                      <option value="minimax-i2v-01-director">Hailuo-01-Director</option>
+                      <option value="minimax-s2v-01">Hailuo-S2V</option>
                       <option value="kling-2.6">Kling-2.6</option>
                       <option value="kling-o1">Kling-O1</option>
                     </select>

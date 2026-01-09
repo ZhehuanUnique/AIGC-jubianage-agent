@@ -56,18 +56,23 @@ function FirstLastFrameVideo() {
   
   // 支持的模型列表（所有图生视频模型）
   // durations: 支持的时长列表，ratios: 支持的尺寸列表
+  // supportsFirstLastFrame: 是否支持首尾帧生视频
+  // supportsReferenceImage: 是否支持参考图（用于步骤四步骤五）
   const supportedModels = [
-    { value: 'veo3.1', label: 'Veo3.1', supportsFirstLastFrame: false, durations: [5, 8], ratios: ['16:9', '9:16'] },
-    { value: 'veo3.1-pro', label: 'Veo3.1 Pro', supportsFirstLastFrame: false, durations: [5, 8], ratios: ['16:9', '9:16'] },
-    { value: 'viduq2-turbo', label: 'Vidu Q2 Turbo', supportsFirstLastFrame: false, durations: [4, 8], ratios: ['16:9', '9:16'] },
-    { value: 'viduq2-pro', label: 'Vidu Q2 Pro', supportsFirstLastFrame: false, durations: [4, 8], ratios: ['16:9', '9:16'] },
-    { value: 'volcengine-video-3.0-pro', label: '即梦-3.0Pro', supportsFirstLastFrame: true, durations: [5, 10], ratios: ['16:9', '9:16'] },
-    { value: 'doubao-seedance-1-5-pro-251215', label: '即梦-3.5Pro', supportsFirstLastFrame: true, durations: [5, 10], ratios: ['16:9', '9:16'] },
-    { value: 'minimax-hailuo-02', label: 'MiniMax Hailuo-02', supportsFirstLastFrame: true, durations: [6], ratios: ['16:9', '9:16'] },
-    { value: 'minimax-hailuo-2.3', label: 'MiniMax Hailuo-2.3', supportsFirstLastFrame: true, durations: [6], ratios: ['16:9', '9:16'] },
-    { value: 'minimax-hailuo-2.3-fast', label: 'MiniMax Hailuo-2.3-fast', supportsFirstLastFrame: true, durations: [6], ratios: ['16:9', '9:16'] },
-    { value: 'kling-2.6', label: 'Kling-2.6', supportsFirstLastFrame: true, durations: [5, 10], ratios: ['16:9', '9:16'] },
-    { value: 'kling-o1', label: 'Kling-O1', supportsFirstLastFrame: true, durations: [5, 10], ratios: ['16:9', '9:16'] },
+    { value: 'veo3.1', label: 'Veo3.1', supportsFirstLastFrame: false, supportsReferenceImage: false, durations: [5, 8], ratios: ['16:9', '9:16'] },
+    { value: 'veo3.1-pro', label: 'Veo3.1-Pro', supportsFirstLastFrame: false, supportsReferenceImage: false, durations: [5, 8], ratios: ['16:9', '9:16'] },
+    { value: 'viduq2-turbo', label: 'Vidu Q2 Turbo', supportsFirstLastFrame: false, supportsReferenceImage: false, durations: [4, 8], ratios: ['16:9', '9:16'] },
+    { value: 'viduq2-pro', label: 'Vidu Q2 Pro', supportsFirstLastFrame: false, supportsReferenceImage: false, durations: [4, 8], ratios: ['16:9', '9:16'] },
+    { value: 'volcengine-video-3.0-pro', label: '即梦-3.0Pro', supportsFirstLastFrame: true, supportsReferenceImage: false, durations: [5, 10], ratios: ['16:9', '9:16'] },
+    { value: 'doubao-seedance-1-5-pro-251215', label: '即梦-3.5Pro', supportsFirstLastFrame: true, supportsReferenceImage: false, durations: [5, 10], ratios: ['16:9', '9:16'] },
+    { value: 'minimax-hailuo-02', label: 'Hailuo-02', supportsFirstLastFrame: true, supportsReferenceImage: false, durations: [6], ratios: ['16:9', '9:16'] },
+    { value: 'minimax-hailuo-2.3', label: 'Hailuo-2.3', supportsFirstLastFrame: true, supportsReferenceImage: false, durations: [6], ratios: ['16:9', '9:16'] },
+    { value: 'minimax-hailuo-2.3-fast', label: 'Hailuo-2.3-fast', supportsFirstLastFrame: true, supportsReferenceImage: false, durations: [6], ratios: ['16:9', '9:16'] },
+    { value: 'minimax-i2v-01-live', label: 'Hailuo-01-Live', supportsFirstLastFrame: true, supportsReferenceImage: false, durations: [6], ratios: ['16:9', '9:16'] },
+    { value: 'minimax-i2v-01-director', label: 'Hailuo-01-Director', supportsFirstLastFrame: true, supportsReferenceImage: true, durations: [6], ratios: ['16:9', '9:16'] },
+    { value: 'minimax-s2v-01', label: 'Hailuo-S2V', supportsFirstLastFrame: false, supportsReferenceImage: true, durations: [6], ratios: ['16:9', '9:16'] },
+    { value: 'kling-2.6', label: 'Kling-2.6', supportsFirstLastFrame: true, supportsReferenceImage: false, durations: [5, 10], ratios: ['16:9', '9:16'] },
+    { value: 'kling-o1', label: 'Kling-O1', supportsFirstLastFrame: true, supportsReferenceImage: false, durations: [5, 10], ratios: ['16:9', '9:16'] },
   ]
   const [selectedModel, setSelectedModel] = useState<string>('veo3.1')
   const [videoVersion, setVideoVersion] = useState<'3.0pro'>('3.0pro') // 保留用于显示
@@ -112,8 +117,8 @@ function FirstLastFrameVideo() {
   
   // 计算当前配置的积分消耗
   const estimatedCredit = useMemo(() => {
-    return calculateVideoGenerationCredit('volcengine-video-3.0-pro', resolution, duration)
-  }, [resolution, duration])
+    return calculateVideoGenerationCredit(selectedModel, resolution, duration)
+  }, [selectedModel, resolution, duration])
 
   // 计算输入框高度（根据图片高度自动调整）
   const textareaHeight = useMemo(() => {

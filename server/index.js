@@ -769,7 +769,8 @@ app.post('/api/first-last-frame-video/generate', authenticateToken, uploadImage.
         movementAmplitude: 'auto',
         bgm: false,
       })
-    } else if (model === 'minimax-hailuo-02' || model === 'minimax-hailuo-2.3' || model === 'minimax-hailuo-2.3-fast') {
+    } else if (model === 'minimax-hailuo-02' || model === 'minimax-hailuo-2.3' || model === 'minimax-hailuo-2.3-fast' ||
+               model === 'minimax-i2v-01-live' || model === 'minimax-i2v-01-director' || model === 'minimax-s2v-01') {
       // 使用 MiniMax Hailuo 服务（支持首尾帧）
       if (hasLastFrame) {
         // 模式1: 首帧 + 尾帧 + 提示词
@@ -1064,10 +1065,11 @@ app.get('/api/first-last-frame-video/status/:taskId', authenticateToken, async (
       // 使用 Vidu V2 状态查询
       const { getVideoTaskStatus } = await import('./services/imageToVideoService.js')
       result = await getVideoTaskStatus(taskId, model)
-    } else if (model === 'minimax-hailuo-02' || model === 'minimax-hailuo-2.3' || model === 'minimax-hailuo-2.3-fast') {
-      // 使用 Hailuo 状态查询
+    } else if (model === 'minimax-hailuo-02' || model === 'minimax-hailuo-2.3' || model === 'minimax-hailuo-2.3-fast' ||
+               model === 'minimax-i2v-01-live' || model === 'minimax-i2v-01-director' || model === 'minimax-s2v-01') {
+      // 使用 Hailuo 状态查询（包括新模型）
       const { getHailuoTaskStatus } = await import('./services/hailuoService.js')
-      result = await getHailuoTaskStatus(taskId)
+      result = await getHailuoTaskStatus(taskId, model)
     } else {
       // 使用豆包 Seedance 状态查询
       const { getSeedanceTaskStatus } = await import('./services/doubaoSeedanceService.js')
@@ -1340,6 +1342,23 @@ app.get('/api/first-last-frame-video/status/:taskId', authenticateToken, async (
                     null,
                     { model, resolution, duration, videoCount: allVideoUrls.length, creditConsumed: actualCredit, costInYuan: costInYuan > 0 ? costInYuan : null }
                   )
+                  
+                  // 记录到新的积分统计表
+                  try {
+                    const { recordCreditConsumption } = await import('./services/userCreditService.js')
+                    await recordCreditConsumption(userId, {
+                      operationType: 'video_generation',
+                      model,
+                      resolution,
+                      duration,
+                      credits: actualCredit,
+                      costYuan: costInYuan > 0 ? costInYuan : null,
+                      description: `首尾帧视频生成（${allVideoUrls.length}个视频）`,
+                      metadata: { taskId, videoCount: allVideoUrls.length }
+                    })
+                  } catch (creditTableError) {
+                    console.warn('记录到积分统计表失败（不影响主流程）:', creditTableError)
+                  }
                   
                   // 更新所有相关记录的 actual_credit（平均分配）
                   const creditPerVideo = Math.ceil(actualCredit / allVideoUrls.length)
@@ -3200,6 +3219,51 @@ app.get('/api/analytics/daily-consumption', authenticateToken, async (req, res) 
   } catch (error) {
     console.error('获取每日消耗趋势失败:', error)
     res.status(500).json({ error: '获取每日消耗趋势失败' })
+  }
+})
+
+// 获取用户积分汇总（需要认证）
+app.get('/api/analytics/credit-summary', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id
+    const { getUserCreditSummary } = await import('./services/userCreditService.js')
+    const summary = await getUserCreditSummary(userId)
+    res.json({ success: true, data: summary })
+  } catch (error) {
+    console.error('获取用户积分汇总失败:', error)
+    res.status(500).json({ error: '获取用户积分汇总失败' })
+  }
+})
+
+// 获取用户积分消耗历史（需要认证）
+app.get('/api/analytics/credit-history', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id
+    const { limit = 50, offset = 0, startDate, endDate } = req.query
+    const { getUserCreditHistory } = await import('./services/userCreditService.js')
+    const history = await getUserCreditHistory(userId, {
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+      startDate,
+      endDate
+    })
+    res.json({ success: true, data: history })
+  } catch (error) {
+    console.error('获取用户积分历史失败:', error)
+    res.status(500).json({ error: '获取用户积分历史失败' })
+  }
+})
+
+// 获取用户积分排名（需要认证）
+app.get('/api/analytics/credit-ranking', authenticateToken, async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query
+    const { getUserCreditRanking } = await import('./services/userCreditService.js')
+    const ranking = await getUserCreditRanking({ startDate, endDate })
+    res.json({ success: true, data: ranking })
+  } catch (error) {
+    console.error('获取用户积分排名失败:', error)
+    res.status(500).json({ error: '获取用户积分排名失败' })
   }
 })
 

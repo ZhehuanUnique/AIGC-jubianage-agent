@@ -1,13 +1,19 @@
 /**
  * MiniMax Hailuo 视频生成服务
  * 支持模型：
- * - MiniMax-Hailuo-02
- * - MiniMax-Hailuo-2.3
- * - MiniMax-Hailuo-2.3-fast
+ * - Hailuo-02 (minimax-hailuo-02)
+ * - Hailuo-2.3 (minimax-hailuo-2.3)
+ * - Hailuo-2.3-fast (minimax-hailuo-2.3-fast)
+ * - Hailuo-01-Live (minimax-i2v-01-live) - 首尾帧生视频
+ * - Hailuo-01-Director (minimax-i2v-01-director) - 首尾帧+参考图+镜头控制
+ * - Hailuo-S2V (minimax-s2v-01) - 主体参考视频
  * 
  * API文档：
  * - Hailuo-02: https://302ai.apifox.cn/api-310678678
  * - Hailuo-2.3: https://302ai.apifox.cn/367818096e0
+ * - I2V-01-Live: https://302.ai/product/detail/minimax-i2v-01-live
+ * - I2V-01-Director: https://302.ai/product/detail/minimax-i2v-01-director
+ * - S2V-01: https://302.ai/product/detail/minimax-s2v-01
  * - 任务查询: https://302ai.apifox.cn/211531465e0
  * - 视频下载: https://302ai.apifox.cn/211531587e0
  */
@@ -15,14 +21,55 @@
 const API_BASE_URL = process.env.HAILUO_API_HOST || 'https://api.302.ai'
 
 /**
+ * 获取模型对应的API Key
+ * @param {string} model - 模型名称
+ * @returns {string} API Key
+ */
+function getApiKeyForModel(model) {
+  switch (model) {
+    case 'minimax-hailuo-02':
+      return process.env.HAILUO_02_API_KEY
+    case 'minimax-hailuo-2.3':
+    case 'minimax-hailuo-2.3-fast':
+      return process.env.HAILUO_23_API_KEY
+    case 'minimax-i2v-01-live':
+      return process.env.HAILUO_I2V_01_LIVE_API_KEY
+    case 'minimax-i2v-01-director':
+      return process.env.HAILUO_I2V_01_DIRECTOR_API_KEY
+    case 'minimax-s2v-01':
+      return process.env.HAILUO_S2V_01_API_KEY
+    default:
+      return process.env.HAILUO_02_API_KEY
+  }
+}
+
+/**
+ * 获取模型的API名称
+ * @param {string} model - 内部模型名称
+ * @returns {string} API模型名称
+ */
+function getApiModelName(model) {
+  const modelMap = {
+    'minimax-hailuo-02': 'MiniMax-Hailuo-02',
+    'minimax-hailuo-2.3': 'MiniMax-Hailuo-2.3',
+    'minimax-hailuo-2.3-fast': 'MiniMax-Hailuo-2.3-fast',
+    'minimax-i2v-01-live': 'I2V-01-Live',
+    'minimax-i2v-01-director': 'I2V-01-Director',
+    'minimax-s2v-01': 'S2V-01'
+  }
+  return modelMap[model] || model
+}
+
+/**
  * 生成视频（图生视频）
  * @param {string} imageUrl - 图片URL或base64编码
  * @param {Object} options - 配置选项
- * @param {string} options.model - 模型名称：'minimax-hailuo-02' 或 'minimax-hailuo-2.3' 或 'minimax-hailuo-2.3-fast'
+ * @param {string} options.model - 模型名称
  * @param {string} options.resolution - 分辨率：'512P', '768P', '1080P'
  * @param {number} options.duration - 时长（秒）：6 或 10
  * @param {string} options.prompt - 提示词（可选）
- * @param {string} options.lastFrameImage - 末帧图片URL或base64（可选）
+ * @param {string} options.lastFrameImage - 末帧图片URL或base64（可选，用于首尾帧生视频）
+ * @param {string} options.referenceImage - 参考图片URL（可选，用于Director和S2V模型）
  * @param {boolean} options.promptOptimizer - 是否优化提示词，默认true
  * @returns {Promise<Object>} 返回任务ID
  */
@@ -33,34 +80,16 @@ export async function generateVideoWithHailuo(imageUrl, options = {}) {
     duration = 6,
     prompt = '',
     lastFrameImage = null,
+    referenceImage = null,
     promptOptimizer = true,
   } = options
 
-  // 根据模型名称获取对应的API Key
-  let apiKey
-  if (model === 'minimax-hailuo-02') {
-    apiKey = process.env.HAILUO_02_API_KEY
-    if (!apiKey) {
-      throw new Error('HAILUO_02_API_KEY 环境变量未设置，请检查 .env 文件')
-    }
-  } else if (model === 'minimax-hailuo-2.3' || model === 'minimax-hailuo-2.3-fast') {
-    apiKey = process.env.HAILUO_23_API_KEY
-    if (!apiKey) {
-      throw new Error('HAILUO_23_API_KEY 环境变量未设置，请检查 .env 文件')
-    }
-  } else {
-    throw new Error(`不支持的模型: ${model}`)
+  const apiKey = getApiKeyForModel(model)
+  if (!apiKey) {
+    throw new Error(`模型 ${model} 的 API Key 未配置，请检查 .env 文件`)
   }
 
-  // 映射模型名称到API需要的格式
-  let apiModelName
-  if (model === 'minimax-hailuo-02') {
-    apiModelName = 'MiniMax-Hailuo-02'
-  } else if (model === 'minimax-hailuo-2.3') {
-    apiModelName = 'MiniMax-Hailuo-2.3'
-  } else if (model === 'minimax-hailuo-2.3-fast') {
-    apiModelName = 'MiniMax-Hailuo-2.3-fast'
-  }
+  const apiModelName = getApiModelName(model)
 
   // 验证分辨率
   const validResolutions = ['512P', '768P', '1080P']
@@ -79,17 +108,13 @@ export async function generateVideoWithHailuo(imageUrl, options = {}) {
     throw new Error(`分辨率 ${resolution} 不支持时长 ${duration}秒，支持的时长: ${validDurations.join(', ')}秒`)
   }
 
-  // 对于 512P，必须提供首帧图片
-  if (resolution === '512P' && !imageUrl) {
-    throw new Error('分辨率 512P 必须提供首帧图片（first_frame_image）')
-  }
-
   try {
     console.log(`🎬 调用 MiniMax Hailuo API (${apiModelName}):`, {
       resolution,
       duration,
       hasFirstFrame: !!imageUrl,
       hasLastFrame: !!lastFrameImage,
+      hasReferenceImage: !!referenceImage,
       hasPrompt: !!prompt,
     })
 
@@ -104,29 +129,26 @@ export async function generateVideoWithHailuo(imageUrl, options = {}) {
 
     // 添加首帧图片
     if (imageUrl) {
-      if (imageUrl.startsWith('data:image/') || imageUrl.startsWith('base64,')) {
-        requestBody.first_frame_image = imageUrl
-      } else if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-        requestBody.first_frame_image = imageUrl
-      } else {
-        // 假设是base64字符串（没有data:前缀）
-        requestBody.first_frame_image = imageUrl
-      }
+      requestBody.first_frame_image = imageUrl
     }
 
-    // 添加末帧图片（如果提供）
+    // 添加末帧图片（首尾帧生视频）
     if (lastFrameImage) {
-      if (lastFrameImage.startsWith('data:image/') || lastFrameImage.startsWith('base64,')) {
-        requestBody.last_frame_image = lastFrameImage
-      } else if (lastFrameImage.startsWith('http://') || lastFrameImage.startsWith('https://')) {
-        requestBody.last_frame_image = lastFrameImage
-      } else {
-        requestBody.last_frame_image = lastFrameImage
-      }
+      requestBody.last_frame_image = lastFrameImage
+    }
+
+    // 添加参考图片（Director和S2V模型）
+    if (referenceImage) {
+      requestBody.subject_reference = referenceImage
     }
 
     console.log('📤 发送请求到:', `${API_BASE_URL}/minimaxi/v1/video_generation`)
-    console.log('📤 请求体:', JSON.stringify({ ...requestBody, first_frame_image: requestBody.first_frame_image ? '[图片数据]' : undefined, last_frame_image: requestBody.last_frame_image ? '[图片数据]' : undefined }, null, 2))
+    console.log('📤 请求体:', JSON.stringify({ 
+      ...requestBody, 
+      first_frame_image: requestBody.first_frame_image ? '[图片数据]' : undefined, 
+      last_frame_image: requestBody.last_frame_image ? '[图片数据]' : undefined,
+      subject_reference: requestBody.subject_reference ? '[图片数据]' : undefined
+    }, null, 2))
 
     const response = await fetch(`${API_BASE_URL}/minimaxi/v1/video_generation`, {
       method: 'POST',
@@ -162,7 +184,6 @@ export async function generateVideoWithHailuo(imageUrl, options = {}) {
       throw new Error(`MiniMax Hailuo API 错误: ${errorMsg}`)
     }
 
-    // 尝试多种可能的任务ID字段名
     const taskId = result.task_id || result.id || result.taskId || result.data
     if (!taskId) {
       console.error('❌ MiniMax Hailuo API响应格式异常:', JSON.stringify(result, null, 2))
@@ -185,13 +206,18 @@ export async function generateVideoWithHailuo(imageUrl, options = {}) {
 /**
  * 查询任务状态
  * @param {string} taskId - 任务ID
+ * @param {string} model - 模型名称（用于获取正确的API Key）
  * @returns {Promise<Object>} 返回任务状态和视频信息
  */
-export async function getHailuoTaskStatus(taskId) {
-  // 尝试使用 Hailuo-02 的 API Key（因为查询接口是通用的）
-  let apiKey = process.env.HAILUO_02_API_KEY || process.env.HAILUO_23_API_KEY
+export async function getHailuoTaskStatus(taskId, model = null) {
+  // 尝试使用对应模型的API Key，如果没有则使用默认的
+  let apiKey = model ? getApiKeyForModel(model) : null
   if (!apiKey) {
-    throw new Error('HAILUO_02_API_KEY 或 HAILUO_23_API_KEY 环境变量未设置，请检查 .env 文件')
+    apiKey = process.env.HAILUO_02_API_KEY || process.env.HAILUO_23_API_KEY
+  }
+  
+  if (!apiKey) {
+    throw new Error('HAILUO API Key 环境变量未设置，请检查 .env 文件')
   }
 
   try {
@@ -237,16 +263,14 @@ export async function getHailuoTaskStatus(taskId) {
           videoHeight = result.video_height
         } catch (downloadError) {
           console.warn('⚠️ 获取视频下载链接失败:', downloadError)
-          // 即使下载链接获取失败，也返回成功状态
         }
       }
     } else if (result.status === 'Failed' || result.status === 'Error') {
       status = 'failed'
       progress = 0
     } else {
-      // 处理中
       status = 'processing'
-      progress = 50 // 默认进度
+      progress = 50
     }
 
     return {
@@ -281,7 +305,6 @@ async function getHailuoVideoDownloadUrl(fileId, apiKey) {
     })
 
     if (!response.ok) {
-      const errorText = await response.text()
       throw new Error(`获取视频下载链接失败: ${response.status} ${response.statusText}`)
     }
 
@@ -306,7 +329,31 @@ async function getHailuoVideoDownloadUrl(fileId, apiKey) {
   }
 }
 
+/**
+ * 检查模型是否支持首尾帧生视频
+ * @param {string} model - 模型名称
+ * @returns {boolean}
+ */
+export function supportsFirstLastFrame(model) {
+  const supportedModels = [
+    'minimax-hailuo-02',
+    'minimax-hailuo-2.3',
+    'minimax-hailuo-2.3-fast',
+    'minimax-i2v-01-live',
+    'minimax-i2v-01-director'
+  ]
+  return supportedModels.includes(model)
+}
 
-
-
-
+/**
+ * 检查模型是否支持参考图
+ * @param {string} model - 模型名称
+ * @returns {boolean}
+ */
+export function supportsReferenceImage(model) {
+  const supportedModels = [
+    'minimax-i2v-01-director',
+    'minimax-s2v-01'
+  ]
+  return supportedModels.includes(model)
+}
