@@ -2233,6 +2233,7 @@ export async function getFirstLastFrameVideos(projectId: number): Promise<Array<
   isLiked?: boolean
   isFavorited?: boolean
   isUltraHd?: boolean
+  fps?: number | null
 }>> {
   const token = AuthService.getToken()
   if (!token) {

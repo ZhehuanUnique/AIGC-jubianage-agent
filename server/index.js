@@ -1272,6 +1272,39 @@ app.get('/api/first-last-frame-video/status/:taskId', authenticateToken, async (
                 ]
               )
               
+              // 异步检测视频帧率并更新数据库（不阻塞主流程）
+              (async () => {
+                try {
+                  const { exec } = await import('child_process')
+                  const { promisify } = await import('util')
+                  const execAsync = promisify(exec)
+                  
+                  const { stdout } = await execAsync(
+                    `ffprobe -v error -select_streams v:0 -show_entries stream=r_frame_rate -of default=noprint_wrappers=1:nokey=1 "${uploadResult.url}"`,
+                    { timeout: 30000 }
+                  )
+                  
+                  // 解析帧率
+                  const fpsStr = stdout.trim()
+                  let fps = 24
+                  if (fpsStr.includes('/')) {
+                    const [num, den] = fpsStr.split('/').map(Number)
+                    if (den > 0) fps = Math.round(num / den)
+                  } else {
+                    fps = Math.round(parseFloat(fpsStr)) || 24
+                  }
+                  
+                  // 更新数据库
+                  await db.query(
+                    'UPDATE first_last_frame_videos SET fps = $1 WHERE task_id = $2',
+                    [fps, uniqueTaskId]
+                  )
+                  console.log(`✅ 已检测并保存视频帧率: ${fps} FPS (task_id: ${uniqueTaskId})`)
+                } catch (fpsError) {
+                  console.warn(`⚠️ 检测视频帧率失败（不影响主流程）: ${fpsError.message}`)
+                }
+              })()
+              
               isFirstVideo = false
             }
             
@@ -1575,7 +1608,7 @@ app.get('/api/projects/:projectId/first-last-frame-videos', authenticateToken, a
     const videosResult = await db.query(
       `SELECT id, task_id, video_url, first_frame_url, last_frame_url, 
               model, resolution, ratio, duration, prompt, text, status, 
-              shot_id, estimated_credit, actual_credit, error_message, created_at, updated_at
+              shot_id, estimated_credit, actual_credit, error_message, fps, created_at, updated_at
        FROM first_last_frame_videos
        WHERE project_id = $1 AND user_id = $2 AND created_at >= $3
        ORDER BY created_at DESC
@@ -1674,6 +1707,7 @@ app.get('/api/projects/:projectId/first-last-frame-videos', authenticateToken, a
         actualCredit: video.actual_credit || null,
         shotId: video.shot_id || null,
         errorMessage: video.error_message || null,
+        fps: video.fps || null, // 视频帧率（用于补帧功能）
         createdAt: video.created_at,
         updatedAt: video.updated_at,
         isLiked: likedTaskIds.has(video.task_id),

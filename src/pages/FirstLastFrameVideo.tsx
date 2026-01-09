@@ -30,6 +30,7 @@ interface VideoTask {
   processingType?: 'frame_interpolation' | 'super_resolution' | null // 处理类型
   targetFps?: number // 补帧目标帧率
   method?: 'rife' | 'ffmpeg' // 补帧技术
+  fps?: number // 视频帧率（缓存值，用于补帧功能快速显示）
 }
 
 function FirstLastFrameVideo() {
@@ -266,10 +267,11 @@ function FirstLastFrameVideo() {
           duration: v.duration,
           text: v.text || undefined,
           createdAt: v.createdAt,
-              isLiked: v.isLiked || false,
-              isFavorited: v.isFavorited || false,
-              isUltraHd: v.isUltraHd || false,
-            }))
+          isLiked: v.isLiked || false,
+          isFavorited: v.isFavorited || false,
+          isUltraHd: v.isUltraHd || false,
+          fps: v.fps || undefined, // 视频帧率（用于补帧功能快速显示）
+        }))
         
         // 合并本地任务和数据库任务：保留本地新添加的任务（如果数据库还没有）
         const dbTaskIds = new Set(dbVideoTasks.map(t => t.id))
@@ -1717,9 +1719,9 @@ function FirstLastFrameVideo() {
                                       <button
                                         onClick={async (e) => {
                                           e.stopPropagation()
-                                          // 获取视频帧率
-                                          let currentFps = 24 // 默认值
-                                          if (task.videoUrl) {
+                                          // 优先使用缓存的fps，如果没有再调用API检测
+                                          let currentFps = task.fps || 24
+                                          if (!task.fps && task.videoUrl) {
                                             try {
                                               currentFps = await getVideoFps(task.videoUrl)
                                             } catch (err) {
