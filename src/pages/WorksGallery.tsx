@@ -156,7 +156,7 @@ function WorksGallery() {
     <div className="min-h-screen bg-white">
       <NavigationBar activeTab="works" />
       
-      <div className="max-w-7xl mx-auto bg-white px-8" style={{ margin: '0 auto' }}>
+      <div className="max-w-[1600px] mx-auto bg-white px-6" style={{ margin: '0 auto' }}>
         {/* 头部：排序选项 */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-end gap-3 sm:gap-0 mb-0 py-2">
           <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto justify-end">
@@ -208,7 +208,7 @@ function WorksGallery() {
         ) : (
           <div 
             ref={containerRef}
-            className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 justify-center"
+            className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 justify-center"
           >
             {videos.map((video) => (
               <div
