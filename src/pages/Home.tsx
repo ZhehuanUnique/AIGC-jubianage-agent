@@ -197,12 +197,12 @@ function Home() {
       {/* 导航栏 */}
       <NavigationBar activeTab="home" />
       
-      {/* 主要内容 */}
-        <div className="flex-1 flex flex-col items-center justify-end gap-8 px-4 py-8 relative z-10 pb-32">
+      {/* 主要内容 - 使用flex居中，适配不同屏幕尺寸 */}
+        <div className="flex-1 flex flex-col items-center justify-center gap-8 px-4 py-8 relative z-10">
           {/* 中央标语和按钮区域 - 透明背景，能看到背后视频 */}
-          <div className="flex flex-col items-center gap-4 bg-transparent">
+          <div className="flex flex-col items-center gap-4 bg-transparent w-full max-w-4xl mx-auto">
             {/* 标题和"做真人剧"按钮在同一行 - 手机端垂直排列，电脑端水平排列 */}
-            <div className="flex flex-col md:flex-row items-center gap-4 bg-transparent">
+            <div className="flex flex-col md:flex-row items-center justify-center gap-4 bg-transparent w-full">
               <div className="glitch-loader">
                 <div data-glitch="用剧变时代AI" className="glitch-text">用剧变时代AI</div>
               </div>

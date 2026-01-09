@@ -5,7 +5,7 @@ import { alertSuccess, alertError } from '../utils/alert'
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
 import HamsterLoader from '../components/HamsterLoader'
 import VideoGeneratingLoader from '../components/VideoGeneratingLoader'
-import { generateFirstLastFrameVideo, getFirstLastFrameVideoStatus, getFirstLastFrameVideos, createVideoProcessingTask, getVideoFps } from '../services/api'
+import { generateFirstLastFrameVideo, getFirstLastFrameVideoStatus, getFirstLastFrameVideos, createVideoProcessingTask, getVideoFps, toggleFirstLastFrameVideoLike, toggleFirstLastFrameVideoFavorite } from '../services/api'
 import { FrameInterpolationModal } from '../components/FrameInterpolationModal'
 import { calculateVideoGenerationCredit } from '../utils/creditCalculator'
 import { getUserSettings } from '../services/settingsService'
@@ -1658,16 +1658,22 @@ function FirstLastFrameVideo() {
                                         <Download size={18} />
                                       </button>
                                       <button
-                                        onClick={(e) => {
+                                        onClick={async (e) => {
                                           e.stopPropagation()
-                                          // 仅前端状态切换，用于筛选（不调用API）
-                                          const newFavorited = !task.isFavorited
-                                          setAllTasks(prev => prev.map(t => 
-                                            t.id === task.id ? { ...t, isFavorited: newFavorited } : t
-                                          ))
-                                          setTasks(prev => prev.map(t => 
-                                            t.id === task.id ? { ...t, isFavorited: newFavorited } : t
-                                          ))
+                                          // 调用API保存收藏状态
+                                          try {
+                                            const result = await toggleFirstLastFrameVideoFavorite(task.id)
+                                            if (result.success) {
+                                              setAllTasks(prev => prev.map(t => 
+                                                t.id === task.id ? { ...t, isFavorited: result.isFavorited } : t
+                                              ))
+                                              setTasks(prev => prev.map(t => 
+                                                t.id === task.id ? { ...t, isFavorited: result.isFavorited } : t
+                                              ))
+                                            }
+                                          } catch (error) {
+                                            console.error('收藏操作失败:', error)
+                                          }
                                         }}
                                         className={`p-2 bg-black bg-opacity-60 hover:bg-opacity-80 text-white rounded-lg transition-all ${
                                           task.isFavorited ? 'bg-red-500 bg-opacity-80' : ''
@@ -1677,16 +1683,22 @@ function FirstLastFrameVideo() {
                                         <Heart size={18} className={task.isFavorited ? 'fill-white' : ''} />
                                       </button>
                                       <button
-                                        onClick={(e) => {
+                                        onClick={async (e) => {
                                           e.stopPropagation()
-                                          // 仅前端状态切换，用于筛选（不调用API）
-                                          const newLiked = !task.isLiked
-                                          setAllTasks(prev => prev.map(t => 
-                                            t.id === task.id ? { ...t, isLiked: newLiked } : t
-                                          ))
-                                          setTasks(prev => prev.map(t => 
-                                            t.id === task.id ? { ...t, isLiked: newLiked } : t
-                                          ))
+                                          // 调用API保存点赞状态
+                                          try {
+                                            const result = await toggleFirstLastFrameVideoLike(task.id)
+                                            if (result.success) {
+                                              setAllTasks(prev => prev.map(t => 
+                                                t.id === task.id ? { ...t, isLiked: result.isLiked } : t
+                                              ))
+                                              setTasks(prev => prev.map(t => 
+                                                t.id === task.id ? { ...t, isLiked: result.isLiked } : t
+                                              ))
+                                            }
+                                          } catch (error) {
+                                            console.error('点赞操作失败:', error)
+                                          }
                                         }}
                                         className={`p-2 bg-black bg-opacity-60 hover:bg-opacity-80 text-white rounded-lg transition-all ${
                                           task.isLiked ? 'bg-red-500 bg-opacity-80' : ''
@@ -1717,19 +1729,32 @@ function FirstLastFrameVideo() {
                                   {task.status === 'completed' && (
                                     <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between z-20">
                                       <button
-                                        onClick={async (e) => {
+                                        onClick={(e) => {
                                           e.stopPropagation()
-                                          // 优先使用缓存的fps，如果没有再调用API检测
-                                          let currentFps = task.fps || 24
-                                          if (!task.fps && task.videoUrl) {
-                                            try {
-                                              currentFps = await getVideoFps(task.videoUrl)
-                                            } catch (err) {
-                                              console.warn('获取视频帧率失败，使用默认值:', err)
-                                            }
-                                          }
-                                          // 打开补帧弹窗
+                                          // 立即打开弹窗，使用缓存的fps或默认值24
+                                          const currentFps = task.fps || 24
                                           setFrameInterpolationModal({ isOpen: true, taskId: task.id, currentFps })
+                                          
+                                          // 如果没有缓存的fps，异步获取并更新（不阻塞弹窗打开）
+                                          if (!task.fps && task.videoUrl) {
+                                            getVideoFps(task.videoUrl).then(detectedFps => {
+                                              // 更新弹窗中的fps显示
+                                              setFrameInterpolationModal(prev => 
+                                                prev.isOpen && prev.taskId === task.id 
+                                                  ? { ...prev, currentFps: detectedFps }
+                                                  : prev
+                                              )
+                                              // 同时更新任务列表中的fps缓存
+                                              setAllTasks(prev => prev.map(t => 
+                                                t.id === task.id ? { ...t, fps: detectedFps } : t
+                                              ))
+                                              setTasks(prev => prev.map(t => 
+                                                t.id === task.id ? { ...t, fps: detectedFps } : t
+                                              ))
+                                            }).catch(err => {
+                                              console.warn('获取视频帧率失败，使用默认值:', err)
+                                            })
+                                          }
                                         }}
                                         className="px-3 py-1.5 bg-black bg-opacity-60 hover:bg-opacity-80 text-white rounded-lg text-sm transition-all flex items-center gap-2"
                                         title="补帧"

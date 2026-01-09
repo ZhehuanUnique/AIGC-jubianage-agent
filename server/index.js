@@ -1717,41 +1717,12 @@ app.get('/api/projects/:projectId/first-last-frame-videos', authenticateToken, a
       }
     })
     
-    // 格式化返回数据 - 补帧任务
-    const frameInterpolationVideos = frameInterpolationTasks.map((task) => {
-      const metadata = task.metadata ? (typeof task.metadata === 'string' ? JSON.parse(task.metadata) : task.metadata) : {}
-      return {
-        id: `fi-${task.id}`, // 使用前缀区分补帧任务
-        taskId: `fi-${task.id}`,
-        videoUrl: task.result_video_url || null,
-        status: task.status || 'pending',
-        firstFrameUrl: task.first_frame_url || null,
-        lastFrameUrl: task.last_frame_url || null,
-        model: task.model || 'volcengine-video-3.0-pro',
-        resolution: task.resolution || '720p',
-        ratio: task.ratio || '16:9',
-        duration: task.duration || 5,
-        text: `补帧 ${metadata.targetFps || 60}FPS - ${task.text || task.prompt || ''}`,
-        estimatedCredit: null,
-        actualCredit: null,
-        shotId: null,
-        errorMessage: task.error_message || null,
-        createdAt: task.created_at,
-        updatedAt: task.updated_at,
-        isLiked: false,
-        isFavorited: false,
-        isUltraHd: false,
-        processingType: 'frame_interpolation', // 标记为补帧任务
-        sourceVideoTaskId: task.source_video_task_id,
-        targetFps: metadata.targetFps || null,
-        method: metadata.method || null,
-      }
-    })
+    // 不再返回补帧任务作为单独的卡片
+    // 补帧后的视频已经保存到 first_last_frame_videos 表中，会在 videos 列表中显示
+    // 这样避免了重复显示两个卡片的问题
     
-    // 合并并按创建时间排序
-    const allVideos = [...videos, ...frameInterpolationVideos].sort((a, b) => 
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    )
+    // 直接使用原始视频列表（已按创建时间排序）
+    const allVideos = videos
     
     res.json({
       success: true,
