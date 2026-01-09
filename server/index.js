@@ -5560,14 +5560,15 @@ app.get('/api/projects/:projectId/fragments', authenticateToken, async (req, res
     const allFragments = [...fragmentsFromTable, ...validShotsFragments]
     
     // 同时获取首尾帧视频（作为特殊片段）
-    // 使用DISTINCT去重，避免重复视频
+    // 从 first_last_frame_videos 表获取已完成的视频
     const firstLastFrameVideos = await db.query(
-      `SELECT DISTINCT ON (f.cos_url) f.cos_url, f.file_name, f.created_at, f.metadata
-       FROM files f
-       WHERE f.project_id = $1 
-         AND f.file_type = 'video'
-         AND f.metadata->>'source' = 'first_last_frame_video'
-       ORDER BY f.cos_url, f.created_at DESC
+      `SELECT DISTINCT ON (video_url) video_url, created_at, updated_at
+       FROM first_last_frame_videos
+       WHERE project_id = $1 
+         AND status = 'completed'
+         AND video_url IS NOT NULL
+         AND video_url != ''
+       ORDER BY video_url, created_at DESC
        LIMIT 50`,
       [projectId]
     )
@@ -5576,7 +5577,7 @@ app.get('/api/projects/:projectId/fragments', authenticateToken, async (req, res
     if (firstLastFrameVideos.rows.length > 0) {
       // 去重：使用Set确保每个视频URL只出现一次
       const uniqueVideoUrls = Array.from(new Set(
-        firstLastFrameVideos.rows.map(f => f.cos_url).filter(url => url)
+        firstLastFrameVideos.rows.map(f => f.video_url).filter(url => url)
       ))
       if (uniqueVideoUrls.length > 0) {
         const firstLastFrameFragment = {
@@ -5586,7 +5587,7 @@ app.get('/api/projects/:projectId/fragments', authenticateToken, async (req, res
           imageUrl: null,
           videoUrls: uniqueVideoUrls,
           createdAt: firstLastFrameVideos.rows[0].created_at,
-          updatedAt: firstLastFrameVideos.rows[0].created_at,
+          updatedAt: firstLastFrameVideos.rows[0].updated_at || firstLastFrameVideos.rows[0].created_at,
         }
         allFragments.push(firstLastFrameFragment)
       }
