@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react'
-import { X, Upload, Folder, Video, Loader2 } from 'lucide-react'
+import { useState, useEffect, useRef, useMemo } from 'react'
+import { X, Upload, Folder, Video, Loader2, ChevronRight, Home, FolderOpen } from 'lucide-react'
 import { getProjects, getProjectFragments, publishVideoToCommunity, uploadVideo } from '../services/api'
 import { UploadToCommunityModal } from './UploadToCommunityModal'
 import { alertError, alertSuccess } from '../utils/alert'
@@ -10,6 +10,8 @@ interface Project {
   name: string
   description?: string
   createdAt: string
+  path?: string
+  parentId?: number | null
 }
 
 interface Fragment {
@@ -37,6 +39,9 @@ export function PublishVideoModal({ isOpen, onClose, onSuccess }: PublishVideoMo
   const [uploadProgress, setUploadProgress] = useState(0)
   const [showInfoModal, setShowInfoModal] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  
+  // 文件夹导航状态
+  const [currentPath, setCurrentPath] = useState<string>('/')
 
   // 加载项目列表
   useEffect(() => {
@@ -51,6 +56,65 @@ export function PublishVideoModal({ isOpen, onClose, onSuccess }: PublishVideoMo
       loadFragments(selectedProjectId)
     }
   }, [isOpen, step, selectedProjectId])
+
+  // 根据当前路径过滤项目
+  const filteredProjects = useMemo(() => {
+    return projects.filter(p => {
+      const projectPath = p.path || '/'
+      if (currentPath === '/') {
+        return projectPath === '/'
+      }
+      return projectPath === currentPath
+    })
+  }, [projects, currentPath])
+
+  // 获取当前路径下的子文件夹
+  const subFolders = useMemo(() => {
+    const folderMap = new Map<string, Project[]>()
+    
+    projects.forEach(p => {
+      const projectPath = p.path || '/'
+      let expectedParentPath: string
+      if (currentPath === '/') {
+        expectedParentPath = `/${p.name}`
+      } else {
+        expectedParentPath = `${currentPath}/${p.name}`
+      }
+      
+      const hasChildren = projects.some(child => 
+        child.path === expectedParentPath || 
+        (child.parentId === p.id)
+      )
+      
+      if (hasChildren && projectPath === currentPath) {
+        const existing = folderMap.get(p.name) || []
+        existing.push(p)
+        folderMap.set(p.name, existing)
+      }
+    })
+    
+    return Array.from(folderMap.entries()).map(([name, projects]) => ({
+      name,
+      projects,
+      totalCount: projects.length
+    }))
+  }, [projects, currentPath])
+
+  // 面包屑导航
+  const breadcrumbs = useMemo(() => {
+    if (currentPath === '/') return [{ name: '根目录', path: '/' }]
+    
+    const parts = currentPath.split('/').filter(Boolean)
+    const crumbs = [{ name: '根目录', path: '/' }]
+    let accPath = ''
+    
+    parts.forEach(part => {
+      accPath += `/${part}`
+      crumbs.push({ name: part, path: accPath })
+    })
+    
+    return crumbs
+  }, [currentPath])
 
   const loadProjects = async () => {
     try {
@@ -175,7 +239,16 @@ export function PublishVideoModal({ isOpen, onClose, onSuccess }: PublishVideoMo
     setSelectedVideoUrl(null)
     setSelectedVideoTitle('')
     setShowInfoModal(false)
+    setCurrentPath('/')
     onClose()
+  }
+
+  // 进入文件夹
+  const handleEnterFolder = (folderName: string) => {
+    const newPath = currentPath === '/' ? `/${folderName}` : `${currentPath}/${folderName}`
+    setCurrentPath(newPath)
+    setSelectedProjectId(null)
+    setFragments([])
   }
 
   if (!isOpen) return null
@@ -242,12 +315,34 @@ export function PublishVideoModal({ isOpen, onClose, onSuccess }: PublishVideoMo
                   <span>返回</span>
                 </button>
 
+                {/* 面包屑导航 */}
+                <div className="flex items-center gap-1 text-sm flex-wrap mb-4 bg-gray-50 p-2 rounded-lg">
+                  {breadcrumbs.map((crumb, index) => (
+                    <div key={crumb.path} className="flex items-center gap-1">
+                      {index > 0 && <ChevronRight size={14} className="text-gray-400" />}
+                      <button
+                        onClick={() => {
+                          setCurrentPath(crumb.path)
+                          setSelectedProjectId(null)
+                          setFragments([])
+                        }}
+                        className={`flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-200 transition-colors ${
+                          index === breadcrumbs.length - 1 ? 'text-purple-600 font-medium' : 'text-gray-600'
+                        }`}
+                      >
+                        {index === 0 && <Home size={14} />}
+                        {crumb.name}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
                 {/* 项目列表 */}
                 {isLoadingProjects ? (
                   <div className="flex items-center justify-center py-8">
                     <HamsterLoader size={6} />
                   </div>
-                ) : projects.length === 0 ? (
+                ) : (filteredProjects.length === 0 && subFolders.length === 0) ? (
                   <div className="text-center py-8 text-gray-500">
                     <p>暂无项目</p>
                   </div>
@@ -255,7 +350,24 @@ export function PublishVideoModal({ isOpen, onClose, onSuccess }: PublishVideoMo
                   <div className="space-y-2">
                     <label className="block text-sm font-medium text-gray-700 mb-2">选择项目：</label>
                     <div className="space-y-2 max-h-60 overflow-y-auto">
-                      {projects.map((project) => (
+                      {/* 子文件夹 */}
+                      {subFolders.map((folder) => (
+                        <button
+                          key={`folder-${folder.name}`}
+                          onClick={() => handleEnterFolder(folder.name)}
+                          className="w-full p-3 text-left border border-yellow-200 bg-yellow-50 rounded-lg hover:border-yellow-400 transition-all flex items-center gap-3"
+                        >
+                          <FolderOpen className="w-5 h-5 text-yellow-500 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-gray-800">{folder.name}</div>
+                            <div className="text-xs text-gray-500">{folder.totalCount} 个项目</div>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-gray-400" />
+                        </button>
+                      ))}
+                      
+                      {/* 项目 */}
+                      {filteredProjects.map((project) => (
                         <button
                           key={project.id}
                           onClick={() => handleProjectSelect(project.id)}
@@ -265,10 +377,15 @@ export function PublishVideoModal({ isOpen, onClose, onSuccess }: PublishVideoMo
                               : 'border-gray-300 hover:border-purple-300'
                           }`}
                         >
-                          <div className="font-medium text-gray-800">{project.name}</div>
-                          {project.description && (
-                            <div className="text-sm text-gray-500 mt-1">{project.description}</div>
-                          )}
+                          <div className="flex items-center gap-3">
+                            <Folder className="w-5 h-5 text-pink-500 flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-gray-800">{project.name}</div>
+                              {project.description && (
+                                <div className="text-sm text-gray-500 mt-1">{project.description}</div>
+                              )}
+                            </div>
+                          </div>
                         </button>
                       ))}
                     </div>
@@ -334,15 +451,6 @@ export function PublishVideoModal({ isOpen, onClose, onSuccess }: PublishVideoMo
 
             {step === 'upload' && (
               <div className="space-y-4">
-                {/* 返回按钮 */}
-                <button
-                  onClick={() => setStep('source')}
-                  className="text-purple-600 hover:text-purple-700 flex items-center gap-2 mb-4"
-                >
-                  <X size={18} />
-                  <span>返回</span>
-                </button>
-
                 {/* 上传区域 */}
                 {isUploading ? (
                   <div className="py-12 text-center flex flex-col items-center">
