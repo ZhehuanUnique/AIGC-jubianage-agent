@@ -5309,6 +5309,63 @@ app.get('/api/projects/:projectId/shots', authenticateToken, async (req, res) =>
   }
 })
 
+// 更新分镜（片段）名称
+app.put('/api/shots/:shotId', authenticateToken, async (req, res) => {
+  try {
+    const { shotId } = req.params
+    const { name } = req.body
+    const userId = req.user?.id
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: '片段名称不能为空',
+      })
+    }
+
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+
+    // 检查分镜是否存在
+    const shot = await db.query('SELECT id, project_id, description FROM shots WHERE id = $1', [shotId])
+    if (shot.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: '片段不存在',
+      })
+    }
+
+    // 检查权限：只有项目所有者可以重命名
+    const shotData = shot.rows[0]
+    if (shotData.project_id) {
+      const project = await db.query('SELECT user_id FROM projects WHERE id = $1', [shotData.project_id])
+      if (project.rows.length > 0 && project.rows[0].user_id !== userId) {
+        return res.status(403).json({
+          success: false,
+          error: '没有权限重命名此片段',
+        })
+      }
+    }
+
+    // 更新分镜的description字段（作为名称）
+    await db.query('UPDATE shots SET description = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [
+      name.trim(),
+      shotId,
+    ])
+
+    res.json({
+      success: true,
+      message: '片段已重命名',
+    })
+  } catch (error) {
+    console.error('重命名片段失败:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '重命名片段失败',
+    })
+  }
+})
+
 // 获取项目片段列表（包含视频）
 app.get('/api/projects/:projectId/fragments', authenticateToken, async (req, res) => {
   try {

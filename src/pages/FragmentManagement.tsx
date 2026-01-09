@@ -174,7 +174,7 @@ function FragmentCard({
         return
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/fragments/${fragment.id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/shots/${fragment.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
