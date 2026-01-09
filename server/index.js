@@ -5216,6 +5216,21 @@ app.post('/api/projects/:projectId/shots', authenticateToken, async (req, res) =
       [parsedProjectId, finalShotNumber, description || prompt || segment, prompt || description || segment, segment || description || prompt, style || null]
     )
     
+    const shotId = result.rows[0].id
+    const fragmentName = description || prompt || segment || `分镜${finalShotNumber}`
+    
+    // 同时在 fragments 表中创建记录（用于支持重命名等功能）
+    try {
+      await db.query(
+        `INSERT INTO fragments (project_id, user_id, name, description, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+        [parsedProjectId, userId, fragmentName, description || prompt || segment]
+      )
+    } catch (fragmentError) {
+      console.warn('创建 fragments 记录失败（非致命）:', fragmentError.message)
+      // 不影响主流程，继续返回成功
+    }
+    
     res.json({
       success: true,
       data: {
@@ -5395,6 +5410,27 @@ app.get('/api/projects/:projectId/fragments', authenticateToken, async (req, res
       })
     }
     
+    // 首先从 fragments 表获取片段（如果有）
+    const fragmentsResult = await db.query(
+      `SELECT id, name, description, video_urls, thumbnail_url, created_at, updated_at
+       FROM fragments
+       WHERE project_id = $1
+       ORDER BY created_at DESC`,
+      [projectId]
+    )
+    
+    // 将 fragments 表的数据转换为返回格式
+    const fragmentsFromTable = fragmentsResult.rows.map(f => ({
+      id: f.id.toString(),
+      name: f.name,
+      description: f.description,
+      imageUrl: f.thumbnail_url,
+      videoUrls: f.video_urls || [],
+      createdAt: f.created_at,
+      updatedAt: f.updated_at,
+      source: 'fragments' // 标记来源
+    }))
+    
     // 获取所有分镜（shots），每个分镜可能对应一个片段
     // 同时获取关联的视频URL（从fusions或shots表中）
     const shotsResult = await db.query(
@@ -5408,7 +5444,7 @@ app.get('/api/projects/:projectId/fragments', authenticateToken, async (req, res
     
     // 获取每个分镜的视频URL（从files表中查找video类型的文件）
     // 排除首尾帧视频，因为它们会单独显示在"首尾帧生视频"片段中
-    const fragments = await Promise.all(
+    const shotsFragments = await Promise.all(
       shotsResult.rows.map(async (shot) => {
         // 查找该分镜关联的视频文件（支持 shot_id 和 fragment_id）
         // 使用DISTINCT去重，避免重复视频
@@ -5443,12 +5479,17 @@ app.get('/api/projects/:projectId/fragments', authenticateToken, async (req, res
           videoUrls: videoUrls,
           createdAt: shot.created_at,
           updatedAt: shot.updated_at,
+          source: 'shots' // 标记来源
         }
       })
     )
     
     // 过滤掉没有视频的分镜（null值）
-    const validFragments = fragments.filter(f => f !== null)
+    const validShotsFragments = shotsFragments.filter(f => f !== null)
+    
+    // 合并 fragments 表和 shots 表的数据
+    // fragments 表的数据优先（因为它们是用户创建的片段）
+    const allFragments = [...fragmentsFromTable, ...validShotsFragments]
     
     // 同时获取首尾帧视频（作为特殊片段）
     // 使用DISTINCT去重，避免重复视频
@@ -5479,13 +5520,13 @@ app.get('/api/projects/:projectId/fragments', authenticateToken, async (req, res
           createdAt: firstLastFrameVideos.rows[0].created_at,
           updatedAt: firstLastFrameVideos.rows[0].created_at,
         }
-        validFragments.push(firstLastFrameFragment)
+        allFragments.push(firstLastFrameFragment)
       }
     }
     
     res.json({
       success: true,
-      data: validFragments
+      data: allFragments
     })
   } catch (error) {
     console.error('获取片段列表失败:', error)

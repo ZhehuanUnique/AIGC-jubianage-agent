@@ -161,7 +161,7 @@ function FragmentCard({
     }
 
     // 检查是否是特殊片段（不允许重命名）
-    if (fragment.id === 'first-last-frame-videos' || isNaN(parseInt(fragment.id, 10))) {
+    if (fragment.id === 'first-last-frame-videos') {
       alertError('此片段不支持重命名', '操作失败')
       setIsRenaming(false)
       return
@@ -181,7 +181,7 @@ function FragmentCard({
         return
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/shots/${fragment.id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/fragments/${fragment.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
