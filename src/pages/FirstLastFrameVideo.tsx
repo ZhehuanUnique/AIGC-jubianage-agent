@@ -763,6 +763,78 @@ function FirstLastFrameVideo() {
     }
   }, [enterKeySubmit, prompt, firstFrameFile, isGenerating])
 
+  // 轮询补帧任务状态
+  const pollFrameInterpolationStatus = async (processingTaskId: string) => {
+    if (!projectId) return
+    
+    const tempTaskId = `fi-${processingTaskId}`
+    
+    const pollInterval = setInterval(async () => {
+      try {
+        // 调用后端API获取补帧任务状态
+        const token = localStorage.getItem('auth_token')
+        if (!token) {
+          clearInterval(pollInterval)
+          return
+        }
+        
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'}/api/video-processing-tasks/${processingTaskId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        })
+        
+        if (!response.ok) {
+          console.warn('获取补帧任务状态失败')
+          return
+        }
+        
+        const result = await response.json()
+        if (result.success && result.data) {
+          const task = result.data
+          
+          if (task.status === 'completed') {
+            // 补帧完成，停止轮询
+            clearInterval(pollInterval)
+            
+            // 从列表中移除临时任务
+            setAllTasks(prev => prev.filter(t => t.id !== tempTaskId))
+            setTasks(prev => prev.filter(t => t.id !== tempTaskId))
+            allTasksRef.current = allTasksRef.current.filter(t => t.id !== tempTaskId)
+            
+            // 刷新历史记录，显示新的补帧后视频
+            loadHistory(true)
+          } else if (task.status === 'failed') {
+            // 补帧失败，停止轮询
+            clearInterval(pollInterval)
+            
+            // 更新临时任务状态为失败
+            setAllTasks(prev => prev.map(t => 
+              t.id === tempTaskId 
+                ? { ...t, status: 'failed', text: `补帧失败: ${task.errorMessage || '未知错误'}` }
+                : t
+            ))
+            setTasks(prev => prev.map(t => 
+              t.id === tempTaskId 
+                ? { ...t, status: 'failed', text: `补帧失败: ${task.errorMessage || '未知错误'}` }
+                : t
+            ))
+            
+            alertError(task.errorMessage || '补帧处理失败', '补帧失败')
+          }
+          // processing 状态继续轮询
+        }
+      } catch (error) {
+        console.error('轮询补帧任务状态失败:', error)
+      }
+    }, 3000) // 每3秒轮询一次
+    
+    // 设置超时（5分钟后停止轮询）
+    setTimeout(() => {
+      clearInterval(pollInterval)
+    }, 5 * 60 * 1000)
+  }
+
   // 轮询任务状态
   const pollTaskStatus = async (taskId: string) => {
     if (!projectId) return
@@ -2453,17 +2525,50 @@ function FirstLastFrameVideo() {
         onConfirm={async (targetFps, method) => {
           if (!frameInterpolationModal.taskId) return
           
+          // 找到原始任务，用于复制信息
+          const originalTask = allTasks.find(t => t.id === frameInterpolationModal.taskId)
+          
           try {
-            await createVideoProcessingTask({
+            const result = await createVideoProcessingTask({
               videoTaskId: frameInterpolationModal.taskId,
               processingType: 'frame_interpolation',
               targetFps: targetFps,
               method: method,
             })
+            
             // 关闭弹窗
             setFrameInterpolationModal({ isOpen: false, taskId: null })
-            // 刷新历史记录，显示新的补帧任务
-            loadHistory(true) // 静默模式刷新
+            
+            // 立即添加一个"生成中"的临时任务到列表顶部
+            if (result.success && result.data?.taskId) {
+              const tempTask: VideoTask = {
+                id: `fi-${result.data.taskId}`, // 使用 fi- 前缀标识补帧任务
+                status: 'processing',
+                videoUrl: '', // 还没有视频
+                firstFrameUrl: originalTask?.firstFrameUrl || '',
+                lastFrameUrl: originalTask?.lastFrameUrl,
+                model: `${originalTask?.model || '未知'} (补帧 ${targetFps}FPS)`,
+                resolution: originalTask?.resolution || '720p',
+                ratio: originalTask?.ratio || '16:9',
+                duration: originalTask?.duration || 5,
+                text: originalTask?.text ? `${originalTask.text} (补帧中...)` : '补帧处理中...',
+                createdAt: new Date().toISOString(),
+                isLiked: false,
+                isFavorited: false,
+                isUltraHd: false,
+              }
+              
+              // 添加到列表顶部
+              setAllTasks(prev => [tempTask, ...prev])
+              setTasks(prev => [tempTask, ...prev])
+              allTasksRef.current = [tempTask, ...allTasksRef.current]
+              
+              // 开始轮询补帧任务状态
+              pollFrameInterpolationStatus(result.data.taskId)
+            } else {
+              // 如果没有返回taskId，直接刷新历史记录
+              loadHistory(true)
+            }
           } catch (error) {
             console.error('创建补帧任务失败:', error)
             alertError(error instanceof Error ? error.message : '创建补帧任务失败，请稍后重试', '操作失败')

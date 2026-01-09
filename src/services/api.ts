@@ -2154,7 +2154,7 @@ export async function createVideoProcessingTask(params: {
   processingType: 'frame_interpolation' | 'super_resolution'
   targetFps?: number // 目标帧率（如30或60），仅用于补帧
   method?: 'rife' | 'ffmpeg' // 技术选择，仅用于补帧
-}): Promise<{ success: boolean; taskId: string }> {
+}): Promise<{ success: boolean; data?: { taskId: string } }> {
   try {
     const token = AuthService.getToken()
     if (!token) {
@@ -2176,7 +2176,7 @@ export async function createVideoProcessingTask(params: {
     }
 
     const result = await response.json()
-    return { success: true, taskId: result.data?.taskId || '' }
+    return { success: true, data: { taskId: result.data?.taskId } }
   } catch (error) {
     if (error instanceof Error) {
       throw error
