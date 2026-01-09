@@ -156,9 +156,9 @@ function WorksGallery() {
     <div className="min-h-screen bg-white">
       <NavigationBar activeTab="works" />
       
-      <div className="max-w-full mx-auto bg-white" style={{ padding: 0, margin: 0 }}>
+      <div className="max-w-7xl mx-auto bg-white px-8" style={{ margin: '0 auto' }}>
         {/* 头部：排序选项 */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-end gap-3 sm:gap-0 mb-0 px-4 py-2">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-end gap-3 sm:gap-0 mb-0 py-2">
           <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto justify-end">
             <button
               onClick={() => setShowPublishModal(true)}
@@ -194,7 +194,7 @@ function WorksGallery() {
           </div>
         </div>
 
-        {/* 视频瀑布流 */}
+        {/* 视频网格 - 一行最多4个，居中，有间隙和圆角 */}
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20">
             <HamsterLoader size={10} />
@@ -208,17 +208,15 @@ function WorksGallery() {
         ) : (
           <div 
             ref={containerRef}
-            className="masonry-grid"
-            style={{ columnCount: 5, columnGap: 0 }}
+            className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 justify-center"
           >
             {videos.map((video) => (
               <div
                 key={video.id}
                 draggable
-                className={`masonry-item group cursor-grab active:cursor-grabbing relative ${
+                className={`group cursor-grab active:cursor-grabbing relative overflow-hidden rounded-xl ${
                   draggedVideoId === video.id ? 'opacity-50' : ''
                 } ${dragOverVideoId === video.id ? 'ring-2 ring-purple-500 ring-inset' : ''}`}
-                style={{ breakInside: 'avoid', marginBottom: 0 }}
                 onDragStart={(e) => {
                   setDraggedVideoId(video.id)
                   e.dataTransfer.effectAllowed = 'move'
@@ -279,7 +277,7 @@ function WorksGallery() {
                 }}
               >
                 {/* 视频容器 */}
-                <div className="relative bg-black">
+                <div className="relative bg-black rounded-xl overflow-hidden">
                   {video.thumbnailUrl && !failedThumbnails.has(video.id) ? (
                     <>
                       <img
@@ -354,7 +352,7 @@ function WorksGallery() {
                   {/* 悬停窗口 - 放在视频容器内部 */}
                   {hoveredVideoId === video.id && (
                     <div 
-                      className="absolute left-0 right-0 bottom-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent z-[9999] flex flex-col p-3"
+                      className="absolute left-0 right-0 bottom-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent z-[9999] flex flex-col p-3 rounded-b-xl"
                     >
                       <h3 className="text-sm font-semibold text-white mb-1.5 line-clamp-2">
                         {video.title || '未命名视频'}
