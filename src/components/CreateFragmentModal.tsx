@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import { useParams } from 'react-router-dom'
 import { alert, alertError, alertSuccess } from '../utils/alert'
@@ -13,6 +13,15 @@ function CreateFragmentModal({ onClose, onFragmentCreated }: CreateFragmentModal
   const [fragmentName, setFragmentName] = useState('')
   const [description, setDescription] = useState('')
   const [loading, setLoading] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
+
+  // 延迟设置mounted状态，防止点击事件穿透
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsMounted(true)
+    }, 100)
+    return () => clearTimeout(timer)
+  }, [])
 
   const handleSubmit = async () => {
     // 验证输入
@@ -138,10 +147,14 @@ function CreateFragmentModal({ onClose, onFragmentCreated }: CreateFragmentModal
     <div 
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" 
       onClick={(e) => {
-        // 只有点击背景时才关闭，点击内容区域不关闭
-        if (e.target === e.currentTarget) {
+        // 只有在mounted后且点击背景时才关闭
+        if (isMounted && e.target === e.currentTarget) {
           onClose()
         }
+      }}
+      onMouseDown={(e) => {
+        // 阻止mousedown事件冒泡，防止触发外部的handleClickOutside
+        e.stopPropagation()
       }}
     >
       <div

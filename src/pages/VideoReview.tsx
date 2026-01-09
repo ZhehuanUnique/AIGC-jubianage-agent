@@ -31,28 +31,17 @@ function VideoReview() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const progressBarRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [annotations, setAnnotations] = useState([
-    {
-      id: '1',
-      user: '田爱',
-      avatar: 'T',
-      time: '2025/11/25 22:06:25',
-      content: '测试导演批注~',
-      timestamp: '00:04:11',
-      replies: 1,
-      type: '已批注' as const,
-    },
-    {
-      id: '2',
-      user: '田爱',
-      avatar: 'T',
-      time: '2025/11/25 22:06:39',
-      content: '@田爱 测试分镜师回复',
-      timestamp: '',
-      replies: 0,
-      type: '已批注' as const,
-    },
-  ])
+  const [annotations, setAnnotations] = useState<Array<{
+    id: string
+    user: string
+    avatar: string
+    time: string
+    content: string
+    timestamp: string
+    replies: number
+    type: '待批注' | '已批注'
+    timestampSeconds?: number
+  }>>([])
   const [danmakus, setDanmakus] = useState<Array<{ id: string; content: string; time: number }>>([])
   const [fragments, setFragments] = useState<Array<{ id: string; name: string; videoUrls?: string[] }>>([])
   const [currentFragmentIndex, setCurrentFragmentIndex] = useState(0)

@@ -160,6 +160,13 @@ function FragmentCard({
       return
     }
 
+    // 检查是否是特殊片段（不允许重命名）
+    if (fragment.id === 'first-last-frame-videos' || isNaN(parseInt(fragment.id, 10))) {
+      alertError('此片段不支持重命名', '操作失败')
+      setIsRenaming(false)
+      return
+    }
+
     try {
       const API_BASE_URL = (() => {
         if (import.meta.env.VITE_API_BASE_URL !== undefined) return import.meta.env.VITE_API_BASE_URL
@@ -675,7 +682,11 @@ function FragmentManagement() {
           <div
             onClick={(e) => {
               e.stopPropagation()
-              setShowCreateModal(true)
+              e.preventDefault()
+              // 使用setTimeout确保状态更新不会被其他事件干扰
+              setTimeout(() => {
+                setShowCreateModal(true)
+              }, 0)
             }}
             className="w-full sm:w-48 aspect-[9/16] bg-gray-50 border-2 border-dashed border-pink-500 rounded-lg flex flex-col items-center justify-center cursor-pointer active:border-pink-400 sm:hover:border-pink-400 transition-all touch-manipulation"
           >
