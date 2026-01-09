@@ -5,8 +5,7 @@ import { getCommunityVideos, toggleVideoLike, CommunityVideo } from '../services
 import { alertError } from '../utils/alert'
 import { AuthService } from '../services/auth'
 import NavigationBar from '../components/NavigationBar'
-import HamsterLoader from '../components/HamsterLoader'
-import { VideoCardSkeletonList } from '../components/VideoCardSkeleton'
+import { VideoCardSkeletonList, RankingSkeletonList } from '../components/VideoCardSkeleton'
 import { VideoPlayerControls } from '../components/VideoPlayerControls'
 
 // 左侧导航菜单项
@@ -473,10 +472,7 @@ function Community() {
             {/* 帖子列表 - 微博风格 */}
             <div className="space-y-4">
               {isLoading ? (
-                <div className="bg-white rounded-lg shadow-sm p-12 text-center flex flex-col items-center">
-                  <HamsterLoader size={8} />
-                  <p className="mt-4 text-gray-600">加载中...</p>
-                </div>
+                <VideoCardSkeletonList count={3} />
               ) : videos.length === 0 ? (
                 <div className="bg-white rounded-lg shadow-sm p-12 text-center">
                   <p className="text-gray-600">暂无内容</p>
@@ -959,10 +955,7 @@ function Community() {
                 
                 <div className="space-y-3">
                   {isLoadingRanking ? (
-                    <div className="flex items-center justify-center py-8">
-                      <HamsterLoader size={4} />
-                      <span className="ml-2 text-sm text-gray-500">加载榜单中...</span>
-                    </div>
+                    <RankingSkeletonList count={10} />
                   ) : hotSearchList.length === 0 ? (
                     <div className="text-center py-8 text-sm text-gray-500">
                       暂无榜单数据

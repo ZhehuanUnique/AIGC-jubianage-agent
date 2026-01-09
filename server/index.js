@@ -7483,7 +7483,7 @@ app.post('/api/open-photoshop', authenticateToken, async (req, res) => {
     // 如果所有方法都失败了
     res.status(404).json({
       success: false,
-      error: '无法自动打开Photoshop，请手动打开应用。\n\n提示：\n1. 确保Photoshop已安装\n2. 可以在桌面创建Photoshop快捷方式\n3. 或在.env文件中配置PHOTOSHOP_PATH路径'
+      error: '无法自动打开Photoshop，请手动打开应用。\n\n提示：\n1. 确保Photoshop已安装\n2. 可以在桌面创建Photoshop快捷方式\n3. 请在桌面创建PS的快捷方式'
     })
   } catch (error) {
     console.error('❌ 打开Photoshop失败:', error)

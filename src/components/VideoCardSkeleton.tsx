@@ -34,13 +34,41 @@ export function VideoCardSkeleton() {
 }
 
 /**
- * 多个骨架屏
+ * 多个视频卡片骨架屏
  */
 export function VideoCardSkeletonList({ count = 3 }: { count?: number }) {
   return (
     <div className="space-y-6">
       {Array.from({ length: count }).map((_, index) => (
         <VideoCardSkeleton key={index} />
+      ))}
+    </div>
+  )
+}
+
+/**
+ * 榜单项骨架屏
+ */
+export function RankingItemSkeleton() {
+  return (
+    <div className="flex items-start gap-3 p-2 animate-pulse">
+      <div className="w-4 h-4 bg-gray-200 rounded" />
+      <div className="flex-1">
+        <div className="h-4 bg-gray-200 rounded w-3/4 mb-1" />
+        <div className="h-3 bg-gray-200 rounded w-1/4" />
+      </div>
+    </div>
+  )
+}
+
+/**
+ * 多个榜单项骨架屏
+ */
+export function RankingSkeletonList({ count = 10 }: { count?: number }) {
+  return (
+    <div className="space-y-2">
+      {Array.from({ length: count }).map((_, index) => (
+        <RankingItemSkeleton key={index} />
       ))}
     </div>
   )
