@@ -103,7 +103,13 @@ export async function generateVideoWithSeedance(imageUrl, options = {}) {
     // 如果有文本提示词，添加到 content 中
     if (text && text.trim()) {
       // 构建文本提示词，包含参数（按照官方文档格式）
+      // 注意：302.AI API 对文本长度有限制，截断过长的文本（保留前500个字符）
       let textPrompt = text.trim()
+      if (textPrompt.length > 500) {
+        console.warn(`⚠️ 提示词过长 (${textPrompt.length}字符)，截断为500字符`)
+        textPrompt = textPrompt.substring(0, 500)
+      }
+      
       // 在文本提示词中添加参数（如果还没有）
       if (ratio && ratio !== 'adaptive' && !textPrompt.includes('--ratio')) {
         textPrompt += ` --ratio ${ratio}`

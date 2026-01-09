@@ -52,26 +52,49 @@ function FirstLastFrameVideo() {
   const [lastFramePreview, setLastFramePreview] = useState<string | null>(null)
   const [frameAspectRatio, setFrameAspectRatio] = useState<'16:9' | '9:16' | 'other' | null>(null) // 图片宽高比（用于判断标准比例）
   const [frameImageInfo, setFrameImageInfo] = useState<{ width: number; height: number } | null>(null) // 图片尺寸信息（用于动态计算容器尺寸）
+  const [selectedRatio, setSelectedRatio] = useState<'16:9' | '9:16'>('16:9') // 用户选择的尺寸
   
   // 支持的模型列表（所有图生视频模型）
+  // durations: 支持的时长列表，ratios: 支持的尺寸列表
   const supportedModels = [
-    { value: 'veo3.1', label: 'Veo3.1', supportsFirstLastFrame: false },
-    { value: 'veo3.1-pro', label: 'Veo3.1 Pro', supportsFirstLastFrame: false },
-    { value: 'viduq2-turbo', label: 'Vidu Q2 Turbo', supportsFirstLastFrame: false },
-    { value: 'viduq2-pro', label: 'Vidu Q2 Pro', supportsFirstLastFrame: false },
-    { value: 'volcengine-video-3.0-pro', label: '即梦-3.0Pro', supportsFirstLastFrame: true },
-    { value: 'doubao-seedance-1-5-pro-251215', label: '即梦-3.5Pro', supportsFirstLastFrame: true },
-    { value: 'minimax-hailuo-02', label: 'MiniMax Hailuo-02', supportsFirstLastFrame: true },
-    { value: 'minimax-hailuo-2.3', label: 'MiniMax Hailuo-2.3', supportsFirstLastFrame: true },
-    { value: 'minimax-hailuo-2.3-fast', label: 'MiniMax Hailuo-2.3-fast', supportsFirstLastFrame: true },
-    { value: 'kling-2.6', label: 'Kling-2.6', supportsFirstLastFrame: true },
-    { value: 'kling-o1', label: 'Kling-O1', supportsFirstLastFrame: true },
+    { value: 'veo3.1', label: 'Veo3.1', supportsFirstLastFrame: false, durations: [5, 8], ratios: ['16:9', '9:16'] },
+    { value: 'veo3.1-pro', label: 'Veo3.1 Pro', supportsFirstLastFrame: false, durations: [5, 8], ratios: ['16:9', '9:16'] },
+    { value: 'viduq2-turbo', label: 'Vidu Q2 Turbo', supportsFirstLastFrame: false, durations: [4, 8], ratios: ['16:9', '9:16'] },
+    { value: 'viduq2-pro', label: 'Vidu Q2 Pro', supportsFirstLastFrame: false, durations: [4, 8], ratios: ['16:9', '9:16'] },
+    { value: 'volcengine-video-3.0-pro', label: '即梦-3.0Pro', supportsFirstLastFrame: true, durations: [5, 10], ratios: ['16:9', '9:16'] },
+    { value: 'doubao-seedance-1-5-pro-251215', label: '即梦-3.5Pro', supportsFirstLastFrame: true, durations: [5, 10], ratios: ['16:9', '9:16'] },
+    { value: 'minimax-hailuo-02', label: 'MiniMax Hailuo-02', supportsFirstLastFrame: true, durations: [6], ratios: ['16:9', '9:16'] },
+    { value: 'minimax-hailuo-2.3', label: 'MiniMax Hailuo-2.3', supportsFirstLastFrame: true, durations: [6], ratios: ['16:9', '9:16'] },
+    { value: 'minimax-hailuo-2.3-fast', label: 'MiniMax Hailuo-2.3-fast', supportsFirstLastFrame: true, durations: [6], ratios: ['16:9', '9:16'] },
+    { value: 'kling-2.6', label: 'Kling-2.6', supportsFirstLastFrame: true, durations: [5, 10], ratios: ['16:9', '9:16'] },
+    { value: 'kling-o1', label: 'Kling-O1', supportsFirstLastFrame: true, durations: [5, 10], ratios: ['16:9', '9:16'] },
   ]
   const [selectedModel, setSelectedModel] = useState<string>('veo3.1')
   const [videoVersion, setVideoVersion] = useState<'3.0pro'>('3.0pro') // 保留用于显示
   
+  // 获取当前模型配置
+  const currentModelConfig = supportedModels.find(m => m.value === selectedModel)
+  
   // 检查当前选择的模型是否支持首尾帧
-  const currentModelSupportsFirstLastFrame = supportedModels.find(m => m.value === selectedModel)?.supportsFirstLastFrame || false
+  const currentModelSupportsFirstLastFrame = currentModelConfig?.supportsFirstLastFrame || false
+  
+  // 获取当前模型支持的时长列表
+  const availableDurations = currentModelConfig?.durations || [5, 10]
+  
+  // 获取当前模型支持的尺寸列表
+  const availableRatios = currentModelConfig?.ratios || ['16:9', '9:16']
+  
+  // 当模型改变时，调整时长和尺寸
+  useEffect(() => {
+    // 如果当前时长不在新模型支持的列表中，选择第一个支持的时长
+    if (!availableDurations.includes(duration)) {
+      setDuration(availableDurations[0])
+    }
+    // 如果当前尺寸不在新模型支持的列表中，选择第一个支持的尺寸
+    if (!availableRatios.includes(selectedRatio)) {
+      setSelectedRatio(availableRatios[0] as '16:9' | '9:16')
+    }
+  }, [selectedModel, availableDurations, availableRatios])
   
   // 当模型不支持首尾帧时，清空尾帧
   useEffect(() => {
@@ -501,6 +524,11 @@ function FirstLastFrameVideo() {
         const aspectRatio = await detectImageAspectRatio(imageUrl)
         setFrameAspectRatio(aspectRatio)
         
+        // 自动设置尺寸选择（如果是标准比例）
+        if (aspectRatio === '16:9' || aspectRatio === '9:16') {
+          setSelectedRatio(aspectRatio)
+        }
+        
         // 获取图片尺寸信息
         const img = new Image()
         img.onload = () => {
@@ -638,7 +666,7 @@ function FirstLastFrameVideo() {
       formData.append('projectId', projectId)
       formData.append('model', selectedModel)
       formData.append('resolution', resolution)
-      formData.append('ratio', '16:9')
+      formData.append('ratio', selectedRatio)
       formData.append('duration', duration.toString())
       if (prompt.trim()) {
         formData.append('text', prompt.trim())
@@ -653,7 +681,7 @@ function FirstLastFrameVideo() {
         lastFrameUrl: lastFramePreview || undefined,
         model: selectedModel,
         resolution: resolution,
-        ratio: '16:9',
+        ratio: selectedRatio,
         duration: duration,
         text: prompt.trim(),
         createdAt: new Date().toISOString(),
@@ -2424,28 +2452,42 @@ function FirstLastFrameVideo() {
                   </button>
                 </div>
                 
-                {/* 时长选择 */}
+                {/* 时长选择 - 根据模型动态显示 */}
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setDuration(5)}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer ${
-                      duration === 5
-                        ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    5秒
-                  </button>
-                  <button
-                    onClick={() => setDuration(10)}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer ${
-                      duration === 10
-                        ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    10秒
-                  </button>
+                  {availableDurations.map((dur) => (
+                    <button
+                      key={dur}
+                      onClick={() => setDuration(dur)}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer ${
+                        duration === dur
+                          ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {dur}秒
+                    </button>
+                  ))}
+                </div>
+                
+                {/* 尺寸选择 */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600 font-medium">尺寸:</span>
+                  {availableRatios.map((ratio) => (
+                    <button
+                      key={ratio}
+                      onClick={() => setSelectedRatio(ratio as '16:9' | '9:16')}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer ${
+                        selectedRatio === ratio
+                          ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {ratio}
+                    </button>
+                  ))}
+                  {frameAspectRatio && frameAspectRatio !== 'other' && frameAspectRatio !== selectedRatio && (
+                    <span className="text-xs text-orange-500 ml-1">(图片为{frameAspectRatio})</span>
+                  )}
                 </div>
               </div>
               

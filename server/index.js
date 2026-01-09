@@ -5651,39 +5651,40 @@ app.get('/api/projects/:projectId/fragments', authenticateToken, async (req, res
     // fragments 表的数据优先（因为它们是用户创建的片段）
     const allFragments = [...fragmentsFromTable, ...validShotsFragments]
     
-    // 同时获取首尾帧视频（作为特殊片段）
+    // 同时获取首尾帧视频（每个视频作为单独的片段）
     // 从 first_last_frame_videos 表获取已完成的视频
     const firstLastFrameVideos = await db.query(
-      `SELECT DISTINCT ON (video_url) video_url, created_at, updated_at
+      `SELECT id, task_id, video_url, first_frame_url, text, model, created_at, updated_at
        FROM first_last_frame_videos
        WHERE project_id = $1 
          AND status = 'completed'
          AND video_url IS NOT NULL
          AND video_url != ''
-       ORDER BY video_url, created_at DESC
+       ORDER BY created_at DESC
        LIMIT 50`,
       [projectId]
     )
     
-    // 将首尾帧视频添加到片段列表（如果有）
-    if (firstLastFrameVideos.rows.length > 0) {
-      // 去重：使用Set确保每个视频URL只出现一次
-      const uniqueVideoUrls = Array.from(new Set(
-        firstLastFrameVideos.rows.map(f => f.video_url).filter(url => url)
-      ))
-      if (uniqueVideoUrls.length > 0) {
-        const firstLastFrameFragment = {
-          id: 'first-last-frame-videos',
-          name: '首尾帧生视频',
-          description: '首尾帧生成的视频',
-          imageUrl: null,
-          videoUrls: uniqueVideoUrls,
-          createdAt: firstLastFrameVideos.rows[0].created_at,
-          updatedAt: firstLastFrameVideos.rows[0].updated_at || firstLastFrameVideos.rows[0].created_at,
-        }
-        allFragments.push(firstLastFrameFragment)
+    // 将每个首尾帧视频作为单独的片段添加到列表
+    firstLastFrameVideos.rows.forEach((video, index) => {
+      // 生成片段名称：使用提示词前20个字符，或者使用模型名称
+      let fragmentName = video.text ? video.text.substring(0, 20) : `首尾帧视频${index + 1}`
+      if (video.text && video.text.length > 20) {
+        fragmentName += '...'
       }
-    }
+      
+      allFragments.push({
+        id: `flf-${video.id}`, // 使用 flf- 前缀标识首尾帧视频
+        name: fragmentName,
+        description: video.text || `${video.model || '首尾帧'}生成的视频`,
+        imageUrl: video.first_frame_url,
+        videoUrls: [video.video_url],
+        createdAt: video.created_at,
+        updatedAt: video.updated_at || video.created_at,
+        source: 'first_last_frame_videos',
+        taskId: video.task_id, // 保存task_id用于删除
+      })
+    })
     
     res.json({
       success: true,
@@ -5878,13 +5879,69 @@ app.delete('/api/fragments/:fragmentId', authenticateToken, async (req, res) => 
     const pool = await import('./db/connection.js')
     const db = pool.default
     
+    // 检查是否是首尾帧视频片段（以 flf- 开头）
+    if (fragmentId.startsWith('flf-')) {
+      const videoId = parseInt(fragmentId.replace('flf-', ''), 10)
+      if (isNaN(videoId)) {
+        return res.status(400).json({
+          success: false,
+          error: '无效的片段ID',
+        })
+      }
+      
+      // 检查首尾帧视频是否存在且属于当前用户
+      const video = await db.query(
+        `SELECT v.id, v.video_url, v.cos_key, p.user_id 
+         FROM first_last_frame_videos v 
+         JOIN projects p ON v.project_id = p.id 
+         WHERE v.id = $1 AND p.user_id = $2`,
+        [videoId, userId]
+      )
+      
+      if (video.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: '片段不存在或无权访问',
+        })
+      }
+      
+      // 删除COS中的视频文件
+      if (video.rows[0].cos_key) {
+        try {
+          const { deleteFile } = await import('./services/cosService.js')
+          await deleteFile(video.rows[0].cos_key).catch(err => {
+            console.warn('删除COS视频文件失败:', err)
+          })
+        } catch (cosError) {
+          console.warn('删除COS文件失败（继续删除数据库记录）:', cosError)
+        }
+      }
+      
+      // 删除数据库记录
+      await db.query('DELETE FROM first_last_frame_videos WHERE id = $1', [videoId])
+      
+      return res.json({
+        success: true,
+        message: '首尾帧视频片段删除成功',
+      })
+    }
+    
+    // 解析fragmentId为数字
+    const parsedFragmentId = parseInt(fragmentId, 10)
+    if (isNaN(parsedFragmentId)) {
+      return res.status(400).json({
+        success: false,
+        error: '无效的片段ID',
+      })
+    }
+    
     // 检查分镜是否存在且属于当前用户的项目
     const shot = await db.query(
       `SELECT s.id, s.thumbnail_image_url, p.user_id 
        FROM shots s 
        JOIN projects p ON s.project_id = p.id 
        WHERE s.id = $1 AND p.user_id = $2`,
-      [parseInt(fragmentId), userId]
+      [parsedFragmentId, userId]
     )
     
     if (shot.rows.length === 0) {
@@ -5901,7 +5958,7 @@ app.delete('/api/fragments/:fragmentId', authenticateToken, async (req, res) => 
        WHERE f.project_id = (SELECT project_id FROM shots WHERE id = $1)
          AND f.file_type = 'video'
          AND f.metadata->>'shot_id' = $2::text`,
-      [parseInt(fragmentId), fragmentId]
+      [parsedFragmentId, fragmentId]
     )
     
     // 删除COS中的视频文件
