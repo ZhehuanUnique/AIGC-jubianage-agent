@@ -4085,6 +4085,44 @@ app.post('/api/upload-video', authenticateToken, uploadVideo.single('video'), as
   }
 })
 
+// 通用图片上传到COS
+app.post('/api/upload-image', authenticateToken, uploadImage.single('image'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: '请选择要上传的图片'
+      })
+    }
+
+    const userId = req.user?.id
+    const folder = req.body.folder || 'images'
+    
+    // 生成唯一文件名
+    const timestamp = Date.now()
+    const randomStr = Math.random().toString(36).substring(2, 8)
+    const ext = req.file.originalname.split('.').pop() || 'jpg'
+    const fileName = `${folder}/${userId}/${timestamp}_${randomStr}.${ext}`
+    
+    // 上传到COS
+    const cosResult = await uploadToCOS(req.file.buffer, fileName, req.file.mimetype)
+    
+    res.json({
+      success: true,
+      data: {
+        url: cosResult.url,
+        key: fileName
+      }
+    })
+  } catch (error) {
+    console.error('上传图片失败:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '上传图片失败'
+    })
+  }
+})
+
 // 上传角色图片到COS并保存到数据库（按用户隔离）
 app.post('/api/upload-character-image', authenticateToken, uploadImage.single('image'), async (req, res) => {
   try {
@@ -4378,7 +4416,7 @@ app.post('/api/upload-character-image', authenticateToken, uploadImage.single('i
   }
 })
 
-// 获取所有项目列表（按用户和小组隔离）
+// 获取所有项目列表（按用户和小组隔离，支持小组成员共享和跨组访问）
 app.get('/api/projects', authenticateToken, async (req, res) => {
   try {
     const userId = req.user?.id
@@ -4400,15 +4438,60 @@ app.get('/api/projects', authenticateToken, async (req, res) => {
     )
     const groupIds = userGroupsResult.rows.map(row => row.group_id)
     
-    // 构建查询：项目属于该用户 OR 项目属于该用户所在的小组
+    // 获取用户设置，检查是否启用跨组共享
+    const userSettingsResult = await db.query(
+      'SELECT enable_cross_group_sharing FROM user_settings WHERE user_id = $1',
+      [userId]
+    )
+    const enableCrossGroupSharing = userSettingsResult.rows[0]?.enable_cross_group_sharing || false
+    
+    // 获取用户有权访问的跨组ID列表
+    let crossGroupIds = []
+    if (enableCrossGroupSharing) {
+      const crossGroupResult = await db.query(
+        'SELECT target_group_id FROM cross_group_access WHERE user_id = $1',
+        [userId]
+      )
+      crossGroupIds = crossGroupResult.rows.map(row => row.target_group_id)
+    }
+    
+    // 获取同组成员的用户ID列表（用于共享项目）
+    let groupMemberIds = [userId]
+    if (groupIds.length > 0) {
+      const groupMembersResult = await db.query(
+        'SELECT DISTINCT user_id FROM user_groups WHERE group_id = ANY($1::integer[])',
+        [groupIds]
+      )
+      groupMemberIds = groupMembersResult.rows.map(row => row.user_id)
+    }
+    
+    // 合并所有可访问的组ID
+    const allAccessibleGroupIds = [...new Set([...groupIds, ...crossGroupIds])]
+    
+    // 构建查询：
+    // 1. 项目属于该用户
+    // 2. 项目属于同组成员（共享）
+    // 3. 项目属于用户所在的小组
+    // 4. 项目属于用户有跨组访问权限的小组
     let query = `
-      SELECT DISTINCT p.id, p.name, p.script_title, p.work_style, p.work_background, p.created_at, p.updated_at
+      SELECT DISTINCT p.id, p.name, p.script_title, p.work_style, p.work_background, 
+             p.created_at, p.updated_at, p.user_id, p.group_id, p.parent_id, p.path, p.cover_url,
+             u.display_name as owner_name, u.username as owner_username
       FROM projects p
-      WHERE (p.user_id = $1 OR (p.group_id IS NOT NULL AND p.group_id = ANY($2::integer[])))
-      ORDER BY p.created_at DESC
+      LEFT JOIN users u ON p.user_id = u.id
+      WHERE (
+        p.user_id = $1 
+        OR p.user_id = ANY($2::integer[])
+        OR (p.group_id IS NOT NULL AND p.group_id = ANY($3::integer[]))
+      )
+      ORDER BY p.path ASC, p.created_at DESC
     `
     
-    const params = groupIds.length > 0 ? [userId, groupIds] : [userId, [null]]
+    const params = [
+      userId, 
+      groupMemberIds.length > 0 ? groupMemberIds : [null],
+      allAccessibleGroupIds.length > 0 ? allAccessibleGroupIds : [null]
+    ]
     const result = await db.query(query, params)
     
     res.json({
@@ -4421,6 +4504,13 @@ app.get('/api/projects', authenticateToken, async (req, res) => {
         workBackground: row.work_background,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
+        userId: row.user_id,
+        groupId: row.group_id,
+        parentId: row.parent_id,
+        path: row.path || '/',
+        coverUrl: row.cover_url,
+        ownerName: row.owner_name || row.owner_username,
+        isOwner: row.user_id === userId,
       }))
     })
   } catch (error) {
@@ -4432,10 +4522,10 @@ app.get('/api/projects', authenticateToken, async (req, res) => {
   }
 })
 
-// 创建或更新项目（按用户隔离）
+// 创建或更新项目（按用户隔离，支持子文件夹）
 app.post('/api/projects', authenticateToken, async (req, res) => {
   try {
-    const { name, scriptTitle, scriptContent, workStyle, workBackground, analysisResult, segments } = req.body
+    const { name, scriptTitle, scriptContent, workStyle, workBackground, analysisResult, segments, parentId, coverUrl } = req.body
     const userId = req.user?.id
 
     if (!name) {
@@ -4455,10 +4545,23 @@ app.post('/api/projects', authenticateToken, async (req, res) => {
     const pool = await import('./db/connection.js')
     const db = pool.default
 
-    // 检查项目是否已存在（只检查当前用户的项目）
+    // 计算项目路径
+    let projectPath = '/'
+    if (parentId) {
+      const parentProject = await db.query(
+        'SELECT path, name FROM projects WHERE id = $1',
+        [parseInt(parentId)]
+      )
+      if (parentProject.rows.length > 0) {
+        const parentPath = parentProject.rows[0].path || '/'
+        projectPath = parentPath === '/' ? `/${parentProject.rows[0].name}` : `${parentPath}/${parentProject.rows[0].name}`
+      }
+    }
+
+    // 检查项目是否已存在（只检查当前用户的项目，同路径下同名）
     const existingProject = await db.query(
-      'SELECT id FROM projects WHERE name = $1 AND user_id = $2', 
-      [name, userId]
+      'SELECT id FROM projects WHERE name = $1 AND user_id = $2 AND path = $3', 
+      [name, userId, projectPath]
     )
 
     let project
@@ -4539,8 +4642,8 @@ app.post('/api/projects', authenticateToken, async (req, res) => {
       const { groupId } = req.body
       
       const result = await db.query(
-        `INSERT INTO projects (name, script_title, script_content, work_style, work_background, analysis_result, user_id, group_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `INSERT INTO projects (name, script_title, script_content, work_style, work_background, analysis_result, user_id, group_id, parent_id, path, cover_url)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
          RETURNING *`,
         [
           name,
@@ -4551,6 +4654,9 @@ app.post('/api/projects', authenticateToken, async (req, res) => {
           analysisResult ? JSON.stringify(analysisResult) : null,
           groupId ? null : userId, // 如果属于小组，user_id 为 null
           groupId || null,
+          parentId ? parseInt(parentId) : null,
+          projectPath,
+          coverUrl || null,
         ]
       )
       project = result.rows[0]
@@ -9006,6 +9112,261 @@ async function startServer() {
         success: false,
         error: error.message || '获取用户小组列表失败'
       })
+    }
+  })
+
+  // ==================== 小组共享和跨组访问API ====================
+
+  // 获取用户设置
+  app.get('/api/user/settings', authenticateToken, async (req, res) => {
+    try {
+      const userId = req.user?.id
+      if (!userId) {
+        return res.status(401).json({ success: false, error: '未登录' })
+      }
+
+      const pool = await import('./db/connection.js')
+      const db = pool.default
+
+      const result = await db.query(
+        'SELECT * FROM user_settings WHERE user_id = $1',
+        [userId]
+      )
+
+      if (result.rows.length === 0) {
+        // 返回默认设置
+        return res.json({
+          success: true,
+          data: {
+            enableCrossGroupSharing: false,
+            settingsJson: {}
+          }
+        })
+      }
+
+      res.json({
+        success: true,
+        data: {
+          enableCrossGroupSharing: result.rows[0].enable_cross_group_sharing,
+          settingsJson: result.rows[0].settings_json
+        }
+      })
+    } catch (error) {
+      console.error('获取用户设置失败:', error)
+      res.status(500).json({ success: false, error: '获取用户设置失败' })
+    }
+  })
+
+  // 更新用户设置
+  app.put('/api/user/settings', authenticateToken, async (req, res) => {
+    try {
+      const userId = req.user?.id
+      if (!userId) {
+        return res.status(401).json({ success: false, error: '未登录' })
+      }
+
+      const { enableCrossGroupSharing, settingsJson } = req.body
+      const pool = await import('./db/connection.js')
+      const db = pool.default
+
+      // 使用 upsert
+      const result = await db.query(
+        `INSERT INTO user_settings (user_id, enable_cross_group_sharing, settings_json, updated_at)
+         VALUES ($1, $2, $3, NOW())
+         ON CONFLICT (user_id) 
+         DO UPDATE SET 
+           enable_cross_group_sharing = COALESCE($2, user_settings.enable_cross_group_sharing),
+           settings_json = COALESCE($3, user_settings.settings_json),
+           updated_at = NOW()
+         RETURNING *`,
+        [userId, enableCrossGroupSharing, settingsJson ? JSON.stringify(settingsJson) : null]
+      )
+
+      res.json({
+        success: true,
+        data: {
+          enableCrossGroupSharing: result.rows[0].enable_cross_group_sharing,
+          settingsJson: result.rows[0].settings_json
+        }
+      })
+    } catch (error) {
+      console.error('更新用户设置失败:', error)
+      res.status(500).json({ success: false, error: '更新用户设置失败' })
+    }
+  })
+
+  // 设置/更新小组共享密码（仅组长可操作）
+  app.post('/api/groups/:groupId/share-password', authenticateToken, async (req, res) => {
+    try {
+      const userId = req.user?.id
+      const { groupId } = req.params
+      const { password } = req.body
+
+      if (!userId) {
+        return res.status(401).json({ success: false, error: '未登录' })
+      }
+
+      if (!password || password.length < 4) {
+        return res.status(400).json({ success: false, error: '密码至少4位' })
+      }
+
+      const pool = await import('./db/connection.js')
+      const db = pool.default
+
+      // 检查用户是否是该组的组长（role = 'leader' 或 'admin'）
+      const roleCheck = await db.query(
+        `SELECT role FROM user_groups WHERE user_id = $1 AND group_id = $2`,
+        [userId, parseInt(groupId)]
+      )
+
+      if (roleCheck.rows.length === 0 || !['leader', 'admin'].includes(roleCheck.rows[0].role)) {
+        return res.status(403).json({ success: false, error: '只有组长可以设置共享密码' })
+      }
+
+      // 使用 upsert 设置密码
+      await db.query(
+        `INSERT INTO group_share_passwords (group_id, share_password, created_by, updated_at)
+         VALUES ($1, $2, $3, NOW())
+         ON CONFLICT (group_id) 
+         DO UPDATE SET share_password = $2, updated_at = NOW()`,
+        [parseInt(groupId), password, userId]
+      )
+
+      res.json({ success: true, message: '共享密码已设置' })
+    } catch (error) {
+      console.error('设置共享密码失败:', error)
+      res.status(500).json({ success: false, error: '设置共享密码失败' })
+    }
+  })
+
+  // 验证密码并授予跨组访问权限
+  app.post('/api/groups/verify-password', authenticateToken, async (req, res) => {
+    try {
+      const userId = req.user?.id
+      const { groupId, password } = req.body
+
+      if (!userId) {
+        return res.status(401).json({ success: false, error: '未登录' })
+      }
+
+      if (!groupId || !password) {
+        return res.status(400).json({ success: false, error: '请提供小组ID和密码' })
+      }
+
+      const pool = await import('./db/connection.js')
+      const db = pool.default
+
+      // 验证密码
+      const passwordCheck = await db.query(
+        `SELECT * FROM group_share_passwords WHERE group_id = $1 AND share_password = $2`,
+        [parseInt(groupId), password]
+      )
+
+      if (passwordCheck.rows.length === 0) {
+        return res.status(401).json({ success: false, error: '密码错误' })
+      }
+
+      // 检查是否已有访问权限
+      const existingAccess = await db.query(
+        `SELECT * FROM cross_group_access WHERE user_id = $1 AND target_group_id = $2`,
+        [userId, parseInt(groupId)]
+      )
+
+      if (existingAccess.rows.length > 0) {
+        return res.json({ success: true, message: '已有访问权限' })
+      }
+
+      // 授予访问权限
+      await db.query(
+        `INSERT INTO cross_group_access (user_id, target_group_id, granted_by)
+         VALUES ($1, $2, $3)`,
+        [userId, parseInt(groupId), passwordCheck.rows[0].created_by]
+      )
+
+      res.json({ success: true, message: '访问权限已授予' })
+    } catch (error) {
+      console.error('验证密码失败:', error)
+      res.status(500).json({ success: false, error: '验证密码失败' })
+    }
+  })
+
+  // 获取所有可访问的小组列表（用于跨组共享）
+  app.get('/api/groups/accessible', authenticateToken, async (req, res) => {
+    try {
+      const userId = req.user?.id
+      if (!userId) {
+        return res.status(401).json({ success: false, error: '未登录' })
+      }
+
+      const pool = await import('./db/connection.js')
+      const db = pool.default
+
+      // 获取用户所在的小组
+      const userGroups = await db.query(
+        `SELECT g.id, g.name, ug.role, 'member' as access_type
+         FROM groups g
+         JOIN user_groups ug ON g.id = ug.group_id
+         WHERE ug.user_id = $1`,
+        [userId]
+      )
+
+      // 获取用户有跨组访问权限的小组
+      const crossGroups = await db.query(
+        `SELECT g.id, g.name, 'viewer' as role, 'cross' as access_type
+         FROM groups g
+         JOIN cross_group_access cga ON g.id = cga.target_group_id
+         WHERE cga.user_id = $1`,
+        [userId]
+      )
+
+      res.json({
+        success: true,
+        data: {
+          memberGroups: userGroups.rows,
+          crossAccessGroups: crossGroups.rows
+        }
+      })
+    } catch (error) {
+      console.error('获取可访问小组列表失败:', error)
+      res.status(500).json({ success: false, error: '获取可访问小组列表失败' })
+    }
+  })
+
+  // 获取所有小组列表（用于选择要访问的小组）
+  app.get('/api/groups/all', authenticateToken, async (req, res) => {
+    try {
+      const userId = req.user?.id
+      if (!userId) {
+        return res.status(401).json({ success: false, error: '未登录' })
+      }
+
+      const pool = await import('./db/connection.js')
+      const db = pool.default
+
+      // 获取所有小组（排除用户已加入的）
+      const result = await db.query(
+        `SELECT g.id, g.name, g.description,
+                (SELECT COUNT(*) FROM user_groups WHERE group_id = g.id) as member_count,
+                EXISTS(SELECT 1 FROM group_share_passwords WHERE group_id = g.id) as has_share_password
+         FROM groups g
+         WHERE g.id NOT IN (SELECT group_id FROM user_groups WHERE user_id = $1)
+         ORDER BY g.name`,
+        [userId]
+      )
+
+      res.json({
+        success: true,
+        data: result.rows.map(row => ({
+          id: row.id,
+          name: row.name,
+          description: row.description,
+          memberCount: parseInt(row.member_count),
+          hasSharePassword: row.has_share_password
+        }))
+      })
+    } catch (error) {
+      console.error('获取所有小组列表失败:', error)
+      res.status(500).json({ success: false, error: '获取所有小组列表失败' })
     }
   })
 

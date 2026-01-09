@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { X, Settings as SettingsIcon } from 'lucide-react'
+import { X, Settings as SettingsIcon, Users, Lock } from 'lucide-react'
 import { getUserSettings, saveUserSettings, UserSettings } from '../services/settingsService'
-import { alertSuccess, alertError } from '../utils/alert'
+import { alertSuccess, alertError, alertInfo } from '../utils/alert'
 import ToggleSwitch from './ToggleSwitch'
 import RadioButton from './RadioButton'
 
@@ -10,16 +10,137 @@ interface SettingsModalProps {
   onClose: () => void
 }
 
+const API_BASE_URL = (() => {
+  if (import.meta.env.VITE_API_BASE_URL !== undefined) return import.meta.env.VITE_API_BASE_URL
+  const isProduction = !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')
+  return isProduction ? '' : 'http://localhost:3002'
+})()
+
 function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [settings, setSettings] = useState<UserSettings>(getUserSettings())
   const [isSaving, setIsSaving] = useState(false)
+  
+  // 跨组共享相关状态
+  const [enableCrossGroupSharing, setEnableCrossGroupSharing] = useState(false)
+  const [crossGroupPassword, setCrossGroupPassword] = useState('')
+  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null)
+  const [availableGroups, setAvailableGroups] = useState<Array<{
+    id: number
+    name: string
+    description: string
+    memberCount: number
+    hasSharePassword: boolean
+  }>>([])
+  const [isVerifying, setIsVerifying] = useState(false)
 
   // 当模态框打开时，重新加载设置
   useEffect(() => {
     if (isOpen) {
       setSettings(getUserSettings())
+      loadServerSettings()
+      loadAvailableGroups()
     }
   }, [isOpen])
+
+  // 从服务器加载设置
+  const loadServerSettings = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) return
+
+      const response = await fetch(`${API_BASE_URL}/api/user/settings`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      
+      if (response.ok) {
+        const result = await response.json()
+        if (result.success) {
+          setEnableCrossGroupSharing(result.data.enableCrossGroupSharing || false)
+        }
+      }
+    } catch (error) {
+      console.error('加载服务器设置失败:', error)
+    }
+  }
+
+  // 加载可访问的小组列表
+  const loadAvailableGroups = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) return
+
+      const response = await fetch(`${API_BASE_URL}/api/groups/all`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      
+      if (response.ok) {
+        const result = await response.json()
+        if (result.success) {
+          setAvailableGroups(result.data)
+        }
+      }
+    } catch (error) {
+      console.error('加载小组列表失败:', error)
+    }
+  }
+
+  // 验证密码并获取跨组访问权限
+  const handleVerifyPassword = async () => {
+    if (!selectedGroupId || !crossGroupPassword) {
+      alertError('请选择小组并输入密码', '错误')
+      return
+    }
+
+    setIsVerifying(true)
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${API_BASE_URL}/api/groups/verify-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          groupId: selectedGroupId,
+          password: crossGroupPassword
+        })
+      })
+
+      const result = await response.json()
+      if (result.success) {
+        alertSuccess('访问权限已获取！', '成功')
+        setCrossGroupPassword('')
+        setSelectedGroupId(null)
+        loadAvailableGroups() // 刷新列表
+      } else {
+        alertError(result.error || '密码验证失败', '错误')
+      }
+    } catch (error) {
+      console.error('验证密码失败:', error)
+      alertError('验证失败，请稍后重试', '错误')
+    } finally {
+      setIsVerifying(false)
+    }
+  }
+
+  // 更新跨组共享设置
+  const handleCrossGroupSharingChange = async (enabled: boolean) => {
+    setEnableCrossGroupSharing(enabled)
+    
+    try {
+      const token = localStorage.getItem('token')
+      await fetch(`${API_BASE_URL}/api/user/settings`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ enableCrossGroupSharing: enabled })
+      })
+    } catch (error) {
+      console.error('更新跨组共享设置失败:', error)
+    }
+  }
 
   const handleSave = () => {
     setIsSaving(true)
@@ -36,8 +157,6 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   const handleReset = () => {
     if (window.confirm('确定要重置所有设置为默认值吗？')) {
-      const defaultSettings = getUserSettings()
-      // 重置为默认值
       setSettings({
         jianying: {
           autoCreateProject: false,
@@ -88,6 +207,71 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
         {/* 内容 */}
         <div className="p-6 space-y-8">
+          {/* 小组共享设置 */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+              <span className="w-2 h-2 bg-pink-500 rounded-full"></span>
+              小组共享设置
+            </h3>
+            
+            <div className="space-y-4 pl-4">
+              <div className="flex items-center justify-between gap-4 cursor-pointer group">
+                <div className="flex-1">
+                  <div className="font-medium text-gray-700 group-hover:text-gray-900 flex items-center gap-2">
+                    <Users size={16} />
+                    与其他小组共享文件夹
+                  </div>
+                  <div className="text-sm text-gray-500 mt-1">
+                    开启后，可以通过输入密码访问其他小组的项目文件夹
+                  </div>
+                </div>
+                <ToggleSwitch
+                  checked={enableCrossGroupSharing}
+                  onChange={handleCrossGroupSharingChange}
+                />
+              </div>
+
+              {/* 跨组访问密码输入 */}
+              {enableCrossGroupSharing && (
+                <div className="mt-4 p-4 bg-gray-50 rounded-lg space-y-3">
+                  <div className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                    <Lock size={14} />
+                    输入其他小组的共享密码
+                  </div>
+                  
+                  <select
+                    value={selectedGroupId || ''}
+                    onChange={(e) => setSelectedGroupId(e.target.value ? parseInt(e.target.value) : null)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500"
+                  >
+                    <option value="">选择要访问的小组</option>
+                    {availableGroups.filter(g => g.hasSharePassword).map(group => (
+                      <option key={group.id} value={group.id}>
+                        {group.name} ({group.memberCount}人)
+                      </option>
+                    ))}
+                  </select>
+
+                  <input
+                    type="password"
+                    value={crossGroupPassword}
+                    onChange={(e) => setCrossGroupPassword(e.target.value)}
+                    placeholder="输入小组共享密码"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500"
+                  />
+
+                  <button
+                    onClick={handleVerifyPassword}
+                    disabled={!selectedGroupId || !crossGroupPassword || isVerifying}
+                    className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isVerifying ? '验证中...' : '验证并获取访问权限'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* 剪映设置 */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
@@ -355,5 +539,3 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 }
 
 export default SettingsModal
-
-

@@ -177,6 +177,8 @@ export async function createOrUpdateProject(params: {
   workBackground?: string
   analysisResult?: ScriptAnalysisResult
   segments?: ScriptSegment[] // 分镜数据
+  parentId?: number // 父项目ID（用于创建子文件夹）
+  coverUrl?: string // 封面图URL
 }): Promise<{ id: number; name: string; scriptTitle?: string; scriptContent?: string; workStyle?: string; analysisResult?: ScriptAnalysisResult }> {
   try {
     const token = AuthService.getToken()

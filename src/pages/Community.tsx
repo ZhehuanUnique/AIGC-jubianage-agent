@@ -193,6 +193,94 @@ function Community() {
     loadVideos()
   }, [page, sortBy])
 
+  // 键盘快捷键支持（当有视频正在播放时）
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 如果用户在输入框中，不处理快捷键
+      const target = e.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return
+      }
+
+      // 如果没有正在播放的视频，不处理快捷键
+      if (!playingVideoId) return
+      
+      const videoEl = videoRefs.current.get(playingVideoId)
+      if (!videoEl) return
+
+      switch (e.code) {
+        case 'Space': // 空格键：播放/暂停
+          e.preventDefault()
+          e.stopPropagation()
+          if (videoEl.paused) {
+            videoEl.play()
+            setPlayingVideoId(playingVideoId)
+          } else {
+            videoEl.pause()
+            setPlayingVideoId(null)
+          }
+          break
+        case 'KeyF': // F键：全屏
+          e.preventDefault()
+          if (videoEl.requestFullscreen) {
+            videoEl.requestFullscreen()
+          } else if ((videoEl as any).webkitRequestFullscreen) {
+            (videoEl as any).webkitRequestFullscreen()
+          }
+          break
+        case 'Escape': // ESC键：退出全屏
+          if (document.fullscreenElement) {
+            e.preventDefault()
+            document.exitFullscreen()
+          }
+          break
+        case 'ArrowLeft': // 左方向键：后退5秒
+          e.preventDefault()
+          videoEl.currentTime = Math.max(0, videoEl.currentTime - 5)
+          break
+        case 'ArrowRight': // 右方向键：前进5秒
+          e.preventDefault()
+          videoEl.currentTime = Math.min(videoEl.duration || 0, videoEl.currentTime + 5)
+          break
+        case 'ArrowUp': // 上方向键：增加音量
+          e.preventDefault()
+          {
+            const newVolume = Math.min(100, videoVolume + 10)
+            setVideoVolume(newVolume)
+            setVideoMuted(false)
+            videoEl.volume = newVolume / 100
+            videoEl.muted = false
+          }
+          break
+        case 'ArrowDown': // 下方向键：减少音量
+          e.preventDefault()
+          {
+            const newVolume = Math.max(0, videoVolume - 10)
+            setVideoVolume(newVolume)
+            if (newVolume === 0) {
+              setVideoMuted(true)
+              videoEl.muted = true
+            }
+            videoEl.volume = newVolume / 100
+          }
+          break
+        case 'KeyM': // M键：静音/取消静音
+          e.preventDefault()
+          {
+            const newMuted = !videoMuted
+            setVideoMuted(newMuted)
+            videoEl.muted = newMuted
+          }
+          break
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown, { capture: true })
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown, { capture: true })
+    }
+  }, [playingVideoId, videoVolume, videoMuted])
+
   // 切换点赞
   const handleToggleLike = async (videoId: number, e: React.MouseEvent) => {
     e.stopPropagation()

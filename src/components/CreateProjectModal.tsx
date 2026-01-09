@@ -1,21 +1,48 @@
-import { useState } from 'react'
-import { X, Upload } from 'lucide-react'
-import { createOrUpdateProject } from '../services/api'
+import { useState, useEffect } from 'react'
+import { X, Upload, FolderOpen } from 'lucide-react'
+import { createOrUpdateProject, getProjects } from '../services/api'
 import { alertError, alertSuccess } from '../utils/alert'
+import { uploadImageToCOS } from '../services/cosUpload'
 
 interface CreateProjectModalProps {
   onClose: () => void
-  onProjectCreated?: () => void // 项目创建成功后的回调
+  onProjectCreated?: () => void
+  parentProject?: { id: number; name: string; path: string } | null
 }
 
-function CreateProjectModal({ onClose, onProjectCreated }: CreateProjectModalProps) {
+interface ProjectOption {
+  id: number
+  name: string
+  path: string
+}
+
+function CreateProjectModal({ onClose, onProjectCreated, parentProject }: CreateProjectModalProps) {
   const [projectName, setProjectName] = useState('')
-  const [projectDescription, setProjectDescription] = useState('')
+  const [selectedParentId, setSelectedParentId] = useState<number | null>(parentProject?.id || null)
   const [coverImage, setCoverImage] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
+  const [projects, setProjects] = useState<ProjectOption[]>([])
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // 加载项目列表用于选择父项目
+  useEffect(() => {
+    const loadProjects = async () => {
+      try {
+        const projectList = await getProjects()
+        setProjects(projectList.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          path: p.path || '/'
+        })))
+      } catch (error) {
+        console.error('加载项目列表失败:', error)
+      }
+    }
+    loadProjects()
+  }, [])
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
       setCoverImage(file)
@@ -24,7 +51,6 @@ function CreateProjectModal({ onClose, onProjectCreated }: CreateProjectModalPro
   }
 
   const handleSubmit = async () => {
-    // 验证项目名称
     if (!projectName.trim()) {
       alertError('请输入项目名称', '错误')
       return
@@ -33,20 +59,35 @@ function CreateProjectModal({ onClose, onProjectCreated }: CreateProjectModalPro
     setIsSubmitting(true)
 
     try {
+      let coverUrl: string | undefined
+
+      // 如果有封面图，先上传到COS
+      if (coverImage) {
+        setIsUploading(true)
+        try {
+          const result = await uploadImageToCOS(coverImage, 'project-covers')
+          coverUrl = result.url
+        } catch (uploadError) {
+          console.error('上传封面图失败:', uploadError)
+          // 继续创建项目，只是没有封面
+        } finally {
+          setIsUploading(false)
+        }
+      }
+
       // 调用 API 创建项目
       await createOrUpdateProject({
         name: projectName.trim(),
-        workBackground: projectDescription.trim() || undefined,
+        parentId: selectedParentId || undefined,
+        coverUrl,
       })
 
       alertSuccess('项目创建成功！', '成功')
       
-      // 调用回调刷新项目列表
       if (onProjectCreated) {
         onProjectCreated()
       }
       
-      // 关闭弹窗
       onClose()
     } catch (error) {
       console.error('创建项目失败:', error)
@@ -57,6 +98,15 @@ function CreateProjectModal({ onClose, onProjectCreated }: CreateProjectModalPro
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  // 计算完整路径预览
+  const getFullPath = () => {
+    if (!selectedParentId) return `/${projectName || '新项目'}`
+    const parent = projects.find(p => p.id === selectedParentId)
+    if (!parent) return `/${projectName || '新项目'}`
+    const parentPath = parent.path === '/' ? `/${parent.name}` : `${parent.path}/${parent.name}`
+    return `${parentPath}/${projectName || '新项目'}`
   }
 
   return (
@@ -89,21 +139,33 @@ function CreateProjectModal({ onClose, onProjectCreated }: CreateProjectModalPro
             />
           </div>
 
-          {/* 项目说明 */}
+          {/* 项目路径（父项目选择） */}
           <div>
-            <label className="block text-sm mb-2">项目说明</label>
-            <textarea
-              value={projectDescription}
-              onChange={(e) => setProjectDescription(e.target.value)}
-              placeholder="请填写项目说明"
-              rows={4}
-              className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 resize-none"
-            />
+            <label className="block text-sm mb-2">
+              <FolderOpen size={14} className="inline mr-1" />
+              项目路径
+            </label>
+            <select
+              value={selectedParentId || ''}
+              onChange={(e) => setSelectedParentId(e.target.value ? parseInt(e.target.value) : null)}
+              className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500"
+            >
+              <option value="">根目录 /</option>
+              {projects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.path === '/' ? `/${project.name}` : `${project.path}/${project.name}`}
+                </option>
+              ))}
+            </select>
+            {/* 路径预览 */}
+            <div className="mt-2 text-sm text-gray-500">
+              完整路径: <span className="text-purple-600 font-medium">{getFullPath()}</span>
+            </div>
           </div>
 
           {/* 上传封面图 */}
           <div>
-            <label className="block text-sm mb-2">上传项目封面图（最佳尺寸:4:3）</label>
+            <label className="block text-sm mb-2">上传项目封面图（最佳尺寸: 16:9）</label>
             <div className="border-2 border-dashed border-purple-500 rounded-lg p-8 text-center">
               <input
                 type="file"
@@ -118,6 +180,7 @@ function CreateProjectModal({ onClose, onProjectCreated }: CreateProjectModalPro
                     <img src={previewUrl} alt="预览" className="max-h-64 mx-auto rounded" />
                     <button
                       onClick={(e) => {
+                        e.preventDefault()
                         e.stopPropagation()
                         setCoverImage(null)
                         setPreviewUrl(null)
@@ -129,11 +192,11 @@ function CreateProjectModal({ onClose, onProjectCreated }: CreateProjectModalPro
                   </div>
                 ) : (
                   <div className="flex flex-col items-center gap-2">
-                    <div className="w-16 h-16 rounded-lg bg-purple-600 flex items-center justify-center">
+                    <div className="w-16 h-16 rounded-lg bg-gradient-to-r from-pink-500 to-purple-600 flex items-center justify-center cursor-pointer hover:from-pink-600 hover:to-purple-700 transition-all">
                       <Upload size={24} className="text-white" />
                     </div>
                     <p className="text-gray-600 text-sm">单击或拖动文件到此区域进行上传</p>
-                    <p className="text-gray-500 text-xs">支持JPG / JPEG / PNG格式</p>
+                    <p className="text-gray-500 text-xs">支持JPG / JPEG / PNG格式，推荐16:9比例</p>
                   </div>
                 )}
               </label>
@@ -154,7 +217,7 @@ function CreateProjectModal({ onClose, onProjectCreated }: CreateProjectModalPro
               disabled={isSubmitting || !projectName.trim()}
               className="px-8 py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-lg hover:from-pink-600 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isSubmitting ? '创建中...' : '创建项目'}
+              {isUploading ? '上传封面中...' : isSubmitting ? '创建中...' : '创建项目'}
             </button>
           </div>
         </div>
