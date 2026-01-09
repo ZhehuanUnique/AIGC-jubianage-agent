@@ -134,7 +134,7 @@ function FirstLastFrameVideo() {
   const [hoveredVideoId, setHoveredVideoId] = useState<string | null>(null)
   const videoRefs = useRef<Map<string, HTMLVideoElement>>(new Map())
   const [deleteConfirmState, setDeleteConfirmState] = useState<{ isOpen: boolean; taskId: string | null }>({ isOpen: false, taskId: null })
-  const [frameInterpolationModal, setFrameInterpolationModal] = useState<{ isOpen: boolean; taskId: string | null; currentFps?: number }>({ isOpen: false, taskId: null })
+  const [frameInterpolationModal, setFrameInterpolationModal] = useState<{ isOpen: boolean; taskId: string | null; currentFps?: number; isLoadingFps?: boolean }>({ isOpen: false, taskId: null })
   const [previewImage, setPreviewImage] = useState<{ url: string; type: 'first' | 'last' } | null>(null)
   const [generatingTask, setGeneratingTask] = useState<{ taskId: string; progress: number; status: 'accelerating' | 'generating'; startTime: number } | null>(null)
   
@@ -1731,29 +1731,40 @@ function FirstLastFrameVideo() {
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation()
-                                          // 立即打开弹窗，使用缓存的fps或默认值24
-                                          const currentFps = task.fps || 24
-                                          setFrameInterpolationModal({ isOpen: true, taskId: task.id, currentFps })
-                                          
-                                          // 如果没有缓存的fps，异步获取并更新（不阻塞弹窗打开）
-                                          if (!task.fps && task.videoUrl) {
-                                            getVideoFps(task.videoUrl).then(detectedFps => {
-                                              // 更新弹窗中的fps显示
-                                              setFrameInterpolationModal(prev => 
-                                                prev.isOpen && prev.taskId === task.id 
-                                                  ? { ...prev, currentFps: detectedFps }
-                                                  : prev
-                                              )
-                                              // 同时更新任务列表中的fps缓存
-                                              setAllTasks(prev => prev.map(t => 
-                                                t.id === task.id ? { ...t, fps: detectedFps } : t
-                                              ))
-                                              setTasks(prev => prev.map(t => 
-                                                t.id === task.id ? { ...t, fps: detectedFps } : t
-                                              ))
-                                            }).catch(err => {
-                                              console.warn('获取视频帧率失败，使用默认值:', err)
-                                            })
+                                          // 如果有缓存的fps，直接使用；否则显示加载状态
+                                          if (task.fps) {
+                                            // 有缓存，直接打开弹窗
+                                            setFrameInterpolationModal({ isOpen: true, taskId: task.id, currentFps: task.fps, isLoadingFps: false })
+                                          } else {
+                                            // 没有缓存，打开弹窗并显示加载状态
+                                            setFrameInterpolationModal({ isOpen: true, taskId: task.id, currentFps: undefined, isLoadingFps: true })
+                                            
+                                            // 异步获取fps
+                                            if (task.videoUrl) {
+                                              getVideoFps(task.videoUrl).then(detectedFps => {
+                                                // 更新弹窗中的fps显示
+                                                setFrameInterpolationModal(prev => 
+                                                  prev.isOpen && prev.taskId === task.id 
+                                                    ? { ...prev, currentFps: detectedFps, isLoadingFps: false }
+                                                    : prev
+                                                )
+                                                // 同时更新任务列表中的fps缓存
+                                                setAllTasks(prev => prev.map(t => 
+                                                  t.id === task.id ? { ...t, fps: detectedFps } : t
+                                                ))
+                                                setTasks(prev => prev.map(t => 
+                                                  t.id === task.id ? { ...t, fps: detectedFps } : t
+                                                ))
+                                              }).catch(err => {
+                                                console.warn('获取视频帧率失败，使用默认值:', err)
+                                                // 获取失败时使用默认值24
+                                                setFrameInterpolationModal(prev => 
+                                                  prev.isOpen && prev.taskId === task.id 
+                                                    ? { ...prev, currentFps: 24, isLoadingFps: false }
+                                                    : prev
+                                                )
+                                              })
+                                            }
                                           }
                                         }}
                                         className="px-3 py-1.5 bg-black bg-opacity-60 hover:bg-opacity-80 text-white rounded-lg text-sm transition-all flex items-center gap-2"
@@ -2437,7 +2448,8 @@ function FirstLastFrameVideo() {
       <FrameInterpolationModal
         isOpen={frameInterpolationModal.isOpen}
         onClose={() => setFrameInterpolationModal({ isOpen: false, taskId: null })}
-        currentFps={frameInterpolationModal.currentFps || 24}
+        currentFps={frameInterpolationModal.currentFps}
+        isLoadingFps={frameInterpolationModal.isLoadingFps}
         onConfirm={async (targetFps, method) => {
           if (!frameInterpolationModal.taskId) return
           

@@ -5,17 +5,22 @@ interface FrameInterpolationModalProps {
   isOpen: boolean
   onClose: () => void
   onConfirm: (targetFps: number, method: 'rife' | 'ffmpeg') => void
-  currentFps?: number // 当前视频帧率（如果已知）
+  currentFps?: number // 当前视频帧率（如果已知），undefined表示正在加载
+  isLoadingFps?: boolean // 是否正在加载帧率
 }
 
 export function FrameInterpolationModal({
   isOpen,
   onClose,
   onConfirm,
-  currentFps = 24, // 默认24 FPS
+  currentFps,
+  isLoadingFps = false,
 }: FrameInterpolationModalProps) {
   const [selectedMethod, setSelectedMethod] = useState<'rife' | 'ffmpeg'>('rife')
   const [selectedFps, setSelectedFps] = useState<number>(30)
+
+  // 实际使用的帧率（加载中时使用24作为计算基准，但不显示）
+  const effectiveFps = currentFps || 24
 
   // 根据技术选择计算可用的帧率选项
   const fpsOptions = useMemo(() => {
@@ -23,8 +28,8 @@ export function FrameInterpolationModal({
       // RIFE使用2的幂次倍数：2x, 4x, 8x等
       const multipliers = [2, 4, 8] // 可以扩展到16等
       return multipliers.map(mult => ({
-        value: Math.round(currentFps * mult),
-        label: `${Math.round(currentFps * mult)} FPS (${mult}x)`,
+        value: Math.round(effectiveFps * mult),
+        label: `${Math.round(effectiveFps * mult)} FPS (${mult}x)`,
         multiplier: mult,
       }))
     } else {
@@ -34,14 +39,14 @@ export function FrameInterpolationModal({
         { value: 60, label: '60 FPS', multiplier: null },
       ]
     }
-  }, [selectedMethod, currentFps])
+  }, [selectedMethod, effectiveFps])
 
   // 当技术选择改变时，自动选择第一个可用选项
   useEffect(() => {
     if (fpsOptions.length > 0) {
       setSelectedFps(fpsOptions[0].value)
     }
-  }, [selectedMethod, currentFps]) // 移除fpsOptions依赖，避免循环
+  }, [selectedMethod, effectiveFps]) // 移除fpsOptions依赖，避免循环
 
   // 当弹窗打开时，重置选择
   useEffect(() => {
@@ -49,10 +54,10 @@ export function FrameInterpolationModal({
       setSelectedMethod('rife')
       // 计算初始fpsOptions（RIFE模式）
       const initialMultipliers = [2, 4, 8]
-      const initialFps = Math.round(currentFps * initialMultipliers[0])
+      const initialFps = Math.round(effectiveFps * initialMultipliers[0])
       setSelectedFps(initialFps)
     }
-  }, [isOpen, currentFps]) // 移除fpsOptions依赖，避免循环
+  }, [isOpen, effectiveFps]) // 移除fpsOptions依赖，避免循环
 
   if (!isOpen) return null
 
@@ -60,6 +65,11 @@ export function FrameInterpolationModal({
     onConfirm(selectedFps, selectedMethod)
     onClose()
   }
+
+  // 骨架屏加载组件
+  const SkeletonLoader = ({ className = '' }: { className?: string }) => (
+    <div className={`animate-pulse bg-gray-200 rounded ${className}`} />
+  )
 
   return (
     <div
@@ -91,8 +101,12 @@ export function FrameInterpolationModal({
             <label className="block text-sm font-medium text-gray-700 mb-2">
               当前帧率
             </label>
-            <div className="px-4 py-2 bg-gray-50 rounded-lg text-gray-900">
-              {currentFps} FPS
+            <div className="px-4 py-2 bg-gray-50 rounded-lg text-gray-900 min-h-[40px] flex items-center">
+              {isLoadingFps || currentFps === undefined ? (
+                <SkeletonLoader className="h-5 w-20" />
+              ) : (
+                `${currentFps} FPS`
+              )}
             </div>
           </div>
 
@@ -141,19 +155,28 @@ export function FrameInterpolationModal({
               调整至
             </label>
             <div className="space-y-2">
-              {fpsOptions.map((option) => (
-                <button
-                  key={option.value}
-                  onClick={() => setSelectedFps(option.value)}
-                  className={`w-full px-4 py-2 rounded-lg text-sm font-medium transition-all text-left ${
-                    selectedFps === option.value
-                      ? 'bg-purple-100 text-purple-700 border-2 border-purple-500'
-                      : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border-2 border-transparent'
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
+              {isLoadingFps || currentFps === undefined ? (
+                // 加载中显示骨架屏
+                <>
+                  <SkeletonLoader className="h-10 w-full" />
+                  <SkeletonLoader className="h-10 w-full" />
+                  <SkeletonLoader className="h-10 w-full" />
+                </>
+              ) : (
+                fpsOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => setSelectedFps(option.value)}
+                    className={`w-full px-4 py-2 rounded-lg text-sm font-medium transition-all text-left ${
+                      selectedFps === option.value
+                        ? 'bg-purple-100 text-purple-700 border-2 border-purple-500'
+                        : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border-2 border-transparent'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -168,7 +191,8 @@ export function FrameInterpolationModal({
           </button>
           <button
             onClick={handleConfirm}
-            className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+            disabled={isLoadingFps || currentFps === undefined}
+            className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             立即生成
           </button>

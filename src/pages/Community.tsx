@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Heart, MessageCircle, Eye, Share2, Plus, Home, Clock, TrendingUp, Flame, Bell, User, ChevronDown, Settings, Play, Crown } from 'lucide-react'
+import { Search, Heart, MessageCircle, Eye, Share2, Plus, Home, Clock, TrendingUp, Flame, Bell, User, ChevronDown, Settings, Play, Pause, Crown, Volume2, VolumeX, Maximize, PictureInPicture2 } from 'lucide-react'
 import { getCommunityVideos, toggleVideoLike, CommunityVideo } from '../services/api'
 import { alertError } from '../utils/alert'
 import { AuthService } from '../services/auth'
 import NavigationBar from '../components/NavigationBar'
 import HamsterLoader from '../components/HamsterLoader'
+import { VideoCardSkeletonList } from '../components/VideoCardSkeleton'
+import { VideoPlayerControls } from '../components/VideoPlayerControls'
 
 // 左侧导航菜单项
 const leftMenuItems = [
@@ -44,6 +46,12 @@ function Community() {
   const [hoveredAvatarVideoId, setHoveredAvatarVideoId] = useState<number | null>(null) // 悬停头像的视频ID
   const videoRefs = useRef<Map<number, HTMLVideoElement>>(new Map())
   const [videoProgress, setVideoProgress] = useState<Map<number, number>>(new Map()) // 视频播放进度（百分比）
+  // 微博风格视频控制状态
+  const [videoCurrentTime, setVideoCurrentTime] = useState<Map<number, number>>(new Map())
+  const [videoDuration, setVideoDuration] = useState<Map<number, number>>(new Map())
+  const [videoVolume, setVideoVolume] = useState(100)
+  const [videoMuted, setVideoMuted] = useState(false)
+  const [hoveredVideoId, setHoveredVideoId] = useState<number | null>(null) // 悬停的视频ID（用于显示控制栏）
 
   useEffect(() => {
     const user = AuthService.getCurrentUser()
@@ -558,10 +566,12 @@ function Community() {
                         </div>
                       )}
 
-                      {/* 视频播放器 - 点击直接播放 */}
+                      {/* 视频播放器 - 微博风格 */}
                       <div 
-                        className="relative bg-black cursor-pointer"
+                        className="relative bg-black cursor-pointer group"
                         style={{ aspectRatio: `${videoAspectRatios.get(video.id) || 16/9}` }}
+                        onMouseEnter={() => setHoveredVideoId(video.id)}
+                        onMouseLeave={() => setHoveredVideoId(null)}
                         onClick={() => {
                           if (isPlaying) {
                             // 如果正在播放，暂停
@@ -580,6 +590,8 @@ function Community() {
                             // 播放当前视频
                             const videoEl = videoRefs.current.get(video.id)
                             if (videoEl) {
+                              videoEl.muted = videoMuted
+                              videoEl.volume = videoVolume / 100
                               videoEl.play().catch(() => {})
                             }
                             setPlayingVideoId(video.id)
@@ -597,7 +609,7 @@ function Community() {
                             }}
                             src={video.videoUrl}
                             className="w-full h-full object-contain"
-                            muted={!isPlaying}
+                            muted={videoMuted}
                             loop
                             playsInline
                             preload="metadata"
@@ -605,12 +617,14 @@ function Community() {
                               const videoEl = e.currentTarget
                               const ratio = videoEl.videoWidth / videoEl.videoHeight
                               setVideoAspectRatios(prev => new Map(prev).set(video.id, ratio))
+                              setVideoDuration(prev => new Map(prev).set(video.id, videoEl.duration))
                             }}
                             onTimeUpdate={(e) => {
                               const videoEl = e.currentTarget
                               if (videoEl.duration > 0) {
                                 const progress = (videoEl.currentTime / videoEl.duration) * 100
                                 setVideoProgress(prev => new Map(prev).set(video.id, progress))
+                                setVideoCurrentTime(prev => new Map(prev).set(video.id, videoEl.currentTime))
                               }
                             }}
                           />
@@ -643,7 +657,7 @@ function Community() {
                         {/* 右下角作者头像 - 仅在播放时显示 */}
                         {isPlaying && (
                           <div 
-                            className="absolute bottom-4 right-4 z-10"
+                            className="absolute bottom-20 right-4 z-10"
                             onMouseEnter={() => setHoveredAvatarVideoId(video.id)}
                             onMouseLeave={() => setHoveredAvatarVideoId(null)}
                             onClick={(e) => e.stopPropagation()}
@@ -690,18 +704,67 @@ function Community() {
                           </div>
                         )}
 
-                        {/* 播放时显示进度条 */}
-                        {isPlaying && (
-                          <div className="absolute bottom-0 left-0 right-16 bg-gradient-to-t from-black via-black/80 to-transparent p-3">
-                            <div className="flex items-center gap-2 text-white text-sm">
-                              <div className="flex-1 h-1 bg-gray-600 rounded-full overflow-hidden">
-                                <div 
-                                  className="h-full bg-white transition-all duration-300"
-                                  style={{ width: `${videoProgress.get(video.id) || 0}%` }}
-                                ></div>
-                              </div>
-                            </div>
-                          </div>
+                        {/* 微博风格控制栏 - 播放时显示 */}
+                        {isPlaying && (hoveredVideoId === video.id || true) && (
+                          <VideoPlayerControls
+                            videoRef={{ current: videoRefs.current.get(video.id) || null }}
+                            isPlaying={isPlaying}
+                            currentTime={videoCurrentTime.get(video.id) || 0}
+                            duration={videoDuration.get(video.id) || video.duration || 0}
+                            volume={videoVolume}
+                            isMuted={videoMuted}
+                            resolution={video.resolution || '720p'}
+                            onPlayPause={() => {
+                              const videoEl = videoRefs.current.get(video.id)
+                              if (videoEl) {
+                                if (isPlaying) {
+                                  videoEl.pause()
+                                  setPlayingVideoId(null)
+                                } else {
+                                  videoEl.play().catch(() => {})
+                                  setPlayingVideoId(video.id)
+                                }
+                              }
+                            }}
+                            onSeek={(time) => {
+                              const videoEl = videoRefs.current.get(video.id)
+                              if (videoEl) {
+                                videoEl.currentTime = time
+                              }
+                            }}
+                            onVolumeChange={(vol) => {
+                              setVideoVolume(vol)
+                              setVideoMuted(vol === 0)
+                              const videoEl = videoRefs.current.get(video.id)
+                              if (videoEl) {
+                                videoEl.volume = vol / 100
+                                videoEl.muted = vol === 0
+                              }
+                            }}
+                            onMuteToggle={() => {
+                              const newMuted = !videoMuted
+                              setVideoMuted(newMuted)
+                              const videoEl = videoRefs.current.get(video.id)
+                              if (videoEl) {
+                                videoEl.muted = newMuted
+                              }
+                            }}
+                            onFullscreen={() => {
+                              const videoEl = videoRefs.current.get(video.id)
+                              if (videoEl) {
+                                if (videoEl.requestFullscreen) {
+                                  videoEl.requestFullscreen()
+                                }
+                              }
+                            }}
+                            onPictureInPicture={() => {
+                              const videoEl = videoRefs.current.get(video.id)
+                              if (videoEl && document.pictureInPictureEnabled) {
+                                videoEl.requestPictureInPicture().catch(() => {})
+                              }
+                            }}
+                            showExpandButton={false}
+                          />
                         )}
                       </div>
 
