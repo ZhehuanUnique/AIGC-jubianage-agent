@@ -680,9 +680,9 @@ app.post('/api/first-last-frame-video/generate', authenticateToken, uploadImage.
 
     // 根据模型选择不同的服务
     let result
-    if (model === 'volcengine-video-3.0-pro' || model === 'doubao-seedance-3.0-pro') {
-      // 使用火山引擎即梦-3.0Pro
-      console.log('📹 收到即梦-3.0Pro生视频请求（保存到项目文件夹）:', {
+    if (model === 'volcengine-video-3.0-pro' || model === 'doubao-seedance-3.0-pro' || model === 'seedance-3.0-lite') {
+      // 使用302.AI Seedance（即梦-3.0）
+      console.log('📹 收到即梦-3.0生视频请求（302.AI Seedance）:', {
         projectId,
         projectName: project.name,
         firstFrameUrl: firstFrameUrl.substring(0, 100) + '...',
@@ -695,20 +695,18 @@ app.post('/api/first-last-frame-video/generate', authenticateToken, uploadImage.
         mode: hasLastFrame ? 'first_last_frame' : 'single_frame',
       })
 
-      // 火山引擎即梦-3.0Pro（通过ARK API）支持首尾帧模式
+      // 302.AI Seedance 支持首尾帧模式
       if (hasLastFrame) {
-        console.log('✅ 使用即梦-3.0Pro首尾帧模式生成视频')
+        console.log('✅ 使用302.AI Seedance首尾帧模式生成视频')
       }
 
-      const { generateVideoWithVolcengine } = await import('./services/volcengineVideoService.js')
-      result = await generateVideoWithVolcengine(firstFrameUrl, {
-        model: 'volcengine-video-3.0-pro',
+      const { generateVideoWithSeedance } = await import('./services/seedanceService.js')
+      result = await generateVideoWithSeedance(firstFrameUrl, {
+        model: 'seedance-3.0-lite', // 使用302.AI的lite版本
         text,
         resolution,
         ratio,
         duration: parseInt(duration),
-        serviceTier: 'offline', // 使用离线推理，更稳定
-        generateAudio: true,
         lastFrameUrl: hasLastFrame ? lastFrameUrl : null, // 传递尾帧URL（如果提供）
       })
     } else if (model === 'veo3.1' || model === 'veo3.1-pro') {
@@ -1053,10 +1051,10 @@ app.get('/api/first-last-frame-video/status/:taskId', authenticateToken, async (
 
     // 根据模型选择不同的状态查询服务
     let result
-    if (model === 'volcengine-video-3.0-pro' || model === 'doubao-seedance-3.0-pro') {
-      // 使用火山引擎即梦-3.0Pro状态查询
-      const { getVolcengineTaskStatus } = await import('./services/volcengineVideoService.js')
-      result = await getVolcengineTaskStatus(taskId, 'volcengine-video-3.0-pro')
+    if (model === 'volcengine-video-3.0-pro' || model === 'doubao-seedance-3.0-pro' || model === 'seedance-3.0-lite') {
+      // 使用302.AI Seedance状态查询
+      const { getSeedanceTaskStatus } = await import('./services/seedanceService.js')
+      result = await getSeedanceTaskStatus(taskId)
     } else if (model === 'veo3.1' || model === 'veo3.1-pro') {
       // 使用 Veo3.1 状态查询
       const { getVideoTaskStatus } = await import('./services/imageToVideoService.js')
