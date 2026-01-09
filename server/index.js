@@ -5572,7 +5572,7 @@ app.get('/api/projects/:projectId/fragments', authenticateToken, async (req, res
     
     // 首先从 fragments 表获取片段（如果有）
     const fragmentsResult = await db.query(
-      `SELECT id, name, description, video_urls, thumbnail_url, created_at, updated_at
+      `SELECT id, name, description, video_urls, thumbnail_url, image_url, created_at, updated_at
        FROM fragments
        WHERE project_id = $1
        ORDER BY created_at DESC`,
@@ -5584,7 +5584,7 @@ app.get('/api/projects/:projectId/fragments', authenticateToken, async (req, res
       id: f.id.toString(),
       name: f.name,
       description: f.description,
-      imageUrl: f.thumbnail_url,
+      imageUrl: f.image_url || f.thumbnail_url,
       videoUrls: f.video_urls || [],
       createdAt: f.created_at,
       updatedAt: f.updated_at,
@@ -5694,6 +5694,70 @@ app.get('/api/projects/:projectId/fragments', authenticateToken, async (req, res
     res.status(500).json({
       success: false,
       error: error.message || '获取片段列表失败'
+    })
+  }
+})
+
+// 创建片段（用于保存融合生图等）
+app.post('/api/fragments', authenticateToken, async (req, res) => {
+  try {
+    const { projectId, name, imageUrl, description, type } = req.body
+    const userId = req.user?.id
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: '未登录，请先登录',
+      })
+    }
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: '片段名称不能为空',
+      })
+    }
+
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+
+    // 如果提供了projectId，验证项目是否属于当前用户
+    if (projectId) {
+      const parsedProjectId = parseInt(projectId, 10)
+      if (!isNaN(parsedProjectId)) {
+        const projectCheck = await db.query(
+          'SELECT id FROM projects WHERE id = $1 AND user_id = $2',
+          [parsedProjectId, userId]
+        )
+        
+        if (projectCheck.rows.length === 0) {
+          return res.status(403).json({
+            success: false,
+            error: '无权访问该项目',
+          })
+        }
+      }
+    }
+
+    // 创建片段
+    const result = await db.query(
+      `INSERT INTO fragments (project_id, user_id, name, description, image_url, thumbnail_url, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+       RETURNING id, project_id, user_id, name, description, image_url, thumbnail_url, created_at`,
+      [projectId ? parseInt(projectId, 10) : null, userId, name.trim(), description || null, imageUrl || null]
+    )
+
+    console.log(`✅ 创建片段成功: ${name} (ID: ${result.rows[0].id}, type: ${type || 'unknown'})`)
+
+    res.json({
+      success: true,
+      data: result.rows[0],
+    })
+  } catch (error) {
+    console.error('创建片段失败:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '创建片段失败',
     })
   }
 })

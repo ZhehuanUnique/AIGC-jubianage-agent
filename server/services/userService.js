@@ -63,7 +63,23 @@ export class UserService {
         [username, passwordHash, displayName || username]
       )
 
-      return result.rows[0]
+      const newUser = result.rows[0]
+
+      // 自动将新用户加入默认组（group_id=1），角色为member
+      // 这样新用户可以像管理员一样使用生图/生视频功能
+      try {
+        const defaultGroupId = 1 // 默认组ID
+        await pool.query(
+          'INSERT INTO user_groups (user_id, group_id, role) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING',
+          [newUser.id, defaultGroupId, 'member']
+        )
+        console.log(`✅ 新用户 ${username} (ID: ${newUser.id}) 已自动加入默认组`)
+      } catch (groupError) {
+        // 加入组失败不影响用户创建
+        console.warn(`⚠️ 新用户加入默认组失败:`, groupError.message)
+      }
+
+      return newUser
     } catch (error) {
       console.error('创建用户失败:', error)
       throw error
