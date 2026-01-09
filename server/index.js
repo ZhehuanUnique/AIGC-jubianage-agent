@@ -5620,39 +5620,82 @@ app.put('/api/fragments/:fragmentId', authenticateToken, async (req, res) => {
       })
     }
 
-    const pool = await import('./db/connection.js')
-    const db = pool.default
-
-    // 检查片段是否存在
-    const fragment = await db.query('SELECT id, project_id, user_id FROM fragments WHERE id = $1', [fragmentId])
-    if (fragment.rows.length === 0) {
-      return res.status(404).json({
+    // 检查是否是特殊片段（不允许重命名）
+    if (fragmentId === 'first-last-frame-videos') {
+      return res.status(400).json({
         success: false,
-        error: '片段不存在',
+        error: '此片段不支持重命名',
       })
     }
 
-    // 检查权限：只有创建者或项目所有者可以重命名
-    const fragmentData = fragment.rows[0]
-    if (fragmentData.user_id !== userId && fragmentData.project_id) {
-      const project = await db.query('SELECT user_id FROM projects WHERE id = $1', [fragmentData.project_id])
-      if (project.rows.length > 0 && project.rows[0].user_id !== userId) {
-        return res.status(403).json({
-          success: false,
-          error: '没有权限重命名此片段',
-        })
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+
+    // 首先尝试在 fragments 表中查找
+    const fragment = await db.query('SELECT id, project_id, user_id FROM fragments WHERE id = $1', [fragmentId])
+    
+    if (fragment.rows.length > 0) {
+      // 在 fragments 表中找到了
+      const fragmentData = fragment.rows[0]
+      
+      // 检查权限：只有创建者或项目所有者可以重命名
+      if (fragmentData.user_id !== userId && fragmentData.project_id) {
+        const project = await db.query('SELECT user_id FROM projects WHERE id = $1', [fragmentData.project_id])
+        if (project.rows.length > 0 && project.rows[0].user_id !== userId) {
+          return res.status(403).json({
+            success: false,
+            error: '没有权限重命名此片段',
+          })
+        }
       }
+
+      // 更新 fragments 表中的名称
+      await db.query('UPDATE fragments SET name = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [
+        name.trim(),
+        fragmentId,
+      ])
+
+      return res.json({
+        success: true,
+        message: '片段已重命名',
+      })
     }
 
-    // 更新片段名称
-    await db.query('UPDATE fragments SET name = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [
-      name.trim(),
-      fragmentId,
-    ])
+    // 如果在 fragments 表中没找到，尝试在 shots 表中查找
+    const shot = await db.query('SELECT id, project_id FROM shots WHERE id = $1', [fragmentId])
+    
+    if (shot.rows.length > 0) {
+      // 在 shots 表中找到了
+      const shotData = shot.rows[0]
+      
+      // 检查权限：只有项目所有者可以重命名
+      if (shotData.project_id) {
+        const project = await db.query('SELECT user_id FROM projects WHERE id = $1', [shotData.project_id])
+        if (project.rows.length > 0 && project.rows[0].user_id !== userId) {
+          return res.status(403).json({
+            success: false,
+            error: '没有权限重命名此片段',
+          })
+        }
+      }
 
-    res.json({
-      success: true,
-      message: '片段已重命名',
+      // 更新 shots 表中的 description 字段作为名称
+      // 注意：shots 表没有 name 字段，我们使用 description 来存储自定义名称
+      await db.query('UPDATE shots SET description = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [
+        name.trim(),
+        fragmentId,
+      ])
+
+      return res.json({
+        success: true,
+        message: '片段已重命名',
+      })
+    }
+
+    // 两个表都没找到
+    return res.status(404).json({
+      success: false,
+      error: '片段不存在',
     })
   } catch (error) {
     console.error('重命名片段失败:', error)

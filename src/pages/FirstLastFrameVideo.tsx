@@ -1627,7 +1627,7 @@ function FirstLastFrameVideo() {
                                             await publishVideoToCommunity({
                                               videoUrl: task.videoUrl,
                                               title: task.text || `首尾帧视频 ${task.id}`,
-                                              description: `使用${task.model}模型生成，分辨率${task.resolution}，时长${task.duration}秒`,
+                                              description: `使用${task.model}模型生成`,
                                               projectId: projectId ? parseInt(projectId) : undefined,
                                             })
                                             // alertSuccess('视频已发布到社区', '上传成功') // 已移除成功提示框
