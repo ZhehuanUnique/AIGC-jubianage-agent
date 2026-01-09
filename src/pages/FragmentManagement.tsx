@@ -367,13 +367,16 @@ function FragmentCard({
           {/* 菜单下拉列表 */}
           {showMenu && (
             <div className="absolute bottom-full right-0 mb-2 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-30">
-              <button
-                onClick={handleRename}
-                className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 touch-manipulation"
-              >
-                <Edit2 size={16} />
-                <span>重命名</span>
-              </button>
+              {/* 首尾帧生视频片段不支持重命名 */}
+              {fragment.id !== 'first-last-frame-videos' && (
+                <button
+                  onClick={handleRename}
+                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 touch-manipulation"
+                >
+                  <Edit2 size={16} />
+                  <span>重命名</span>
+                </button>
+              )}
               <button
                 onClick={handleDownload}
                 className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 touch-manipulation"

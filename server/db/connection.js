@@ -23,7 +23,9 @@ const connectionString = process.env.DATABASE_URL ||
 // 创建数据库连接池
 const pool = new Pool({
   connectionString: connectionString,
-  max: 20, // 最大连接数
+  max: 10, // 最大连接数（降低以适应 Supabase Session 模式限制）
+  idleTimeoutMillis: 30000, // 空闲连接超时时间
+  connectionTimeoutMillis: 10000, // 连接超时时间
 })
 
 // 测试数据库连接
