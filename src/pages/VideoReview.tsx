@@ -1148,22 +1148,22 @@ function VideoReview() {
               >
                 <ChevronsRight size={16} className="sm:w-[18px] sm:h-[18px]" />
             </button>
-              <span className="text-xs sm:text-sm text-gray-600 whitespace-nowrap">{duration > 0 ? formatTime(currentTime) : '00:00'}</span>
+              <span className="text-xs sm:text-sm text-gray-600 whitespace-nowrap">{videoUrl && duration > 0 ? formatTime(currentTime) : '00:00'}</span>
               <div 
                 ref={progressBarRef}
                 onClick={handleProgressClick}
                 className={`flex-1 h-2 sm:h-2.5 bg-gray-300 rounded-full relative touch-manipulation ${
-                  duration > 0 ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'
+                  videoUrl && duration > 0 ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'
                 }`}
               >
                 <div 
                   className="h-full bg-purple-600 rounded-full transition-all" 
                   style={{ 
-                    width: duration > 0 ? `${Math.min(100, Math.max(0, (currentTime / duration) * 100))}%` : '0%'
+                    width: videoUrl && duration > 0 ? `${Math.min(100, Math.max(0, (currentTime / duration) * 100))}%` : '0%'
                   }}
                 ></div>
             </div>
-              <span className="text-xs sm:text-sm text-gray-600 whitespace-nowrap">{duration > 0 ? formatTime(duration) : '00:00'}</span>
+              <span className="text-xs sm:text-sm text-gray-600 whitespace-nowrap">{videoUrl && duration > 0 ? formatTime(duration) : '00:00'}</span>
               <button 
                 onClick={() => setIsDanmakuEnabled(!isDanmakuEnabled)}
                 className={`px-2 sm:px-3 py-1 rounded text-xs sm:text-sm border touch-manipulation ${

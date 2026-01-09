@@ -905,7 +905,7 @@ function Community() {
                       暂无榜单数据
                     </div>
                   ) : (
-                    hotSearchList.map((item, index) => (
+                    hotSearchList.slice(0, 10).map((item, index) => (
                       <div
                         key={item.id}
                         className="flex items-start gap-3 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
