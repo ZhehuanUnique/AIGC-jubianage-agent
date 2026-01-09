@@ -1,24 +1,24 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import SidebarNavigation from '../components/SidebarNavigation'
-import { Users, TrendingUp, Plus, Trash2, Loader2 } from 'lucide-react'
+import { Users, TrendingUp, Plus, Trash2, Loader2, Edit } from 'lucide-react'
 import { UserApi, type User, type ConsumptionRanking } from '../services/userApi'
 import DailyConsumptionChart from '../components/DailyConsumptionChart'
 import UserLogsModal from '../components/UserLogsModal'
 import GroupManagement from '../components/GroupManagement'
 import { AuthService } from '../services/auth'
-import { alert, alertError, alertWarning } from '../utils/alert'
+import { alert, alertError, alertWarning, alertSuccess } from '../utils/alert'
 import HamsterLoader from '../components/HamsterLoader'
 
 function Analytics() {
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<'users' | 'groups' | 'consumption'>('users')
-  const [currentUser, setCurrentUser] = useState<{ username: string } | null>(null)
+  const [currentUser, setCurrentUser] = useState<{ username: string; role?: string } | null>(null)
   
   // 检查当前用户是否为超级管理员
-  const isSuperAdmin = currentUser?.username === 'Chiefavefan'
+  const isSuperAdmin = currentUser?.username === 'Chiefavefan' || currentUser?.role === 'super_admin'
   // 检查当前用户是否为管理员（超级管理员或高级管理员）
-  const isAdmin = currentUser?.username === 'Chiefavefan' || currentUser?.username === 'jubian888'
+  const isAdmin = currentUser?.username === 'Chiefavefan' || currentUser?.username === 'jubian888' || currentUser?.role === 'admin' || currentUser?.role === 'super_admin'
   
   // 用户管理状态
   const [users, setUsers] = useState<User[]>([])
@@ -27,6 +27,16 @@ function Analytics() {
   const [newUsername, setNewUsername] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [newDisplayName, setNewDisplayName] = useState('')
+  
+  // 编辑用户状态
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [editUsername, setEditUsername] = useState('')
+  const [editDisplayName, setEditDisplayName] = useState('')
+  const [editPassword, setEditPassword] = useState('')
+  const [editIsActive, setEditIsActive] = useState(true)
+  const [editRole, setEditRole] = useState<'user' | 'admin' | 'super_admin'>('user')
+  const [saving, setSaving] = useState(false)
   
   // 消耗统计状态
   const [startDate, setStartDate] = useState<string>(() => {
@@ -189,6 +199,80 @@ function Analytics() {
     }
   }
 
+  // 打开编辑用户弹窗
+  const handleEditClick = (user: User) => {
+    setEditingUser(user)
+    setEditUsername(user.username)
+    setEditDisplayName(user.displayName || '')
+    setEditPassword('')
+    setEditIsActive(user.isActive)
+    setEditRole(user.role || 'user')
+    setShowEditModal(true)
+  }
+
+  // 保存编辑的用户
+  const handleSaveEdit = async () => {
+    if (!editingUser) return
+    
+    if (!editUsername.trim()) {
+      alertWarning('用户名不能为空')
+      return
+    }
+
+    setSaving(true)
+    try {
+      const updates: any = {
+        username: editUsername.trim(),
+        displayName: editDisplayName.trim() || undefined,
+        isActive: editIsActive,
+      }
+      
+      // 只有输入了新密码才更新密码
+      if (editPassword.trim()) {
+        updates.password = editPassword.trim()
+      }
+      
+      // 只有超级管理员可以修改角色
+      if (isSuperAdmin) {
+        updates.role = editRole
+      }
+
+      await UserApi.updateUser(editingUser.id, updates)
+      alertSuccess('用户信息已更新')
+      setShowEditModal(false)
+      setEditingUser(null)
+      loadUsers()
+    } catch (error: any) {
+      alertError(error.message || '更新用户失败')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // 获取角色显示名称
+  const getRoleDisplayName = (role: string | undefined): string => {
+    switch (role) {
+      case 'super_admin':
+        return '超级管理员'
+      case 'admin':
+        return '高级管理员'
+      default:
+        return '普通用户'
+    }
+  }
+
+  // 获取角色样式
+  const getRoleStyle = (role: string | undefined): string => {
+    switch (role) {
+      case 'super_admin':
+        return 'bg-purple-100 text-purple-700'
+      case 'admin':
+        return 'bg-blue-100 text-blue-700'
+      default:
+        return 'bg-gray-100 text-gray-700'
+    }
+  }
+
   // 格式化日期为 YYYY/MM/DD
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) {
@@ -316,6 +400,9 @@ function Analytics() {
                         <th className="px-4 py-3 text-left text-sm font-medium">ID</th>
                         <th className="px-4 py-3 text-left text-sm font-medium">用户名</th>
                         <th className="px-4 py-3 text-left text-sm font-medium">显示名称</th>
+                        {isSuperAdmin && (
+                          <th className="px-4 py-3 text-left text-sm font-medium">账号级别</th>
+                        )}
                         <th className="px-4 py-3 text-left text-sm font-medium">状态</th>
                         <th className="px-4 py-3 text-left text-sm font-medium">创建时间</th>
                         <th className="px-4 py-3 text-left text-sm font-medium">操作</th>
@@ -327,6 +414,13 @@ function Analytics() {
                           <td className="px-4 py-3 text-sm">{user.id}</td>
                           <td className="px-4 py-3 text-sm">{user.username}</td>
                           <td className="px-4 py-3 text-sm">{user.displayName}</td>
+                          {isSuperAdmin && (
+                            <td className="px-4 py-3 text-sm">
+                              <span className={`px-2 py-1 rounded text-xs ${getRoleStyle(user.role)}`}>
+                                {getRoleDisplayName(user.role)}
+                              </span>
+                            </td>
+                          )}
                           <td className="px-4 py-3 text-sm">
                             {isSuperAdmin ? (
                               <button
@@ -352,6 +446,15 @@ function Analytics() {
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex gap-2">
+                              {isAdmin && (
+                                <button
+                                  onClick={() => handleEditClick(user)}
+                                  className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 flex items-center gap-1"
+                                >
+                                  <Edit size={14} />
+                                  编辑
+                                </button>
+                              )}
                               {canDeleteUser(user) ? (
                                 <button
                                   onClick={() => handleDeleteClick(user)}
@@ -626,6 +729,116 @@ function Analytics() {
                     </>
                   ) : (
                     '确认删除'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 编辑用户模态框 */}
+      {showEditModal && editingUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => !saving && setShowEditModal(false)}>
+          <div
+            className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-xl font-semibold mb-4">编辑用户</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  用户名 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={editUsername}
+                  onChange={(e) => setEditUsername(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  placeholder="请输入用户名"
+                  disabled={saving}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  显示名称
+                </label>
+                <input
+                  type="text"
+                  value={editDisplayName}
+                  onChange={(e) => setEditDisplayName(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  placeholder="请输入显示名称（可选）"
+                  disabled={saving}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  新密码
+                </label>
+                <input
+                  type="password"
+                  value={editPassword}
+                  onChange={(e) => setEditPassword(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  placeholder="留空则不修改密码"
+                  disabled={saving}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  状态
+                </label>
+                <select
+                  value={editIsActive ? 'active' : 'inactive'}
+                  onChange={(e) => setEditIsActive(e.target.value === 'active')}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  disabled={saving}
+                >
+                  <option value="active">正常</option>
+                  <option value="inactive">停用</option>
+                </select>
+              </div>
+              {isSuperAdmin && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    账号级别
+                  </label>
+                  <select
+                    value={editRole}
+                    onChange={(e) => setEditRole(e.target.value as 'user' | 'admin' | 'super_admin')}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    disabled={saving}
+                  >
+                    <option value="user">普通用户</option>
+                    <option value="admin">高级管理员</option>
+                    <option value="super_admin">超级管理员</option>
+                  </select>
+                </div>
+              )}
+              <div className="flex gap-2 justify-end pt-2">
+                <button
+                  onClick={() => {
+                    setShowEditModal(false)
+                    setEditingUser(null)
+                  }}
+                  disabled={saving}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleSaveEdit}
+                  disabled={saving || !editUsername.trim()}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      <span>保存中...</span>
+                    </>
+                  ) : (
+                    '保存'
                   )}
                 </button>
               </div>

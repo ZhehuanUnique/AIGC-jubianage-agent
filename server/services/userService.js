@@ -12,7 +12,7 @@ export class UserService {
   static async getAllUsers() {
     try {
       const result = await pool.query(
-        'SELECT id, username, display_name, is_active, created_at, updated_at FROM users ORDER BY created_at DESC'
+        'SELECT id, username, display_name, is_active, role, created_at, updated_at FROM users ORDER BY created_at DESC'
       )
       return result.rows
     } catch (error) {
@@ -98,6 +98,19 @@ export class UserService {
       const values = []
       let paramIndex = 1
 
+      if (updates.username !== undefined) {
+        // 检查用户名是否已被其他用户使用
+        const existingUser = await pool.query(
+          'SELECT id FROM users WHERE username = $1 AND id != $2',
+          [updates.username, userId]
+        )
+        if (existingUser.rows.length > 0) {
+          throw new Error('用户名已存在')
+        }
+        fields.push(`username = $${paramIndex++}`)
+        values.push(updates.username)
+      }
+
       if (updates.displayName !== undefined) {
         fields.push(`display_name = $${paramIndex++}`)
         values.push(updates.displayName)
@@ -114,13 +127,24 @@ export class UserService {
         values.push(updates.isActive)
       }
 
+      if (updates.role !== undefined) {
+        const validRoles = ['user', 'admin', 'super_admin']
+        if (!validRoles.includes(updates.role)) {
+          throw new Error('无效的角色值')
+        }
+        fields.push(`role = $${paramIndex++}`)
+        values.push(updates.role)
+      }
+
       if (fields.length === 0) {
         throw new Error('没有要更新的字段')
       }
 
+      fields.push(`updated_at = NOW()`)
+
       values.push(userId)
       const result = await pool.query(
-        `UPDATE users SET ${fields.join(', ')} WHERE id = $${paramIndex} RETURNING id, username, display_name, is_active, updated_at`,
+        `UPDATE users SET ${fields.join(', ')} WHERE id = $${paramIndex} RETURNING id, username, display_name, is_active, role, updated_at`,
         values
       )
 

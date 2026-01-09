@@ -3105,6 +3105,7 @@ app.get('/api/users', authenticateToken, async (req, res) => {
       username: user.username,
       displayName: user.display_name || user.username,
       isActive: user.is_active,
+      role: user.role || 'user',
       createdAt: user.created_at ? new Date(user.created_at).toISOString() : new Date().toISOString(),
       updatedAt: user.updated_at ? new Date(user.updated_at).toISOString() : new Date().toISOString(),
     }))

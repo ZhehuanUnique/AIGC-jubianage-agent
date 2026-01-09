@@ -11,6 +11,7 @@ export interface User {
   username: string
   displayName: string
   isActive: boolean
+  role: 'user' | 'admin' | 'super_admin'
   createdAt: string
   updatedAt: string
 }
@@ -86,7 +87,13 @@ export class UserApi {
   /**
    * 更新用户
    */
-  static async updateUser(userId: number, updates: { displayName?: string; password?: string; isActive?: boolean }): Promise<User> {
+  static async updateUser(userId: number, updates: { 
+    username?: string
+    displayName?: string
+    password?: string
+    isActive?: boolean
+    role?: 'user' | 'admin' | 'super_admin'
+  }): Promise<User> {
     const response = await fetch(`${API_BASE_URL}/api/users/${userId}`, {
       method: 'PUT',
       headers: AuthService.getAuthHeaders(),
