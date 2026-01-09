@@ -137,6 +137,7 @@ function FirstLastFrameVideo() {
   const [frameInterpolationModal, setFrameInterpolationModal] = useState<{ isOpen: boolean; taskId: string | null; currentFps?: number; isLoadingFps?: boolean }>({ isOpen: false, taskId: null })
   const [previewImage, setPreviewImage] = useState<{ url: string; type: 'first' | 'last' } | null>(null)
   const [generatingTask, setGeneratingTask] = useState<{ taskId: string; progress: number; status: 'accelerating' | 'generating'; startTime: number } | null>(null)
+  const [sharedTaskIds, setSharedTaskIds] = useState<Set<string>>(new Set()) // 已分享到社区的任务ID
   
   // 筛选状态
   const [timeFilter, setTimeFilter] = useState<'all' | 'week' | 'month' | 'quarter' | 'custom'>('all')
@@ -1702,14 +1703,19 @@ function FirstLastFrameVideo() {
                                               description: `使用${task.model}模型生成`,
                                               projectId: projectId ? parseInt(projectId) : undefined,
                                             })
-                                            // alertSuccess('视频已发布到社区', '上传成功') // 已移除成功提示框
+                                            // 标记为已分享
+                                            setSharedTaskIds(prev => new Set(prev).add(task.id))
                                           } catch (error) {
                                             console.error('上传到社区失败:', error)
                                             alertError(error instanceof Error ? error.message : '上传到社区失败，请稍后重试', '上传失败')
                                           }
                                         }}
-                                        className="p-2 bg-black bg-opacity-60 hover:bg-opacity-80 text-white rounded-lg transition-all"
-                                        title="上传到社区"
+                                        className={`p-2 rounded-lg transition-all ${
+                                          sharedTaskIds.has(task.id)
+                                            ? 'bg-red-500 text-white'
+                                            : 'bg-black bg-opacity-60 hover:bg-opacity-80 text-white'
+                                        }`}
+                                        title={sharedTaskIds.has(task.id) ? '已分享到社区' : '上传到社区'}
                                       >
                                         <Share2 size={18} />
                                       </button>
@@ -2100,6 +2106,8 @@ function FirstLastFrameVideo() {
                                         
                                         // 开始轮询任务状态
                                         pollTaskStatus(realTaskId)
+                                        // 任务已提交成功，重置isGenerating状态，允许用户继续操作
+                                        setIsGenerating(false)
                                       } else {
                                         alertError(result.error || '生成视频失败', '错误')
                                         setIsGenerating(false)
@@ -2454,7 +2462,10 @@ function FirstLastFrameVideo() {
                 >
                   {isGenerating ? (
                     <>
-                      <HamsterLoader size={4} />
+                      <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
                       <span>生成中...</span>
                     </>
                   ) : (
