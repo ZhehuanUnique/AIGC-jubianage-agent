@@ -351,8 +351,8 @@ function FirstLastFrameVideo() {
       // 为这些任务启动轮询
       processingTasks.forEach(task => {
         if (task.id && !task.id.startsWith('temp_')) {
-          console.log(`🔄 恢复任务 ${task.id} 的轮询`)
-          pollTaskStatus(task.id)
+          console.log(`🔄 恢复任务 ${task.id} 的轮询，模型: ${task.model}`)
+          pollTaskStatus(task.id, task.model)
         }
       })
     }
@@ -720,8 +720,8 @@ function FirstLastFrameVideo() {
           t.id === tempTaskId ? { ...t, id: realTaskId } : t
         )
         
-        // 开始轮询任务状态
-        pollTaskStatus(realTaskId)
+        // 开始轮询任务状态（使用当前选中的模型，因为这是刚提交的任务）
+        pollTaskStatus(realTaskId, selectedModel)
       } else {
         alertError(result.error || '生成失败', '错误')
       }
@@ -837,8 +837,11 @@ function FirstLastFrameVideo() {
   }
 
   // 轮询任务状态
-  const pollTaskStatus = async (taskId: string) => {
+  const pollTaskStatus = async (taskId: string, taskModel?: string) => {
     if (!projectId) return
+    
+    // 使用传入的模型参数，如果没有则从任务列表中查找，最后才使用当前选中的模型
+    const modelToUse = taskModel || allTasksRef.current.find(t => t.id === taskId)?.model || selectedModel
     
     // 检查是否已经在轮询这个任务
     if (polledTasksRef.current.has(taskId)) {
@@ -853,9 +856,11 @@ function FirstLastFrameVideo() {
       pollIntervalRef.current = null
     }
 
+    console.log(`🔍 开始轮询任务 ${taskId}，使用模型: ${modelToUse}`)
+
     pollIntervalRef.current = setInterval(async () => {
       try {
-        const result = await getFirstLastFrameVideoStatus(taskId, projectId, selectedModel)
+        const result = await getFirstLastFrameVideoStatus(taskId, projectId, modelToUse)
         if (result.success && result.data) {
           const task = result.data
           
@@ -2104,8 +2109,8 @@ function FirstLastFrameVideo() {
                                           t.id === tempTaskId ? { ...t, id: realTaskId } : t
                                         )
                                         
-                                        // 开始轮询任务状态
-                                        pollTaskStatus(realTaskId)
+                                        // 开始轮询任务状态（使用原任务的模型）
+                                        pollTaskStatus(realTaskId, task.model)
                                         // 任务已提交成功，重置isGenerating状态，允许用户继续操作
                                         setIsGenerating(false)
                                       } else {
