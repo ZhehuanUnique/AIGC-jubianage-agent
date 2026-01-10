@@ -208,6 +208,57 @@ function ShotManagement() {
     return () => clearTimeout(timer)
   }, [availableCharacters, availableScenes, availableItems])
 
+  // 根据提示词自动匹配资产（定义在useEffect之前，避免引用问题）
+  const autoMatchAssetsForShot = (prompt: string, segment: string, characters: Asset[], scenes: Asset[], items: Asset[]): {
+    matchedCharacters: Asset[]
+    matchedScenes: Asset[]
+    matchedItems: Asset[]
+  } => {
+    const matchedCharacters: Asset[] = []
+    const matchedScenes: Asset[] = []
+    const matchedItems: Asset[] = []
+    
+    // 合并提示词和片段内容进行匹配
+    const textToMatch = `${prompt || ''} ${segment || ''}`.toLowerCase()
+    
+    // 匹配角色（按名称匹配）
+    characters.forEach(char => {
+      if (char.name && char.imageUrl) {
+        // 去掉扩展名进行匹配
+        const nameWithoutExt = char.name.replace(/\.(png|jpg|jpeg|gif|webp)$/i, '')
+        // 检查提示词中是否包含角色名称
+        if (textToMatch.includes(nameWithoutExt.toLowerCase()) || 
+            textToMatch.includes(char.name.toLowerCase())) {
+          matchedCharacters.push(char)
+        }
+      }
+    })
+    
+    // 匹配场景（按名称匹配）
+    scenes.forEach(scene => {
+      if (scene.name && scene.imageUrl) {
+        const nameWithoutExt = scene.name.replace(/\.(png|jpg|jpeg|gif|webp)$/i, '')
+        if (textToMatch.includes(nameWithoutExt.toLowerCase()) || 
+            textToMatch.includes(scene.name.toLowerCase())) {
+          matchedScenes.push(scene)
+        }
+      }
+    })
+    
+    // 匹配物品（按名称匹配）
+    items.forEach(item => {
+      if (item.name && item.imageUrl) {
+        const nameWithoutExt = item.name.replace(/\.(png|jpg|jpeg|gif|webp)$/i, '')
+        if (textToMatch.includes(nameWithoutExt.toLowerCase()) || 
+            textToMatch.includes(item.name.toLowerCase())) {
+          matchedItems.push(item)
+        }
+      }
+    })
+    
+    return { matchedCharacters, matchedScenes, matchedItems }
+  }
+
   // 自动匹配资产到分镜（当资产数据加载完成后执行）
   useEffect(() => {
     // 检查是否有可用的资产数据
@@ -274,57 +325,6 @@ function ShotManagement() {
     
     return () => clearTimeout(timer)
   }, [availableCharacters, availableScenes, availableItems, shots.length])
-
-  // 根据提示词自动匹配资产
-  const autoMatchAssetsForShot = (prompt: string, segment: string, characters: Asset[], scenes: Asset[], items: Asset[]): {
-    matchedCharacters: Asset[]
-    matchedScenes: Asset[]
-    matchedItems: Asset[]
-  } => {
-    const matchedCharacters: Asset[] = []
-    const matchedScenes: Asset[] = []
-    const matchedItems: Asset[] = []
-    
-    // 合并提示词和片段内容进行匹配
-    const textToMatch = `${prompt} ${segment}`.toLowerCase()
-    
-    // 匹配角色（按名称匹配）
-    characters.forEach(char => {
-      if (char.name && char.imageUrl) {
-        // 去掉扩展名进行匹配
-        const nameWithoutExt = char.name.replace(/\.(png|jpg|jpeg|gif|webp)$/i, '')
-        // 检查提示词中是否包含角色名称
-        if (textToMatch.includes(nameWithoutExt.toLowerCase()) || 
-            textToMatch.includes(char.name.toLowerCase())) {
-          matchedCharacters.push(char)
-        }
-      }
-    })
-    
-    // 匹配场景（按名称匹配）
-    scenes.forEach(scene => {
-      if (scene.name && scene.imageUrl) {
-        const nameWithoutExt = scene.name.replace(/\.(png|jpg|jpeg|gif|webp)$/i, '')
-        if (textToMatch.includes(nameWithoutExt.toLowerCase()) || 
-            textToMatch.includes(scene.name.toLowerCase())) {
-          matchedScenes.push(scene)
-        }
-      }
-    })
-    
-    // 匹配物品（按名称匹配）
-    items.forEach(item => {
-      if (item.name && item.imageUrl) {
-        const nameWithoutExt = item.name.replace(/\.(png|jpg|jpeg|gif|webp)$/i, '')
-        if (textToMatch.includes(nameWithoutExt.toLowerCase()) || 
-            textToMatch.includes(item.name.toLowerCase())) {
-          matchedItems.push(item)
-        }
-      }
-    })
-    
-    return { matchedCharacters, matchedScenes, matchedItems }
-  }
 
   // 根据segments初始化shots
   const initializeShots = (segments: ScriptSegment[]): Shot[] => {
