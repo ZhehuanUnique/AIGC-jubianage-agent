@@ -681,7 +681,7 @@ function FragmentManagement() {
         <div className="flex-1 p-3 sm:p-6">
         {/* 片段列表 */}
         <div className="flex gap-3 sm:gap-4 flex-wrap">
-          {/* 新建片段卡片 - 紧凑布局 */}
+          {/* 新建片段卡片 - 与视频卡片尺寸一致 */}
           <div
             onClick={(e) => {
               e.stopPropagation()
@@ -691,26 +691,30 @@ function FragmentManagement() {
                 setShowCreateModal(true)
               }, 0)
             }}
-            className="w-full sm:w-32 h-32 sm:h-36 bg-white border-2 border-dashed border-pink-500 rounded-lg flex flex-col items-center justify-center cursor-pointer active:border-pink-400 sm:hover:border-pink-400 transition-all touch-manipulation"
+            className="w-full sm:w-64 h-40 sm:h-48 bg-white border-2 border-dashed border-pink-500 rounded-lg flex flex-col items-center justify-center cursor-pointer active:border-pink-400 sm:hover:border-pink-400 sm:hover:scale-105 transition-all touch-manipulation"
           >
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 flex items-center justify-center mb-2 sm:mb-3">
-              <Plus size={20} className="sm:w-6 sm:h-6 text-white" />
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 flex items-center justify-center mb-3 sm:mb-4">
+              <Plus size={24} className="sm:w-7 sm:h-7 text-white" />
             </div>
-            <span className="text-pink-600 font-medium text-xs sm:text-sm">新建片段</span>
+            <span className="text-pink-600 font-medium text-sm sm:text-base">新建片段</span>
           </div>
 
-          {/* 剧梦工厂卡片 - 紧凑布局 */}
+          {/* 剧梦工厂卡片 - 3D悬浮效果 */}
           {projectId && (
             <div
               onClick={() => navigate(`/project/${projectId}/first-last-frame-video`)}
-              className="w-full sm:w-32 h-32 sm:h-36 bg-white border-2 border-dashed border-blue-500 rounded-lg flex flex-col items-center justify-center cursor-pointer active:border-blue-400 sm:hover:border-blue-400 transition-all touch-manipulation"
+              className="dream-factory-container noselect"
             >
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-r from-blue-500 to-cyan-600 flex items-center justify-center mb-2 sm:mb-3">
-                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
+              <div className="dream-factory-canvas">
+                {/* 25个追踪区域用于3D效果 */}
+                {Array.from({ length: 25 }, (_, i) => (
+                  <div key={i} className={`dream-factory-tracker tr-${i + 1}`}></div>
+                ))}
+                <div className="dream-factory-card">
+                  <p className="dream-factory-prompt">剧梦工厂</p>
+                  <div className="dream-factory-title">剧变<br/>即刻开始！</div>
+                </div>
               </div>
-              <span className="text-blue-600 font-medium text-xs sm:text-sm">剧梦工厂</span>
             </div>
           )}
 

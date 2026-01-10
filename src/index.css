@@ -1360,3 +1360,194 @@ select.text-center::-ms-expand {
       -70px 90px 0 rgba(0, 0, 0, 0);
   }
 }
+
+
+/* 剧梦工厂 3D 悬浮卡片效果 */
+.dream-factory-container {
+  position: relative;
+  width: 100%;
+  height: 10rem; /* h-40 */
+  transition: 200ms;
+  cursor: pointer;
+}
+
+@media (min-width: 640px) {
+  .dream-factory-container {
+    width: 16rem; /* sm:w-64 */
+    height: 12rem; /* sm:h-48 */
+  }
+}
+
+.dream-factory-container:active {
+  transform: scale(0.98);
+}
+
+.dream-factory-card {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 12px;
+  transition: 700ms;
+  background: linear-gradient(43deg, rgb(65, 88, 208) 0%, rgb(200, 80, 192) 46%, rgb(255, 204, 112) 100%);
+}
+
+.dream-factory-title {
+  opacity: 0;
+  transition-duration: 300ms;
+  transition-timing-function: ease-in-out;
+  transition-delay: 100ms;
+  position: absolute;
+  font-size: 1.25rem;
+  font-weight: bold;
+  color: white;
+  text-align: center;
+  line-height: 1.4;
+}
+
+@media (min-width: 640px) {
+  .dream-factory-title {
+    font-size: 1.5rem;
+  }
+}
+
+.dream-factory-tracker:hover ~ .dream-factory-card .dream-factory-title {
+  opacity: 1;
+}
+
+.dream-factory-prompt {
+  z-index: 20;
+  font-size: 1rem;
+  font-weight: bold;
+  transition: 300ms ease-in-out;
+  position: absolute;
+  color: rgb(255, 255, 255);
+  text-align: center;
+  margin: 0;
+}
+
+@media (min-width: 640px) {
+  .dream-factory-prompt {
+    font-size: 1.125rem;
+  }
+}
+
+.dream-factory-tracker {
+  position: absolute;
+  z-index: 200;
+  width: 100%;
+  height: 100%;
+}
+
+.dream-factory-tracker:hover {
+  cursor: pointer;
+}
+
+.dream-factory-tracker:hover ~ .dream-factory-card .dream-factory-prompt {
+  opacity: 0;
+}
+
+.dream-factory-tracker:hover ~ .dream-factory-card {
+  transition: 300ms;
+  filter: brightness(1.1);
+}
+
+.dream-factory-container:hover .dream-factory-card::before {
+  transition: 200ms;
+  content: '';
+  opacity: 80%;
+}
+
+.dream-factory-canvas {
+  perspective: 800px;
+  inset: 0;
+  z-index: 200;
+  position: absolute;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+  grid-template-rows: 1fr 1fr 1fr 1fr 1fr;
+  gap: 0px 0px;
+  grid-template-areas:
+    "tr-1 tr-2 tr-3 tr-4 tr-5"
+    "tr-6 tr-7 tr-8 tr-9 tr-10"
+    "tr-11 tr-12 tr-13 tr-14 tr-15"
+    "tr-16 tr-17 tr-18 tr-19 tr-20"
+    "tr-21 tr-22 tr-23 tr-24 tr-25";
+}
+
+.dream-factory-card::before {
+  content: '';
+  background: linear-gradient(43deg, rgb(65, 88, 208) 0%, rgb(200, 80, 192) 46%, rgb(255, 204, 112) 100%);
+  filter: blur(2rem);
+  opacity: 30%;
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  z-index: -1;
+  transition: 200ms;
+  border-radius: 12px;
+}
+
+/* Grid areas for trackers */
+.dream-factory-tracker.tr-1 { grid-area: tr-1; }
+.dream-factory-tracker.tr-2 { grid-area: tr-2; }
+.dream-factory-tracker.tr-3 { grid-area: tr-3; }
+.dream-factory-tracker.tr-4 { grid-area: tr-4; }
+.dream-factory-tracker.tr-5 { grid-area: tr-5; }
+.dream-factory-tracker.tr-6 { grid-area: tr-6; }
+.dream-factory-tracker.tr-7 { grid-area: tr-7; }
+.dream-factory-tracker.tr-8 { grid-area: tr-8; }
+.dream-factory-tracker.tr-9 { grid-area: tr-9; }
+.dream-factory-tracker.tr-10 { grid-area: tr-10; }
+.dream-factory-tracker.tr-11 { grid-area: tr-11; }
+.dream-factory-tracker.tr-12 { grid-area: tr-12; }
+.dream-factory-tracker.tr-13 { grid-area: tr-13; }
+.dream-factory-tracker.tr-14 { grid-area: tr-14; }
+.dream-factory-tracker.tr-15 { grid-area: tr-15; }
+.dream-factory-tracker.tr-16 { grid-area: tr-16; }
+.dream-factory-tracker.tr-17 { grid-area: tr-17; }
+.dream-factory-tracker.tr-18 { grid-area: tr-18; }
+.dream-factory-tracker.tr-19 { grid-area: tr-19; }
+.dream-factory-tracker.tr-20 { grid-area: tr-20; }
+.dream-factory-tracker.tr-21 { grid-area: tr-21; }
+.dream-factory-tracker.tr-22 { grid-area: tr-22; }
+.dream-factory-tracker.tr-23 { grid-area: tr-23; }
+.dream-factory-tracker.tr-24 { grid-area: tr-24; }
+.dream-factory-tracker.tr-25 { grid-area: tr-25; }
+
+/* 3D rotation effects for each tracker position */
+.dream-factory-tracker.tr-1:hover ~ .dream-factory-card { transition: 125ms ease-in-out; transform: rotateX(20deg) rotateY(-10deg) rotateZ(0deg); }
+.dream-factory-tracker.tr-2:hover ~ .dream-factory-card { transition: 125ms ease-in-out; transform: rotateX(20deg) rotateY(-5deg) rotateZ(0deg); }
+.dream-factory-tracker.tr-3:hover ~ .dream-factory-card { transition: 125ms ease-in-out; transform: rotateX(20deg) rotateY(0deg) rotateZ(0deg); }
+.dream-factory-tracker.tr-4:hover ~ .dream-factory-card { transition: 125ms ease-in-out; transform: rotateX(20deg) rotateY(5deg) rotateZ(0deg); }
+.dream-factory-tracker.tr-5:hover ~ .dream-factory-card { transition: 125ms ease-in-out; transform: rotateX(20deg) rotateY(10deg) rotateZ(0deg); }
+.dream-factory-tracker.tr-6:hover ~ .dream-factory-card { transition: 125ms ease-in-out; transform: rotateX(10deg) rotateY(-10deg) rotateZ(0deg); }
+.dream-factory-tracker.tr-7:hover ~ .dream-factory-card { transition: 125ms ease-in-out; transform: rotateX(10deg) rotateY(-5deg) rotateZ(0deg); }
+.dream-factory-tracker.tr-8:hover ~ .dream-factory-card { transition: 125ms ease-in-out; transform: rotateX(10deg) rotateY(0deg) rotateZ(0deg); }
+.dream-factory-tracker.tr-9:hover ~ .dream-factory-card { transition: 125ms ease-in-out; transform: rotateX(10deg) rotateY(5deg) rotateZ(0deg); }
+.dream-factory-tracker.tr-10:hover ~ .dream-factory-card { transition: 125ms ease-in-out; transform: rotateX(10deg) rotateY(10deg) rotateZ(0deg); }
+.dream-factory-tracker.tr-11:hover ~ .dream-factory-card { transition: 125ms ease-in-out; transform: rotateX(0deg) rotateY(-10deg) rotateZ(0deg); }
+.dream-factory-tracker.tr-12:hover ~ .dream-factory-card { transition: 125ms ease-in-out; transform: rotateX(0deg) rotateY(-5deg) rotateZ(0deg); }
+.dream-factory-tracker.tr-13:hover ~ .dream-factory-card { transition: 125ms ease-in-out; transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg); }
+.dream-factory-tracker.tr-14:hover ~ .dream-factory-card { transition: 125ms ease-in-out; transform: rotateX(0deg) rotateY(5deg) rotateZ(0deg); }
+.dream-factory-tracker.tr-15:hover ~ .dream-factory-card { transition: 125ms ease-in-out; transform: rotateX(0deg) rotateY(10deg) rotateZ(0deg); }
+.dream-factory-tracker.tr-16:hover ~ .dream-factory-card { transition: 125ms ease-in-out; transform: rotateX(-10deg) rotateY(-10deg) rotateZ(0deg); }
+.dream-factory-tracker.tr-17:hover ~ .dream-factory-card { transition: 125ms ease-in-out; transform: rotateX(-10deg) rotateY(-5deg) rotateZ(0deg); }
+.dream-factory-tracker.tr-18:hover ~ .dream-factory-card { transition: 125ms ease-in-out; transform: rotateX(-10deg) rotateY(0deg) rotateZ(0deg); }
+.dream-factory-tracker.tr-19:hover ~ .dream-factory-card { transition: 125ms ease-in-out; transform: rotateX(-10deg) rotateY(5deg) rotateZ(0deg); }
+.dream-factory-tracker.tr-20:hover ~ .dream-factory-card { transition: 125ms ease-in-out; transform: rotateX(-10deg) rotateY(10deg) rotateZ(0deg); }
+.dream-factory-tracker.tr-21:hover ~ .dream-factory-card { transition: 125ms ease-in-out; transform: rotateX(-20deg) rotateY(-10deg) rotateZ(0deg); }
+.dream-factory-tracker.tr-22:hover ~ .dream-factory-card { transition: 125ms ease-in-out; transform: rotateX(-20deg) rotateY(-5deg) rotateZ(0deg); }
+.dream-factory-tracker.tr-23:hover ~ .dream-factory-card { transition: 125ms ease-in-out; transform: rotateX(-20deg) rotateY(0deg) rotateZ(0deg); }
+.dream-factory-tracker.tr-24:hover ~ .dream-factory-card { transition: 125ms ease-in-out; transform: rotateX(-20deg) rotateY(5deg) rotateZ(0deg); }
+.dream-factory-tracker.tr-25:hover ~ .dream-factory-card { transition: 125ms ease-in-out; transform: rotateX(-20deg) rotateY(10deg) rotateZ(0deg); }
+
+.noselect {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
