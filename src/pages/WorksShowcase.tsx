@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Heart, Play, ArrowLeft, ChevronUp, ChevronDown, Trash2, Plus, Download, Share2, MessageCircle } from 'lucide-react'
+import { Heart, Play, ArrowLeft, ChevronUp, ChevronDown, Trash2, Plus, Download, Share2, MessageCircle, Star, X, Send, MoreHorizontal } from 'lucide-react'
 import { getCommunityVideos, toggleVideoLike, recordVideoView, deleteCommunityVideo, CommunityVideo } from '../services/api'
-import { alertError, alertWarning } from '../utils/alert'
+import { alertError, alertWarning, alertSuccess } from '../utils/alert'
 import { AuthService } from '../services/auth'
 import { PublishVideoModal } from '../components/PublishVideoModal'
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
@@ -25,9 +25,14 @@ function WorksShowcase() {
   const [deleteConfirmState, setDeleteConfirmState] = useState<{ isOpen: boolean; videoId: number | null }>({ isOpen: false, videoId: null })
   const [showThumbnailList, setShowThumbnailList] = useState(false)
   
+  // 评论面板状态
+  const [showComments, setShowComments] = useState(false)
+  const [commentText, setCommentText] = useState('')
+  const [isFavorited, setIsFavorited] = useState(false)
+  
   // 防抖控制
   const lastSwitchTime = useRef<number>(0)
-  const SWITCH_DEBOUNCE = 400 // 400ms 防抖
+  const SWITCH_DEBOUNCE = 400
 
   useEffect(() => {
     const user = AuthService.getCurrentUser()
@@ -49,7 +54,6 @@ function WorksShowcase() {
       const result = await getCommunityVideos({ page, limit, sortBy })
       let loadedVideos = result.videos
       
-      // 按时间升序排列：最早的在前面（index 0），最新的在后面
       loadedVideos = [...loadedVideos].sort((a, b) => {
         const dateA = new Date(a.publishedAt || a.createdAt)
         const dateB = new Date(b.publishedAt || b.createdAt)
@@ -124,24 +128,22 @@ function WorksShowcase() {
   const switchToVideo = useCallback((newIndex: number) => {
     if (newIndex < 0 || newIndex >= videos.length || newIndex === currentVideoIndex) return
     
-    // 防抖检查
     const now = Date.now()
     if (now - lastSwitchTime.current < SWITCH_DEBOUNCE) return
     lastSwitchTime.current = now
     
-    // 暂停当前视频
     const currentVideo = videoRefs.current.get(videos[currentVideoIndex]?.id)
     if (currentVideo) {
       currentVideo.pause()
     }
     
-    // 更新索引
     setCurrentVideoIndex(newIndex)
+    setShowComments(false) // 切换视频时关闭评论
     
-    // 播放新视频
     setTimeout(() => {
       const newVideo = videoRefs.current.get(videos[newIndex]?.id)
       if (newVideo) {
+        newVideo.muted = false // 取消静音
         newVideo.play().catch(() => {})
         recordVideoView(videos[newIndex].id)
       }
@@ -192,11 +194,35 @@ function WorksShowcase() {
     try {
       const result = await toggleVideoLike(videoId)
       setVideos(prev => prev.map(v => 
-        v.id === videoId ? { ...v, likesCount: result.likesCount } : v
+        v.id === videoId ? { ...v, likesCount: result.likesCount, isLiked: !v.isLiked } : v
       ))
     } catch (error) {
       console.error('点赞失败:', error)
       alertError(error instanceof Error ? error.message : '点赞失败，请稍后重试', '错误')
+    }
+  }
+
+  const handleFavorite = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!checkAuth()) {
+      alertError('请先登录', '需要登录')
+      navigate('/?showLogin=true')
+      return
+    }
+    setIsFavorited(!isFavorited)
+    alertSuccess(isFavorited ? '已取消收藏' : '已收藏')
+  }
+
+  const handleShare = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (navigator.share && currentVideo) {
+      navigator.share({
+        title: currentVideo.title,
+        url: window.location.href
+      }).catch(() => {})
+    } else {
+      navigator.clipboard.writeText(window.location.href)
+      alertSuccess('链接已复制到剪贴板')
     }
   }
 
@@ -255,16 +281,25 @@ function WorksShowcase() {
         e.preventDefault()
         e.stopPropagation()
         switchToVideo(currentVideoIndex + 1)
+      } else if (e.key === 'Escape') {
+        if (showComments) {
+          setShowComments(false)
+        } else {
+          navigate('/works')
+        }
       }
     }
 
     window.addEventListener('keydown', handleKeyDown, true)
     return () => window.removeEventListener('keydown', handleKeyDown, true)
-  }, [switchToVideo, videos.length, currentVideoIndex])
+  }, [switchToVideo, videos.length, currentVideoIndex, showComments, navigate])
 
   // 滚轮事件处理
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
+      // 如果评论面板打开，不处理滚轮
+      if (showComments) return
+      
       e.preventDefault()
       e.stopPropagation()
       
@@ -279,14 +314,19 @@ function WorksShowcase() {
 
     window.addEventListener('wheel', handleWheel, { passive: false, capture: true })
     return () => window.removeEventListener('wheel', handleWheel, true)
-  }, [switchToVideo, videos.length, currentVideoIndex])
+  }, [switchToVideo, videos.length, currentVideoIndex, showComments])
 
-  // 自动播放当前视频
+  // 自动播放当前视频（带声音）
   useEffect(() => {
     if (videos.length === 0 || currentVideoIndex < 0 || currentVideoIndex >= videos.length) return
     const video = videoRefs.current.get(videos[currentVideoIndex]?.id)
     if (video) {
-      video.play().catch(() => {})
+      video.muted = false // 取消静音，播放声音
+      video.play().catch(() => {
+        // 如果自动播放失败（浏览器限制），先静音播放
+        video.muted = true
+        video.play().catch(() => {})
+      })
       recordVideoView(videos[currentVideoIndex].id)
     }
   }, [currentVideoIndex, videos])
@@ -303,7 +343,7 @@ function WorksShowcase() {
       {/* 返回按钮 */}
       <button
         onClick={() => navigate('/works')}
-        className="absolute top-4 left-4 z-50 w-10 h-10 bg-black bg-opacity-50 rounded-full flex items-center justify-center text-white"
+        className="absolute top-4 left-4 z-50 w-10 h-10 bg-black bg-opacity-50 rounded-full flex items-center justify-center text-white hover:bg-opacity-70 transition-colors"
       >
         <ArrowLeft size={20} />
       </button>
@@ -341,196 +381,296 @@ function WorksShowcase() {
           <p className="text-sm mt-2 opacity-70">还没有用户发布视频到社区</p>
         </div>
       ) : currentVideo && (
-        <div className="h-full w-full relative flex items-center justify-center">
-          {/* 视频 */}
-          {currentVideo.videoUrl ? (
-            <video
-              ref={(el) => {
-                if (el) videoRefs.current.set(currentVideo.id, el)
-              }}
-              key={currentVideo.id}
-              src={currentVideo.videoUrl}
-              className="w-full h-full object-contain"
-              muted
-              loop
-              playsInline
-              autoPlay
-            />
-          ) : currentVideo.thumbnailUrl ? (
-            <img src={currentVideo.thumbnailUrl} alt={currentVideo.title} className="w-full h-full object-contain" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gray-900">
-              <Play className="w-16 h-16 text-white opacity-50" />
-            </div>
-          )}
+        <div className="h-full w-full relative flex">
+          {/* 主视频区域 */}
+          <div className={`flex-1 relative flex items-center justify-center transition-all duration-300 ${showComments ? 'mr-[400px]' : ''}`}>
+            {/* 视频 */}
+            {currentVideo.videoUrl ? (
+              <video
+                ref={(el) => {
+                  if (el) videoRefs.current.set(currentVideo.id, el)
+                }}
+                key={currentVideo.id}
+                src={currentVideo.videoUrl}
+                className="w-full h-full object-contain"
+                loop
+                playsInline
+                autoPlay
+                onClick={(e) => {
+                  const video = e.currentTarget
+                  if (video.paused) {
+                    video.play()
+                  } else {
+                    video.pause()
+                  }
+                }}
+              />
+            ) : currentVideo.thumbnailUrl ? (
+              <img src={currentVideo.thumbnailUrl} alt={currentVideo.title} className="w-full h-full object-contain" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-gray-900">
+                <Play className="w-16 h-16 text-white opacity-50" />
+              </div>
+            )}
 
-          {/* 管理员删除按钮 */}
-          {isAdmin && (
-            <button
-              onClick={(e) => handleDeleteVideo(currentVideo.id, e)}
-              disabled={deletingVideoId === currentVideo.id}
-              className="absolute top-20 right-4 w-10 h-10 bg-red-500 bg-opacity-80 hover:bg-opacity-100 rounded-lg flex items-center justify-center text-white z-20"
+            {/* 管理员删除按钮 */}
+            {isAdmin && (
+              <button
+                onClick={(e) => handleDeleteVideo(currentVideo.id, e)}
+                disabled={deletingVideoId === currentVideo.id}
+                className="absolute top-20 right-4 w-10 h-10 bg-red-500 bg-opacity-80 hover:bg-opacity-100 rounded-lg flex items-center justify-center text-white z-20"
+              >
+                {deletingVideoId === currentVideo.id ? <HamsterLoader size={3} /> : <Trash2 size={18} />}
+              </button>
+            )}
+
+            {/* 右侧操作栏 - 抖音风格 */}
+            <div className="absolute right-4 bottom-32 flex flex-col items-center gap-5 z-30">
+              {/* 头像 */}
+              <div className="relative mb-2">
+                {currentVideo.avatar ? (
+                  <img 
+                    src={currentVideo.avatar} 
+                    alt={currentVideo.username} 
+                    className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-lg cursor-pointer hover:scale-110 transition-transform" 
+                  />
+                ) : (
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center text-white text-lg font-bold border-2 border-white shadow-lg cursor-pointer hover:scale-110 transition-transform">
+                    {currentVideo.username.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <button className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-5 h-5 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-lg">
+                  +
+                </button>
+              </div>
+
+              {/* 点赞 */}
+              <button 
+                onClick={(e) => handleLike(currentVideo.id, e)} 
+                className="flex flex-col items-center gap-1 group"
+              >
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
+                  currentVideo.isLiked 
+                    ? 'text-red-500' 
+                    : 'text-white hover:text-red-400'
+                }`}>
+                  <Heart className={`w-8 h-8 ${currentVideo.isLiked ? 'fill-current' : ''}`} />
+                </div>
+                <span className="text-white text-xs font-medium">{formatNumber(currentVideo.likesCount)}</span>
+              </button>
+
+              {/* 评论 */}
+              <button 
+                onClick={() => setShowComments(!showComments)} 
+                className="flex flex-col items-center gap-1 group"
+              >
+                <div className="w-12 h-12 rounded-full flex items-center justify-center text-white hover:text-blue-400 transition-colors">
+                  <MessageCircle className="w-8 h-8" />
+                </div>
+                <span className="text-white text-xs font-medium">0</span>
+              </button>
+
+              {/* 收藏 */}
+              <button 
+                onClick={handleFavorite} 
+                className="flex flex-col items-center gap-1 group"
+              >
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
+                  isFavorited 
+                    ? 'text-yellow-400' 
+                    : 'text-white hover:text-yellow-400'
+                }`}>
+                  <Star className={`w-8 h-8 ${isFavorited ? 'fill-current' : ''}`} />
+                </div>
+                <span className="text-white text-xs font-medium">收藏</span>
+              </button>
+
+              {/* 分享 */}
+              <button 
+                onClick={handleShare} 
+                className="flex flex-col items-center gap-1 group"
+              >
+                <div className="w-12 h-12 rounded-full flex items-center justify-center text-white hover:text-green-400 transition-colors">
+                  <Share2 className="w-8 h-8" />
+                </div>
+                <span className="text-white text-xs font-medium">分享</span>
+              </button>
+
+              {/* 下载 */}
+              <button 
+                onClick={(e) => handleDownload(currentVideo, e)} 
+                className="flex flex-col items-center gap-1 group"
+              >
+                <div className="w-12 h-12 rounded-full flex items-center justify-center text-white hover:text-purple-400 transition-colors">
+                  <Download className="w-7 h-7" />
+                </div>
+                <span className="text-white text-xs font-medium">下载</span>
+              </button>
+
+              {/* 更多 */}
+              <button className="flex flex-col items-center gap-1 group">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center text-white hover:text-gray-400 transition-colors">
+                  <MoreHorizontal className="w-7 h-7" />
+                </div>
+              </button>
+            </div>
+
+            {/* 底部信息栏 */}
+            <div className="absolute bottom-0 left-0 right-20 p-4 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-white text-base font-bold">@{currentVideo.username}</span>
+                <span className="text-white/60 text-sm">· {formatTime(currentVideo.publishedAt)}</span>
+              </div>
+              <p className="text-white text-sm mb-3 line-clamp-2">{currentVideo.title}</p>
+              {currentVideo.model && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="px-2 py-1 bg-white/20 rounded text-xs text-white/90">{currentVideo.model}</span>
+                  {currentVideo.duration && <span className="px-2 py-1 bg-white/20 rounded text-xs text-white/90">{currentVideo.duration}s</span>}
+                  {currentVideo.resolution && <span className="px-2 py-1 bg-white/20 rounded text-xs text-white/90">{currentVideo.resolution}</span>}
+                  <span className="px-2 py-1 bg-white/20 rounded text-xs text-white/90">{formatNumber(currentVideo.viewsCount)} 次观看</span>
+                </div>
+              )}
+            </div>
+
+            {/* 左侧导航指示器 */}
+            <div 
+              className="absolute left-4 top-1/2 -translate-y-1/2 z-30"
+              onMouseEnter={() => setShowThumbnailList(true)}
+              onMouseLeave={() => setShowThumbnailList(false)}
             >
-              {deletingVideoId === currentVideo.id ? <HamsterLoader size={3} /> : <Trash2 size={18} />}
-            </button>
-          )}
-
-          {/* 右侧操作栏 */}
-          <div className="absolute right-4 bottom-20 flex flex-col items-center gap-4 z-30">
-            <div className="relative">
-              {currentVideo.avatar ? (
-                <img src={currentVideo.avatar} alt={currentVideo.username} className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-lg" />
-              ) : (
-                <div className="w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center text-white text-lg font-medium border-2 border-white shadow-lg">
-                  {currentVideo.username.charAt(0).toUpperCase()}
-                </div>
-              )}
-              <button className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-6 h-6 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center text-white text-lg font-bold">+</button>
-            </div>
-            <button onClick={(e) => handleLike(currentVideo.id, e)} className="flex flex-col items-center gap-1 text-white">
-              <div className="w-12 h-12 bg-black bg-opacity-30 rounded-full flex items-center justify-center hover:bg-opacity-50">
-                <Heart className={`w-6 h-6 ${currentVideo.isLiked ? 'fill-current text-red-500' : ''}`} />
-              </div>
-              <span className="text-xs">{formatNumber(currentVideo.likesCount)}</span>
-            </button>
-            <button className="flex flex-col items-center gap-1 text-white">
-              <div className="w-12 h-12 bg-black bg-opacity-30 rounded-full flex items-center justify-center hover:bg-opacity-50">
-                <MessageCircle className="w-6 h-6" />
-              </div>
-              <span className="text-xs">0</span>
-            </button>
-            <button className="flex flex-col items-center gap-1 text-white">
-              <div className="w-12 h-12 bg-black bg-opacity-30 rounded-full flex items-center justify-center hover:bg-opacity-50">
-                <Share2 className="w-6 h-6" />
-              </div>
-              <span className="text-xs">分享</span>
-            </button>
-            <button onClick={(e) => handleDownload(currentVideo, e)} className="flex flex-col items-center gap-1 text-white">
-              <div className="w-12 h-12 bg-black bg-opacity-30 rounded-full flex items-center justify-center hover:bg-opacity-50">
-                <Download className="w-6 h-6" />
-              </div>
-              <span className="text-xs">下载</span>
-            </button>
-          </div>
-
-          {/* 底部信息栏 */}
-          <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black via-black/80 to-transparent">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-white text-sm font-medium">@{currentVideo.username}</span>
-              <div className="flex items-center gap-4 text-white text-xs">
-                <span>{formatNumber(currentVideo.viewsCount)} 次观看</span>
-                <span>{formatTime(currentVideo.publishedAt)}</span>
-              </div>
-            </div>
-            <p className="text-white text-sm mb-2 line-clamp-2">{currentVideo.title}</p>
-            {currentVideo.model && (
-              <div className="flex items-center gap-2">
-                <span className="px-2 py-1 bg-white/20 rounded text-xs text-white/90">{currentVideo.model}</span>
-                {currentVideo.duration && <span className="px-2 py-1 bg-white/20 rounded text-xs text-white/90">{currentVideo.duration}s</span>}
-                {currentVideo.resolution && <span className="px-2 py-1 bg-white/20 rounded text-xs text-white/90">{currentVideo.resolution}</span>}
-              </div>
-            )}
-          </div>
-
-          {/* 左侧导航指示器 - 悬停显示缩略图 */}
-          <div 
-            className="absolute left-4 top-1/2 -translate-y-1/2 z-30"
-            onMouseEnter={() => setShowThumbnailList(true)}
-            onMouseLeave={() => setShowThumbnailList(false)}
-          >
-            {/* 缩略图列表 */}
-            {showThumbnailList && (
-              <div className="absolute left-12 top-1/2 -translate-y-1/2 bg-black/90 backdrop-blur-sm rounded-lg p-3 max-h-[80vh] overflow-y-auto scrollbar-thin scrollbar-thumb-white/30">
-                <div className="flex flex-col gap-3 w-40">
-                  {videos.map((v, idx) => (
-                    <button
-                      key={v.id}
-                      onClick={() => {
-                        // 点击时跳过防抖直接切换
-                        lastSwitchTime.current = 0
-                        switchToVideo(idx)
-                      }}
-                      className={`relative w-full aspect-[16/9] rounded-lg overflow-hidden transition-all ${
-                        idx === currentVideoIndex 
-                          ? 'ring-2 ring-purple-500 scale-105 shadow-lg shadow-purple-500/30' 
-                          : 'opacity-80 hover:opacity-100 hover:scale-102'
-                      }`}
-                    >
-                      {/* 优先使用 thumbnailUrl，否则用 video 元素显示首帧 */}
-                      {v.thumbnailUrl ? (
-                        <img 
-                          src={v.thumbnailUrl} 
-                          alt={v.title} 
-                          className="w-full h-full object-cover object-top bg-gray-800"
-                          onError={(e) => {
-                            // 图片加载失败时隐藏
-                            e.currentTarget.style.display = 'none'
-                          }}
-                        />
-                      ) : v.videoUrl ? (
-                        <video 
-                          src={v.videoUrl} 
-                          className="w-full h-full object-cover object-top bg-gray-800"
-                          muted
-                          preload="metadata"
-                          onLoadedMetadata={(e) => {
-                            // 视频加载后跳到第一帧
-                            e.currentTarget.currentTime = 0.1
-                          }}
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-gray-800 flex items-center justify-center">
-                          <Play size={16} className="text-white/50" />
-                        </div>
-                      )}
-                      
-                      {/* 底部标题 */}
-                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-1.5">
-                        <p className="text-white text-[11px] truncate font-medium">
-                          {idx + 1}. {v.title || '无标题'}
-                        </p>
-                      </div>
-                      
-                      {/* 当前播放指示 */}
-                      {idx === currentVideoIndex && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                          <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center shadow-lg">
-                            <Play size={12} className="text-white fill-white ml-0.5" />
+              {showThumbnailList && (
+                <div className="absolute left-12 top-1/2 -translate-y-1/2 bg-black/90 backdrop-blur-sm rounded-lg p-3 max-h-[80vh] overflow-y-auto scrollbar-thin scrollbar-thumb-white/30">
+                  <div className="flex flex-col gap-3 w-40">
+                    {videos.map((v, idx) => (
+                      <button
+                        key={v.id}
+                        onClick={() => {
+                          lastSwitchTime.current = 0
+                          switchToVideo(idx)
+                        }}
+                        className={`relative w-full aspect-[16/9] rounded-lg overflow-hidden transition-all ${
+                          idx === currentVideoIndex 
+                            ? 'ring-2 ring-purple-500 scale-105 shadow-lg shadow-purple-500/30' 
+                            : 'opacity-80 hover:opacity-100 hover:scale-102'
+                        }`}
+                      >
+                        {v.thumbnailUrl ? (
+                          <img src={v.thumbnailUrl} alt={v.title} className="w-full h-full object-cover object-top bg-gray-800" />
+                        ) : v.videoUrl ? (
+                          <video src={v.videoUrl} className="w-full h-full object-cover object-top bg-gray-800" muted preload="metadata" />
+                        ) : (
+                          <div className="w-full h-full bg-gray-800 flex items-center justify-center">
+                            <Play size={16} className="text-white/50" />
                           </div>
+                        )}
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-1.5">
+                          <p className="text-white text-[11px] truncate font-medium">{idx + 1}. {v.title || '无标题'}</p>
                         </div>
-                      )}
-                    </button>
-                  ))}
+                        {idx === currentVideoIndex && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                            <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center shadow-lg">
+                              <Play size={12} className="text-white fill-white ml-0.5" />
+                            </div>
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* 主导航 */}
-            <div className="flex flex-col items-center gap-2">
-              {currentVideoIndex > 0 && (
-                <button onClick={() => switchToVideo(currentVideoIndex - 1)} className="w-10 h-10 bg-black bg-opacity-50 rounded-full flex items-center justify-center text-white hover:bg-opacity-70">
-                  <ChevronUp size={20} />
-                </button>
-              )}
-              <div className="flex flex-col items-center gap-1 cursor-pointer" title="悬停查看所有视频">
-                <span className="text-white text-xs">{currentVideoIndex + 1}</span>
-                <div className="w-1 h-8 bg-white/30 rounded-full overflow-hidden">
-                  <div className="w-full bg-white rounded-full transition-all duration-300" style={{ height: `${((currentVideoIndex + 1) / videos.length) * 100}%` }} />
+              <div className="flex flex-col items-center gap-2">
+                {currentVideoIndex > 0 && (
+                  <button onClick={() => switchToVideo(currentVideoIndex - 1)} className="w-10 h-10 bg-black bg-opacity-50 rounded-full flex items-center justify-center text-white hover:bg-opacity-70">
+                    <ChevronUp size={20} />
+                  </button>
+                )}
+                <div className="flex flex-col items-center gap-1 cursor-pointer" title="悬停查看所有视频">
+                  <span className="text-white text-xs">{currentVideoIndex + 1}</span>
+                  <div className="w-1 h-8 bg-white/30 rounded-full overflow-hidden">
+                    <div className="w-full bg-white rounded-full transition-all duration-300" style={{ height: `${((currentVideoIndex + 1) / videos.length) * 100}%` }} />
+                  </div>
+                  <span className="text-white text-xs">{videos.length}</span>
                 </div>
-                <span className="text-white text-xs">{videos.length}</span>
+                {currentVideoIndex < videos.length - 1 && (
+                  <button onClick={() => switchToVideo(currentVideoIndex + 1)} className="w-10 h-10 bg-black bg-opacity-50 rounded-full flex items-center justify-center text-white hover:bg-opacity-70">
+                    <ChevronDown size={20} />
+                  </button>
+                )}
               </div>
-              {currentVideoIndex < videos.length - 1 && (
-                <button onClick={() => switchToVideo(currentVideoIndex + 1)} className="w-10 h-10 bg-black bg-opacity-50 rounded-full flex items-center justify-center text-white hover:bg-opacity-70">
-                  <ChevronDown size={20} />
-                </button>
-              )}
             </div>
           </div>
+
+          {/* 评论面板 - 抖音风格 */}
+          {showComments && (
+            <div className="absolute right-0 top-0 bottom-0 w-[400px] bg-white flex flex-col z-40 animate-slideInRight">
+              {/* 评论头部 */}
+              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+                <div className="flex items-center gap-6">
+                  <button className="text-gray-900 font-medium border-b-2 border-gray-900 pb-1">评论</button>
+                </div>
+                <button 
+                  onClick={() => setShowComments(false)}
+                  className="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* 评论列表 */}
+              <div className="flex-1 overflow-y-auto p-4">
+                <div className="text-center text-gray-400 py-20">
+                  <MessageCircle className="w-16 h-16 mx-auto mb-4 opacity-30" />
+                  <p className="text-sm">暂无评论</p>
+                  <p className="text-xs mt-1">快来发表第一条评论吧</p>
+                </div>
+              </div>
+
+              {/* 评论输入框 */}
+              <div className="border-t border-gray-200 p-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 relative">
+                    <input
+                      type="text"
+                      value={commentText}
+                      onChange={(e) => setCommentText(e.target.value)}
+                      placeholder="留下你的精彩评论吧"
+                      className="w-full px-4 py-2.5 bg-gray-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:bg-white transition-all"
+                    />
+                  </div>
+                  <button 
+                    disabled={!commentText.trim()}
+                    className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
+                      commentText.trim() 
+                        ? 'bg-purple-600 text-white hover:bg-purple-700' 
+                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                    }`}
+                  >
+                    <Send size={18} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       <PublishVideoModal isOpen={showPublishModal} onClose={() => setShowPublishModal(false)} onSuccess={() => { loadVideos(); window.dispatchEvent(new CustomEvent('community-video-uploaded')) }} />
       <DeleteConfirmModal isOpen={deleteConfirmState.isOpen} onClose={() => setDeleteConfirmState({ isOpen: false, videoId: null })} onConfirm={handleConfirmDelete} message="确定要删除/下架这个视频吗？此操作不可恢复。" />
+
+      <style>{`
+        @keyframes slideInRight {
+          from {
+            transform: translateX(100%);
+          }
+          to {
+            transform: translateX(0);
+          }
+        }
+        .animate-slideInRight {
+          animation: slideInRight 0.3s ease-out;
+        }
+      `}</style>
     </div>
   )
 }
