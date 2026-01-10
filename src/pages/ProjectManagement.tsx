@@ -800,10 +800,16 @@ function ProjectManagement() {
         </div>
 
         {/* 分页 */}
-        <div className="flex justify-center items-center gap-2 mt-8">
-          <button className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors">‹</button>
-          <button className="px-4 py-2 bg-purple-600 text-white rounded">1</button>
-          <button className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors">›</button>
+        <div className="flex justify-center items-center gap-3 mt-8">
+          <button className="w-10 h-10 flex items-center justify-center text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-all shadow-sm border border-gray-200">
+            ‹
+          </button>
+          <button className="w-10 h-10 flex items-center justify-center bg-purple-600 text-white rounded-lg shadow-md hover:bg-purple-700 transition-all">
+            1
+          </button>
+          <button className="w-10 h-10 flex items-center justify-center text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-all shadow-sm border border-gray-200">
+            ›
+          </button>
         </div>
       </div>
 

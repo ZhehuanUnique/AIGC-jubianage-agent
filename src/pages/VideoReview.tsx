@@ -1073,11 +1073,8 @@ function VideoReview() {
 
               </>
             ) : (
-              /* 上传区域 */
-              <div 
-                onClick={handleUploadClick}
-                className="w-full h-full bg-white border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:border-purple-500 hover:bg-gray-50 transition-all relative"
-              >
+              /* 上传区域 - 使用仓鼠加载动画 */
+              <div className="w-full h-full bg-gray-50 flex flex-col items-center justify-center relative">
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -1085,13 +1082,20 @@ function VideoReview() {
                   onChange={handleVideoUpload}
                   className="hidden"
                 />
-              <div className="text-center">
-                  <div className="w-20 h-20 mx-auto mb-4 bg-purple-100 rounded-full flex items-center justify-center">
-                    <Upload size={40} className="text-purple-600" />
-                  </div>
-                  <p className="text-gray-700 text-lg font-medium mb-2">点击上传视频</p>
-                  <p className="text-gray-500 text-sm">支持 MP4、AVI、MOV 等格式</p>
+                {/* 仓鼠加载动画 */}
+                <div className="mb-8">
+                  <HamsterLoader size={14} />
                 </div>
+                <p className="text-gray-500 text-sm mb-6">等待上传视频...</p>
+                {/* 渐变上传按钮 */}
+                <button
+                  onClick={handleUploadClick}
+                  className="px-8 py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-lg hover:from-pink-600 hover:to-purple-700 transition-all flex items-center gap-2 shadow-lg"
+                >
+                  <Upload size={20} />
+                  <span>上传视频</span>
+                </button>
+                <p className="text-gray-400 text-xs mt-3">支持 MP4、AVI、MOV 等格式</p>
               </div>
             )}
           </div>
