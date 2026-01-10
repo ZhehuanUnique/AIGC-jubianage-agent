@@ -1604,11 +1604,27 @@ app.get('/api/projects/:projectId/first-last-frame-videos', authenticateToken, a
     const pool = await import('./db/connection.js')
     const db = pool.default
     
-    // 验证项目是否属于当前用户
-    const projectCheck = await db.query(
-      'SELECT id FROM projects WHERE id = $1 AND user_id = $2',
-      [projectId, userId]
+    // 检查当前用户是否是超级管理员
+    const currentUserResult = await db.query(
+      'SELECT username, role FROM users WHERE id = $1',
+      [userId]
     )
+    const currentUser = currentUserResult.rows[0]
+    const isSuperAdmin = currentUser?.username === 'Chiefavefan' || currentUser?.role === 'super_admin'
+    
+    // 验证项目是否存在（超级管理员可以访问所有项目）
+    let projectCheck
+    if (isSuperAdmin) {
+      projectCheck = await db.query(
+        'SELECT id FROM projects WHERE id = $1',
+        [projectId]
+      )
+    } else {
+      projectCheck = await db.query(
+        'SELECT id FROM projects WHERE id = $1 AND user_id = $2',
+        [projectId, userId]
+      )
+    }
     
     if (projectCheck.rows.length === 0) {
       return res.status(403).json({
@@ -1622,35 +1638,72 @@ app.get('/api/projects/:projectId/first-last-frame-videos', authenticateToken, a
     const oneWeekAgo = new Date()
     oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
     
-    const videosResult = await db.query(
-      `SELECT id, task_id, video_url, first_frame_url, last_frame_url, 
-              model, resolution, ratio, duration, prompt, text, status, 
-              shot_id, estimated_credit, actual_credit, error_message, fps, created_at, updated_at
-       FROM first_last_frame_videos
-       WHERE project_id = $1 AND user_id = $2 AND created_at >= $3
-       ORDER BY created_at DESC
-       LIMIT 200`,
-      [projectId, userId, oneWeekAgo]
-    )
-    
-    // 获取补帧任务（frame_interpolation）
-    let frameInterpolationTasks = []
-    try {
-      const frameInterpolationResult = await db.query(
-        `SELECT vpt.id, vpt.source_video_task_id, vpt.source_video_url, vpt.result_video_url,
-                vpt.processing_type, vpt.status, vpt.error_message, vpt.metadata,
-                vpt.created_at, vpt.updated_at,
-                flv.first_frame_url, flv.last_frame_url, flv.model, flv.resolution, 
-                flv.ratio, flv.duration, flv.text, flv.prompt
-         FROM video_processing_tasks vpt
-         LEFT JOIN first_last_frame_videos flv ON flv.task_id = vpt.source_video_task_id
-         WHERE vpt.project_id = $1 AND vpt.user_id = $2 
-           AND vpt.processing_type = 'frame_interpolation'
-           AND vpt.created_at >= $3
-         ORDER BY vpt.created_at DESC
-         LIMIT 100`,
+    // 超级管理员可以看到该项目下所有用户的视频
+    let videosResult
+    if (isSuperAdmin) {
+      videosResult = await db.query(
+        `SELECT flv.id, flv.task_id, flv.video_url, flv.first_frame_url, flv.last_frame_url, 
+                flv.model, flv.resolution, flv.ratio, flv.duration, flv.prompt, flv.text, flv.status, 
+                flv.shot_id, flv.estimated_credit, flv.actual_credit, flv.error_message, flv.fps, 
+                flv.created_at, flv.updated_at, flv.user_id,
+                u.display_name as owner_name, u.username as owner_username
+         FROM first_last_frame_videos flv
+         LEFT JOIN users u ON flv.user_id = u.id
+         WHERE flv.project_id = $1 AND flv.created_at >= $2
+         ORDER BY flv.created_at DESC
+         LIMIT 200`,
+        [projectId, oneWeekAgo]
+      )
+    } else {
+      videosResult = await db.query(
+        `SELECT id, task_id, video_url, first_frame_url, last_frame_url, 
+                model, resolution, ratio, duration, prompt, text, status, 
+                shot_id, estimated_credit, actual_credit, error_message, fps, created_at, updated_at
+         FROM first_last_frame_videos
+         WHERE project_id = $1 AND user_id = $2 AND created_at >= $3
+         ORDER BY created_at DESC
+         LIMIT 200`,
         [projectId, userId, oneWeekAgo]
       )
+    }
+    
+    // 获取补帧任务（frame_interpolation）- 超级管理员可以看到所有用户的
+    let frameInterpolationTasks = []
+    try {
+      let frameInterpolationResult
+      if (isSuperAdmin) {
+        frameInterpolationResult = await db.query(
+          `SELECT vpt.id, vpt.source_video_task_id, vpt.source_video_url, vpt.result_video_url,
+                  vpt.processing_type, vpt.status, vpt.error_message, vpt.metadata,
+                  vpt.created_at, vpt.updated_at,
+                  flv.first_frame_url, flv.last_frame_url, flv.model, flv.resolution, 
+                  flv.ratio, flv.duration, flv.text, flv.prompt
+           FROM video_processing_tasks vpt
+           LEFT JOIN first_last_frame_videos flv ON flv.task_id = vpt.source_video_task_id
+           WHERE vpt.project_id = $1
+             AND vpt.processing_type = 'frame_interpolation'
+             AND vpt.created_at >= $2
+           ORDER BY vpt.created_at DESC
+           LIMIT 100`,
+          [projectId, oneWeekAgo]
+        )
+      } else {
+        frameInterpolationResult = await db.query(
+          `SELECT vpt.id, vpt.source_video_task_id, vpt.source_video_url, vpt.result_video_url,
+                  vpt.processing_type, vpt.status, vpt.error_message, vpt.metadata,
+                  vpt.created_at, vpt.updated_at,
+                  flv.first_frame_url, flv.last_frame_url, flv.model, flv.resolution, 
+                  flv.ratio, flv.duration, flv.text, flv.prompt
+           FROM video_processing_tasks vpt
+           LEFT JOIN first_last_frame_videos flv ON flv.task_id = vpt.source_video_task_id
+           WHERE vpt.project_id = $1 AND vpt.user_id = $2 
+             AND vpt.processing_type = 'frame_interpolation'
+             AND vpt.created_at >= $3
+           ORDER BY vpt.created_at DESC
+           LIMIT 100`,
+          [projectId, userId, oneWeekAgo]
+        )
+      }
       frameInterpolationTasks = frameInterpolationResult.rows
     } catch (fiError) {
       console.warn('查询补帧任务失败（表可能不存在）:', fiError.message)
@@ -1731,6 +1784,9 @@ app.get('/api/projects/:projectId/first-last-frame-videos', authenticateToken, a
         isFavorited: favoritedTaskIds.has(video.task_id),
         isUltraHd: ultraHdTaskIds.has(video.task_id),
         processingType: null, // 原始视频没有处理类型
+        // 超级管理员可以看到创建者信息
+        ownerName: video.owner_name || video.owner_username || null,
+        ownerId: video.user_id || null,
       }
     })
     
@@ -6982,7 +7038,8 @@ app.post('/api/upload-item-image', authenticateToken, uploadImage.single('image'
     
     console.log(`✅ 物品图片上传到COS成功: ${uploadResult.url}`)
     
-    // 保存到数据库（itemNameToUse已在上面定义）
+    // 定义物品名称（使用传入的itemName或生成默认名称）
+    const itemNameToUse = itemName || `物品_${Date.now()}`
     
     // 查找是否已存在该物品
     const findResult = await db.query(

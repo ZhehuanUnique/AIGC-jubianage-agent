@@ -310,21 +310,27 @@ export class UserService {
   }
 
   /**
-   * 获取所有用户消耗排名
+   * 获取所有用户消耗排名（同时返回积分和实际成本）
    * @param {Date} startDate - 开始日期
    * @param {Date} endDate - 结束日期
-   * @param {boolean} showRealCost - 是否显示真实成本（元），默认false（显示积分）
    * @returns {Promise<Array>}
    */
-  static async getUserConsumptionRanking(startDate = null, endDate = null, showRealCost = false) {
+  static async getUserConsumptionRanking(startDate = null, endDate = null) {
     try {
+      // 查询同时获取积分消耗和实际成本
       let query = `
         SELECT 
           u.id,
           u.username,
           u.display_name,
-          COALESCE(SUM(ol.points_consumed), 0) as total_consumption,
-          ol.metadata
+          COALESCE(SUM(ol.points_consumed), 0) as total_points,
+          SUM(
+            CASE 
+              WHEN ol.metadata IS NOT NULL AND ol.metadata::text != 'null' 
+              THEN COALESCE((ol.metadata->>'costInYuan')::numeric, 0)
+              ELSE 0
+            END
+          ) as total_cost
         FROM users u
         LEFT JOIN operation_logs ol ON u.id = ol.user_id AND ol.status = 'success'
       `
