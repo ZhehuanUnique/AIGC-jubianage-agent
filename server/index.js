@@ -4432,68 +4432,93 @@ app.get('/api/projects', authenticateToken, async (req, res) => {
     const pool = await import('./db/connection.js')
     const db = pool.default
     
-    // 获取用户所在的所有小组ID
-    const userGroupsResult = await db.query(
-      'SELECT group_id FROM user_groups WHERE user_id = $1',
+    // 检查当前用户是否是超级管理员
+    const currentUserResult = await db.query(
+      'SELECT username, role FROM users WHERE id = $1',
       [userId]
     )
-    const groupIds = userGroupsResult.rows.map(row => row.group_id)
+    const currentUser = currentUserResult.rows[0]
+    const isSuperAdmin = currentUser?.username === 'Chiefavefan' || currentUser?.role === 'super_admin'
     
-    // 获取用户设置，检查是否启用跨组共享
-    const userSettingsResult = await db.query(
-      'SELECT enable_cross_group_sharing FROM user_settings WHERE user_id = $1',
-      [userId]
-    )
-    const enableCrossGroupSharing = userSettingsResult.rows[0]?.enable_cross_group_sharing || false
+    let result
     
-    // 获取用户有权访问的跨组ID列表
-    let crossGroupIds = []
-    if (enableCrossGroupSharing) {
-      const crossGroupResult = await db.query(
-        'SELECT target_group_id FROM cross_group_access WHERE user_id = $1',
+    if (isSuperAdmin) {
+      // 超级管理员可以看到所有项目
+      const query = `
+        SELECT DISTINCT p.id, p.name, p.script_title, p.work_style, p.work_background, 
+               p.created_at, p.updated_at, p.user_id, p.group_id, p.parent_id, p.path, p.cover_url,
+               u.display_name as owner_name, u.username as owner_username
+        FROM projects p
+        LEFT JOIN users u ON p.user_id = u.id
+        ORDER BY p.path ASC, p.created_at DESC
+      `
+      result = await db.query(query)
+    } else {
+      // 普通用户和管理员只能看到自己有权限的项目
+      
+      // 获取用户所在的所有小组ID
+      const userGroupsResult = await db.query(
+        'SELECT group_id FROM user_groups WHERE user_id = $1',
         [userId]
       )
-      crossGroupIds = crossGroupResult.rows.map(row => row.target_group_id)
-    }
-    
-    // 获取同组成员的用户ID列表（用于共享项目）
-    let groupMemberIds = [userId]
-    if (groupIds.length > 0) {
-      const groupMembersResult = await db.query(
-        'SELECT DISTINCT user_id FROM user_groups WHERE group_id = ANY($1::integer[])',
-        [groupIds]
+      const groupIds = userGroupsResult.rows.map(row => row.group_id)
+      
+      // 获取用户设置，检查是否启用跨组共享
+      const userSettingsResult = await db.query(
+        'SELECT enable_cross_group_sharing FROM user_settings WHERE user_id = $1',
+        [userId]
       )
-      groupMemberIds = groupMembersResult.rows.map(row => row.user_id)
+      const enableCrossGroupSharing = userSettingsResult.rows[0]?.enable_cross_group_sharing || false
+      
+      // 获取用户有权访问的跨组ID列表
+      let crossGroupIds = []
+      if (enableCrossGroupSharing) {
+        const crossGroupResult = await db.query(
+          'SELECT target_group_id FROM cross_group_access WHERE user_id = $1',
+          [userId]
+        )
+        crossGroupIds = crossGroupResult.rows.map(row => row.target_group_id)
+      }
+      
+      // 获取同组成员的用户ID列表（用于共享项目）
+      let groupMemberIds = [userId]
+      if (groupIds.length > 0) {
+        const groupMembersResult = await db.query(
+          'SELECT DISTINCT user_id FROM user_groups WHERE group_id = ANY($1::integer[])',
+          [groupIds]
+        )
+        groupMemberIds = groupMembersResult.rows.map(row => row.user_id)
+      }
+      
+      // 合并所有可访问的组ID
+      const allAccessibleGroupIds = [...new Set([...groupIds, ...crossGroupIds])]
+      
+      // 构建查询：
+      // 1. 项目属于该用户
+      // 2. 项目属于同组成员（共享）
+      // 3. 项目属于用户所在的小组
+      // 4. 项目属于用户有跨组访问权限的小组
+      const query = `
+        SELECT DISTINCT p.id, p.name, p.script_title, p.work_style, p.work_background, 
+               p.created_at, p.updated_at, p.user_id, p.group_id, p.parent_id, p.path, p.cover_url,
+               u.display_name as owner_name, u.username as owner_username
+        FROM projects p
+        LEFT JOIN users u ON p.user_id = u.id
+        WHERE (
+          p.user_id = $1 
+          OR p.user_id = ANY($2::integer[])
+          OR (p.group_id IS NOT NULL AND p.group_id = ANY($3::integer[]))
+        )
+        ORDER BY p.path ASC, p.created_at DESC
+      `
+      
+      const params = [
+        userId, 
+        groupMemberIds.length > 0 ? groupMemberIds : [null],
+        allAccessibleGroupIds.length > 0 ? allAccessibleGroupIds : [null]
+      ]
+      result = await db.query(query, params)
     }
-    
-    // 合并所有可访问的组ID
-    const allAccessibleGroupIds = [...new Set([...groupIds, ...crossGroupIds])]
-    
-    // 构建查询：
-    // 1. 项目属于该用户
-    // 2. 项目属于同组成员（共享）
-    // 3. 项目属于用户所在的小组
-    // 4. 项目属于用户有跨组访问权限的小组
-    let query = `
-      SELECT DISTINCT p.id, p.name, p.script_title, p.work_style, p.work_background, 
-             p.created_at, p.updated_at, p.user_id, p.group_id, p.parent_id, p.path, p.cover_url,
-             u.display_name as owner_name, u.username as owner_username
-      FROM projects p
-      LEFT JOIN users u ON p.user_id = u.id
-      WHERE (
-        p.user_id = $1 
-        OR p.user_id = ANY($2::integer[])
-        OR (p.group_id IS NOT NULL AND p.group_id = ANY($3::integer[]))
-      )
-      ORDER BY p.path ASC, p.created_at DESC
-    `
-    
-    const params = [
-      userId, 
-      groupMemberIds.length > 0 ? groupMemberIds : [null],
-      allAccessibleGroupIds.length > 0 ? allAccessibleGroupIds : [null]
-    ]
-    const result = await db.query(query, params)
     
     res.json({
       success: true,
