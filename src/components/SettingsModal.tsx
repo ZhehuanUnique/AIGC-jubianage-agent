@@ -403,11 +403,11 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             </div>
           </div>
 
-          {/* 首尾帧生视频设置 */}
+          {/* 剧梦工厂设置 */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
               <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-              首尾帧生视频设置
+              剧梦工厂设置
             </h3>
             
             <div className="space-y-4 pl-4">

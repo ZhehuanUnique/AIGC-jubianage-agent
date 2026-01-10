@@ -39,6 +39,9 @@ server/uploads/
 # Cursor MCP (contains sensitive tokens)
 .cursor/
 
+# Kiro MCP (contains sensitive tokens)
+.kiro/settings/mcp.json
+
 # Large files and directories (should not be in Git)
 USB Files/
 Chiefavefan/

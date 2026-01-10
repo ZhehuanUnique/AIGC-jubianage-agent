@@ -348,27 +348,29 @@ function WorksShowcase() {
         <ArrowLeft size={20} />
       </button>
 
-      {/* 排序选项 */}
-      <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
-        <button
-          onClick={() => setShowPublishModal(true)}
-          className="flex items-center gap-2 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
-        >
-          <Plus size={16} />
-          <span>发布</span>
-        </button>
-        {['latest', 'popular', 'likes'].map((s) => (
+      {/* 排序选项 - 只在非详情页模式下显示 */}
+      {!videoId && (
+        <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
           <button
-            key={s}
-            onClick={() => setSortBy(s as typeof sortBy)}
-            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-              sortBy === s ? 'bg-purple-600 text-white' : 'bg-black bg-opacity-50 text-white hover:bg-opacity-70'
-            }`}
+            onClick={() => setShowPublishModal(true)}
+            className="flex items-center gap-2 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
           >
-            {s === 'latest' ? '最新' : s === 'popular' ? '最热' : '最多点赞'}
+            <Plus size={16} />
+            <span>发布</span>
           </button>
-        ))}
-      </div>
+          {['latest', 'popular', 'likes'].map((s) => (
+            <button
+              key={s}
+              onClick={() => setSortBy(s as typeof sortBy)}
+              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                sortBy === s ? 'bg-purple-600 text-white' : 'bg-black bg-opacity-50 text-white hover:bg-opacity-70'
+              }`}
+            >
+              {s === 'latest' ? '最新' : s === 'popular' ? '最热' : '最多点赞'}
+            </button>
+          ))}
+        </div>
+      )}
 
       {isLoading ? (
         <div className="flex flex-col items-center justify-center h-full">
@@ -413,8 +415,8 @@ function WorksShowcase() {
               </div>
             )}
 
-            {/* 管理员删除按钮 */}
-            {isAdmin && (
+            {/* 管理员删除按钮 - 只在非详情页模式下显示 */}
+            {isAdmin && !videoId && (
               <button
                 onClick={(e) => handleDeleteVideo(currentVideo.id, e)}
                 disabled={deletingVideoId === currentVideo.id}

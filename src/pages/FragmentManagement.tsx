@@ -291,8 +291,8 @@ function FragmentCard({
             className="w-full h-full object-cover"
           />
         ) : (
-          <div className="w-20 h-20 rounded-lg bg-purple-600 flex items-center justify-center text-white text-xs text-center p-2">
-            {fragment.name}
+          <div className="w-full h-full bg-white flex items-center justify-center">
+            <span className="text-gray-700 text-sm font-medium text-center px-2">{fragment.name}</span>
           </div>
         )}
       </div>
@@ -681,7 +681,7 @@ function FragmentManagement() {
         <div className="flex-1 p-3 sm:p-6">
         {/* 片段列表 */}
         <div className="flex gap-3 sm:gap-4 flex-wrap">
-          {/* 新建片段卡片 - 竖向布局（9:16） */}
+          {/* 新建片段卡片 - 紧凑布局 */}
           <div
             onClick={(e) => {
               e.stopPropagation()
@@ -691,26 +691,26 @@ function FragmentManagement() {
                 setShowCreateModal(true)
               }, 0)
             }}
-            className="w-full sm:w-48 aspect-[9/16] bg-gray-50 border-2 border-dashed border-pink-500 rounded-lg flex flex-col items-center justify-center cursor-pointer active:border-pink-400 sm:hover:border-pink-400 transition-all touch-manipulation"
+            className="w-full sm:w-32 h-32 sm:h-36 bg-white border-2 border-dashed border-pink-500 rounded-lg flex flex-col items-center justify-center cursor-pointer active:border-pink-400 sm:hover:border-pink-400 transition-all touch-manipulation"
           >
-            <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 flex items-center justify-center mb-3 sm:mb-4">
-              <Plus size={24} className="sm:w-8 sm:h-8 text-white" />
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 flex items-center justify-center mb-2 sm:mb-3">
+              <Plus size={20} className="sm:w-6 sm:h-6 text-white" />
             </div>
-            <span className="text-pink-600 font-medium text-sm sm:text-base">新建片段</span>
+            <span className="text-pink-600 font-medium text-xs sm:text-sm">新建片段</span>
           </div>
 
-          {/* 首尾帧生视频卡片 - 竖向布局（9:16） */}
+          {/* 剧梦工厂卡片 - 紧凑布局 */}
           {projectId && (
             <div
               onClick={() => navigate(`/project/${projectId}/first-last-frame-video`)}
-              className="w-full sm:w-48 aspect-[9/16] bg-gray-50 border-2 border-dashed border-blue-500 rounded-lg flex flex-col items-center justify-center cursor-pointer active:border-blue-400 sm:hover:border-blue-400 transition-all touch-manipulation"
+              className="w-full sm:w-32 h-32 sm:h-36 bg-white border-2 border-dashed border-blue-500 rounded-lg flex flex-col items-center justify-center cursor-pointer active:border-blue-400 sm:hover:border-blue-400 transition-all touch-manipulation"
             >
-              <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gradient-to-r from-blue-500 to-cyan-600 flex items-center justify-center mb-3 sm:mb-4">
-                <svg className="w-6 h-6 sm:w-8 sm:h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-r from-blue-500 to-cyan-600 flex items-center justify-center mb-2 sm:mb-3">
+                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                 </svg>
               </div>
-              <span className="text-blue-600 font-medium text-sm sm:text-base">首尾帧生视频</span>
+              <span className="text-blue-600 font-medium text-xs sm:text-sm">剧梦工厂</span>
             </div>
           )}
 

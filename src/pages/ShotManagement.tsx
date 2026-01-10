@@ -208,6 +208,124 @@ function ShotManagement() {
     return () => clearTimeout(timer)
   }, [availableCharacters, availableScenes, availableItems])
 
+  // 自动匹配资产到分镜（当资产数据加载完成后执行）
+  useEffect(() => {
+    // 检查是否有可用的资产数据
+    const hasAssets = availableCharacters.length > 0 || availableScenes.length > 0 || availableItems.length > 0
+    if (!hasAssets) return
+    
+    // 检查是否有分镜数据需要匹配
+    if (shots.length === 0) return
+    
+    // 检查是否已经执行过自动匹配（避免重复匹配）
+    const hasAutoMatched = sessionStorage.getItem('shotManagement_autoMatched')
+    if (hasAutoMatched === 'true') return
+    
+    // 延迟执行，确保所有数据都已加载
+    const timer = setTimeout(() => {
+      console.log('🔍 开始自动匹配资产到分镜...')
+      console.log('   可用角色:', availableCharacters.length, '个')
+      console.log('   可用场景:', availableScenes.length, '个')
+      console.log('   可用物品:', availableItems.length, '个')
+      
+      let matchedCount = 0
+      
+      setShots(prevShots => {
+        return prevShots.map(shot => {
+          // 如果已经有关联资产，跳过（保留用户手动选择的）
+          if (shot.associatedCharacters.length > 0 || 
+              shot.associatedScenes.length > 0 || 
+              shot.associatedItems.length > 0) {
+            return shot
+          }
+          
+          // 自动匹配
+          const { matchedCharacters, matchedScenes, matchedItems } = autoMatchAssetsForShot(
+            shot.prompt,
+            shot.segment,
+            availableCharacters,
+            availableScenes,
+            availableItems
+          )
+          
+          if (matchedCharacters.length > 0 || matchedScenes.length > 0 || matchedItems.length > 0) {
+            matchedCount++
+            console.log(`   分镜${shot.shotNumber}: 匹配到 ${matchedCharacters.length} 个角色, ${matchedScenes.length} 个场景, ${matchedItems.length} 个物品`)
+          }
+          
+          return {
+            ...shot,
+            associatedCharacters: matchedCharacters,
+            associatedScenes: matchedScenes,
+            associatedItems: matchedItems,
+          }
+        })
+      })
+      
+      // 标记已执行过自动匹配
+      sessionStorage.setItem('shotManagement_autoMatched', 'true')
+      
+      if (matchedCount > 0) {
+        console.log(`✅ 自动匹配完成，共 ${matchedCount} 个分镜匹配到资产`)
+      } else {
+        console.log('ℹ️ 自动匹配完成，没有找到匹配的资产')
+      }
+    }, 200)
+    
+    return () => clearTimeout(timer)
+  }, [availableCharacters, availableScenes, availableItems, shots.length])
+
+  // 根据提示词自动匹配资产
+  const autoMatchAssetsForShot = (prompt: string, segment: string, characters: Asset[], scenes: Asset[], items: Asset[]): {
+    matchedCharacters: Asset[]
+    matchedScenes: Asset[]
+    matchedItems: Asset[]
+  } => {
+    const matchedCharacters: Asset[] = []
+    const matchedScenes: Asset[] = []
+    const matchedItems: Asset[] = []
+    
+    // 合并提示词和片段内容进行匹配
+    const textToMatch = `${prompt} ${segment}`.toLowerCase()
+    
+    // 匹配角色（按名称匹配）
+    characters.forEach(char => {
+      if (char.name && char.imageUrl) {
+        // 去掉扩展名进行匹配
+        const nameWithoutExt = char.name.replace(/\.(png|jpg|jpeg|gif|webp)$/i, '')
+        // 检查提示词中是否包含角色名称
+        if (textToMatch.includes(nameWithoutExt.toLowerCase()) || 
+            textToMatch.includes(char.name.toLowerCase())) {
+          matchedCharacters.push(char)
+        }
+      }
+    })
+    
+    // 匹配场景（按名称匹配）
+    scenes.forEach(scene => {
+      if (scene.name && scene.imageUrl) {
+        const nameWithoutExt = scene.name.replace(/\.(png|jpg|jpeg|gif|webp)$/i, '')
+        if (textToMatch.includes(nameWithoutExt.toLowerCase()) || 
+            textToMatch.includes(scene.name.toLowerCase())) {
+          matchedScenes.push(scene)
+        }
+      }
+    })
+    
+    // 匹配物品（按名称匹配）
+    items.forEach(item => {
+      if (item.name && item.imageUrl) {
+        const nameWithoutExt = item.name.replace(/\.(png|jpg|jpeg|gif|webp)$/i, '')
+        if (textToMatch.includes(nameWithoutExt.toLowerCase()) || 
+            textToMatch.includes(item.name.toLowerCase())) {
+          matchedItems.push(item)
+        }
+      }
+    })
+    
+    return { matchedCharacters, matchedScenes, matchedItems }
+  }
+
   // 根据segments初始化shots
   const initializeShots = (segments: ScriptSegment[]): Shot[] => {
     if (!segments || segments.length === 0) {
@@ -278,6 +396,9 @@ function ShotManagement() {
     if (state?.segments && state.segments.length > 0) {
       const initialShots = initializeShots(state.segments)
       console.log('🎬 初始化分镜，segments数量:', state.segments.length, '分镜数量:', initialShots.length)
+      
+      // 清除自动匹配标记，以便重新匹配
+      sessionStorage.removeItem('shotManagement_autoMatched')
       
       // 保存到 sessionStorage，以便返回时恢复
       try {
