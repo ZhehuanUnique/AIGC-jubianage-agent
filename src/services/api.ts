@@ -2785,3 +2785,158 @@ export async function recordVideoView(videoId: number): Promise<void> {
     console.warn('记录观看失败:', error)
   }
 }
+
+// ==================== 视频评论 API ====================
+
+export interface VideoComment {
+  id: number
+  content: string
+  likesCount: number
+  repliesCount: number
+  createdAt: string
+  isLiked: boolean
+  parentId?: number | null
+  user: {
+    id: number
+    username: string
+    displayName: string
+    avatar?: string
+  }
+  replies?: VideoComment[]
+}
+
+/**
+ * 获取视频评论列表
+ */
+export async function getVideoComments(videoId: number, params?: { page?: number; limit?: number }): Promise<{
+  comments: VideoComment[]
+  total: number
+  page: number
+  limit: number
+  hasMore: boolean
+}> {
+  const token = AuthService.getToken()
+  if (!token) {
+    throw new Error('未登录，请先登录')
+  }
+
+  const queryParams = new URLSearchParams()
+  if (params?.page) queryParams.append('page', params.page.toString())
+  if (params?.limit) queryParams.append('limit', params.limit.toString())
+
+  const response = await fetch(`${API_BASE_URL}/api/community-videos/${videoId}/comments?${queryParams.toString()}`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  })
+
+  const result = await response.json()
+  if (!result.success) {
+    throw new Error(result.error || '获取评论失败')
+  }
+
+  return result.data
+}
+
+/**
+ * 获取评论的更多回复
+ */
+export async function getCommentReplies(videoId: number, commentId: number, params?: { page?: number; limit?: number }): Promise<{
+  replies: VideoComment[]
+  total: number
+  hasMore: boolean
+}> {
+  const token = AuthService.getToken()
+  if (!token) {
+    throw new Error('未登录，请先登录')
+  }
+
+  const queryParams = new URLSearchParams()
+  if (params?.page) queryParams.append('page', params.page.toString())
+  if (params?.limit) queryParams.append('limit', params.limit.toString())
+
+  const response = await fetch(`${API_BASE_URL}/api/community-videos/${videoId}/comments/${commentId}/replies?${queryParams.toString()}`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  })
+
+  const result = await response.json()
+  if (!result.success) {
+    throw new Error(result.error || '获取回复失败')
+  }
+
+  return result.data
+}
+
+/**
+ * 发表评论
+ */
+export async function postVideoComment(videoId: number, content: string, parentId?: number): Promise<VideoComment> {
+  const token = AuthService.getToken()
+  if (!token) {
+    throw new Error('未登录，请先登录')
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/community-videos/${videoId}/comments`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ content, parentId }),
+  })
+
+  const result = await response.json()
+  if (!result.success) {
+    throw new Error(result.error || '发表评论失败')
+  }
+
+  return result.data
+}
+
+/**
+ * 点赞/取消点赞评论
+ */
+export async function toggleCommentLike(videoId: number, commentId: number): Promise<{ isLiked: boolean; likesCount: number }> {
+  const token = AuthService.getToken()
+  if (!token) {
+    throw new Error('未登录，请先登录')
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/community-videos/${videoId}/comments/${commentId}/like`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  })
+
+  const result = await response.json()
+  if (!result.success) {
+    throw new Error(result.error || '点赞失败')
+  }
+
+  return result.data
+}
+
+/**
+ * 删除评论
+ */
+export async function deleteVideoComment(videoId: number, commentId: number): Promise<void> {
+  const token = AuthService.getToken()
+  if (!token) {
+    throw new Error('未登录，请先登录')
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/community-videos/${videoId}/comments/${commentId}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  })
+
+  const result = await response.json()
+  if (!result.success) {
+    throw new Error(result.error || '删除评论失败')
+  }
+}

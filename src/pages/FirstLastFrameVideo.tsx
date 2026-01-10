@@ -54,6 +54,33 @@ function FirstLastFrameVideo() {
   const [frameImageInfo, setFrameImageInfo] = useState<{ width: number; height: number } | null>(null) // 图片尺寸信息（用于动态计算容器尺寸）
   const [selectedRatio, setSelectedRatio] = useState<'16:9' | '9:16'>('16:9') // 用户选择的尺寸
   
+  // 生成类型：视频或图片
+  const [generationType, setGenerationType] = useState<'video' | 'image'>('video')
+  
+  // 参考图（用于图片生成）
+  const [referenceImages, setReferenceImages] = useState<{ file: File; preview: string }[]>([])
+  const referenceImageInputRef = useRef<HTMLInputElement>(null)
+  
+  // 支持的图片生成模型
+  // maxReferenceImages: 支持的最大参考图数量，0表示只支持文生图
+  const imageModels = [
+    { value: 'flux-pro', label: 'Flux Pro', maxReferenceImages: 0, ratios: ['16:9', '9:16', '1:1'] },
+    { value: 'flux-dev', label: 'Flux Dev', maxReferenceImages: 0, ratios: ['16:9', '9:16', '1:1'] },
+    { value: 'midjourney-v6', label: 'Midjourney V6', maxReferenceImages: 4, ratios: ['16:9', '9:16', '1:1'] },
+    { value: 'midjourney-v6.1', label: 'Midjourney V6.1', maxReferenceImages: 4, ratios: ['16:9', '9:16', '1:1'] },
+    { value: 'seedream-3.0', label: 'Seedream 3.0', maxReferenceImages: 1, ratios: ['16:9', '9:16', '1:1'] },
+    { value: 'dall-e-3', label: 'DALL-E 3', maxReferenceImages: 0, ratios: ['16:9', '9:16', '1:1'] },
+    { value: 'ideogram-v2', label: 'Ideogram V2', maxReferenceImages: 1, ratios: ['16:9', '9:16', '1:1'] },
+    { value: 'stable-diffusion-xl', label: 'SDXL', maxReferenceImages: 1, ratios: ['16:9', '9:16', '1:1'] },
+  ]
+  const [selectedImageModel, setSelectedImageModel] = useState<string>('flux-pro')
+  
+  // 根据参考图数量过滤可用的图片生成模型
+  const availableImageModels = imageModels.filter(model => {
+    if (referenceImages.length === 0) return true // 没有参考图，所有模型都可用
+    return model.maxReferenceImages >= referenceImages.length
+  })
+  
   // 支持的模型列表（所有图生视频模型）
   // durations: 支持的时长列表，ratios: 支持的尺寸列表
   // supportsFirstLastFrame: 是否支持首尾帧生视频
@@ -608,6 +635,53 @@ function FirstLastFrameVideo() {
     }
   }
 
+  // 参考图处理函数
+  const handleReferenceImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+    
+    // 获取当前选中模型的最大参考图数量
+    const currentImageModel = imageModels.find(m => m.value === selectedImageModel)
+    const maxImages = currentImageModel?.maxReferenceImages || 4
+    
+    // 计算还能添加多少张
+    const remainingSlots = maxImages - referenceImages.length
+    if (remainingSlots <= 0) {
+      alertError(`当前模型最多支持${maxImages}张参考图`, '提示')
+      return
+    }
+    
+    // 处理上传的文件
+    const filesToProcess = Array.from(files).slice(0, remainingSlots)
+    
+    filesToProcess.forEach(file => {
+      if (!file.type.startsWith('image/')) {
+        alertError('请上传图片文件', '文件类型错误')
+        return
+      }
+      
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const preview = e.target?.result as string
+        setReferenceImages(prev => [...prev, { file, preview }])
+      }
+      reader.readAsDataURL(file)
+    })
+    
+    // 清空input以便重复上传同一文件
+    if (referenceImageInputRef.current) {
+      referenceImageInputRef.current.value = ''
+    }
+  }
+  
+  const removeReferenceImage = (index: number) => {
+    setReferenceImages(prev => prev.filter((_, i) => i !== index))
+  }
+  
+  const triggerReferenceImageUpload = () => {
+    referenceImageInputRef.current?.click()
+  }
+
   // 生成视频
   const generateVideo = async () => {
     if (!prompt.trim()) {
@@ -760,6 +834,43 @@ function FirstLastFrameVideo() {
       }
     } catch (error) {
       console.error('生成视频失败:', error)
+      alertError(error instanceof Error ? error.message : '生成失败，请稍后重试', '错误')
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  // 生成图片
+  const generateImage = async () => {
+    if (!prompt.trim()) {
+      alertError('请输入图片描述', '缺少提示词')
+      return
+    }
+
+    if (!projectId) {
+      alertError('项目ID不存在', '错误')
+      return
+    }
+
+    // 检查当前模型是否支持参考图
+    const currentImageModel = imageModels.find(m => m.value === selectedImageModel)
+    if (referenceImages.length > 0 && currentImageModel?.maxReferenceImages === 0) {
+      alertError('当前模型不支持参考图，请选择其他模型或移除参考图', '提示')
+      return
+    }
+
+    setIsGenerating(true)
+    try {
+      // TODO: 实现图片生成API调用
+      // 目前显示开发中提示
+      alertError('图片生成功能正在开发中，敬请期待！', '提示')
+      
+      // 清空输入
+      setPrompt('')
+      setReferenceImages([])
+      
+    } catch (error) {
+      console.error('生成图片失败:', error)
       alertError(error instanceof Error ? error.message : '生成失败，请稍后重试', '错误')
     } finally {
       setIsGenerating(false)
@@ -2209,165 +2320,264 @@ function FirstLastFrameVideo() {
           <div className="bg-white rounded-t-2xl shadow-lg border-t border-x border-gray-200 p-6">
             {/* 主要内容区域：首尾帧上传（左）和提示词输入（右） */}
             <div className="flex items-start gap-6 mb-4">
-              {/* 左侧：首尾帧上传块（横向排列） */}
+              {/* 左侧：根据生成类型显示不同的上传区域 */}
               <div className="flex-shrink-0 flex items-center gap-3">
-                {/* 首帧卡片 */}
-                <div
-                  className="relative cursor-pointer group"
-                  onMouseEnter={() => setHoveredFrame('first')}
-                  onMouseLeave={() => setHoveredFrame(null)}
-                  onClick={triggerFirstFrameUpload}
-                >
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFirstFrame}
-                    className="hidden"
-                    ref={firstFrameInputRef}
-                  />
-                  <div
-                    className={`frame-upload-card relative ${
-                      firstFramePreview ? 'has-image' : ''
-                    } ${
-                      // 根据宽高比动态调整尺寸
-                      frameAspectRatio === '16:9' ? 'w-32 aspect-video' : 
-                      frameAspectRatio === '9:16' ? 'w-16 aspect-[9/16]' : 
-                      frameImageInfo ? '' : 'w-24 h-24'
-                    }`}
-                    style={frameImageInfo && frameAspectRatio === 'other' ? {
-                      width: `${Math.min(128, Math.max(64, frameImageInfo.width * 0.1))}px`,
-                      aspectRatio: `${frameImageInfo.width}/${frameImageInfo.height}`
-                    } : undefined}
-                  >
-                    {firstFramePreview ? (
-                      <div className="relative w-full h-full group">
-                        <img
-                          src={firstFramePreview}
-                          alt="首帧"
-                          className={`absolute inset-0 w-full h-full rounded-[17px] cursor-pointer ${
-                            frameAspectRatio === 'other' ? 'object-cover object-top' : 'object-cover'
-                          }`}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setPreviewImage({ url: firstFramePreview, type: 'first' })
+                {/* 视频生成模式：首尾帧上传 */}
+                {generationType === 'video' && (
+                  <>
+                    {/* 首帧卡片 */}
+                    <div
+                      className="relative cursor-pointer group"
+                      onMouseEnter={() => setHoveredFrame('first')}
+                      onMouseLeave={() => setHoveredFrame(null)}
+                      onClick={triggerFirstFrameUpload}
+                    >
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFirstFrame}
+                        className="hidden"
+                        ref={firstFrameInputRef}
+                      />
+                      <div
+                        className={`frame-upload-card relative ${
+                          firstFramePreview ? 'has-image' : ''
+                        } ${
+                          // 根据宽高比动态调整尺寸
+                          frameAspectRatio === '16:9' ? 'w-32 aspect-video' : 
+                          frameAspectRatio === '9:16' ? 'w-16 aspect-[9/16]' : 
+                          frameImageInfo ? '' : 'w-24 h-24'
+                        }`}
+                        style={frameImageInfo && frameAspectRatio === 'other' ? {
+                          width: `${Math.min(128, Math.max(64, frameImageInfo.width * 0.1))}px`,
+                          aspectRatio: `${frameImageInfo.width}/${frameImageInfo.height}`
+                        } : undefined}
+                      >
+                        {firstFramePreview ? (
+                          <div className="relative w-full h-full group">
+                            <img
+                              src={firstFramePreview}
+                              alt="首帧"
+                              className={`absolute inset-0 w-full h-full rounded-[17px] cursor-pointer ${
+                                frameAspectRatio === 'other' ? 'object-cover object-top' : 'object-cover'
+                              }`}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setPreviewImage({ url: firstFramePreview, type: 'first' })
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center z-10">
+                            <div className="w-10 h-10 bg-gray-300 rounded-lg flex items-center justify-center mb-1">
+                              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                              </svg>
+                            </div>
+                            <span className="text-xs text-gray-700 font-bold">首帧</span>
+                          </div>
+                        )}
+                        {firstFramePreview && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              clearFirstFrame()
+                            }}
+                            className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600 z-20"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 横向双箭头连接符 - 只在支持首尾帧时显示 */}
+                    {currentModelSupportsFirstLastFrame && (
+                      <div className="flex items-center justify-center px-2">
+                        <img 
+                          src="/bidirectional arrow.png" 
+                          alt="双向箭头" 
+                          className="w-8 h-6 object-contain"
+                          onError={(e) => {
+                            // 如果图片加载失败，使用备用SVG
+                            const target = e.target as HTMLImageElement
+                            target.style.display = 'none'
+                            const fallback = document.createElement('div')
+                            fallback.innerHTML = `
+                              <svg class="w-8 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 16" stroke-width="2">
+                                <path d="M2 4l4 4-4 4" stroke-linecap="round" stroke-linejoin="round" />
+                                <path d="M6 8h12" stroke-linecap="round" />
+                                <path d="M22 12l-4-4 4-4" stroke-linecap="round" stroke-linejoin="round" />
+                                <path d="M18 8H6" stroke-linecap="round" />
+                        </svg>
+                            `
+                            target.parentElement?.appendChild(fallback.firstChild as Node)
                           }}
                         />
                       </div>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center z-10">
-                        <div className="w-10 h-10 bg-gray-300 rounded-lg flex items-center justify-center mb-1">
-                          <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-                          </svg>
+                    )}
+
+                    {/* 尾帧卡片 - 只在支持首尾帧时显示 */}
+                    {currentModelSupportsFirstLastFrame && (
+                      <div
+                        className="relative cursor-pointer group"
+                        onMouseEnter={() => setHoveredFrame('last')}
+                        onMouseLeave={() => setHoveredFrame(null)}
+                        onClick={triggerLastFrameUpload}
+                      >
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleLastFrame}
+                          className="hidden"
+                          ref={lastFrameInputRef}
+                        />
+                        <div
+                          className={`frame-upload-card relative ${
+                            lastFramePreview ? 'has-image' : ''
+                          } ${
+                            // 根据宽高比动态调整尺寸（与首帧保持一致）
+                            frameAspectRatio === '16:9' ? 'w-32 aspect-video' : 
+                            frameAspectRatio === '9:16' ? 'w-16 aspect-[9/16]' : 
+                            frameImageInfo ? '' : 'w-24 h-24'
+                          }`}
+                          style={frameImageInfo && frameAspectRatio === 'other' ? {
+                            width: `${Math.min(128, Math.max(64, frameImageInfo.width * 0.1))}px`,
+                            aspectRatio: `${frameImageInfo.width}/${frameImageInfo.height}`
+                          } : undefined}
+                        >
+                          {lastFramePreview ? (
+                            <div className="relative w-full h-full group">
+                              <img
+                                src={lastFramePreview}
+                                alt="尾帧"
+                                className={`absolute inset-0 w-full h-full rounded-[17px] cursor-pointer ${
+                                  frameAspectRatio === 'other' ? 'object-cover object-top' : 'object-cover'
+                                }`}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setPreviewImage({ url: lastFramePreview, type: 'last' })
+                                }}
+                              />
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-center justify-center z-10">
+                              <div className="w-10 h-10 bg-gray-300 rounded-lg flex items-center justify-center mb-1">
+                                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                                </svg>
+                              </div>
+                              <span className="text-xs text-gray-700 font-bold">尾帧</span>
+                            </div>
+                          )}
+                          {lastFramePreview && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                clearLastFrame()
+                              }}
+                              className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600 z-20"
+                            >
+                              ×
+                            </button>
+                          )}
                         </div>
-                        <span className="text-xs text-gray-700 font-bold">首帧</span>
                       </div>
                     )}
-                    {firstFramePreview && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          clearFirstFrame()
-                        }}
-                        className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600 z-20"
-                      >
-                        ×
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* 横向双箭头连接符 - 只在支持首尾帧时显示 */}
-                {currentModelSupportsFirstLastFrame && (
-                  <div className="flex items-center justify-center px-2">
-                    <img 
-                      src="/bidirectional arrow.png" 
-                      alt="双向箭头" 
-                      className="w-8 h-6 object-contain"
-                      onError={(e) => {
-                        // 如果图片加载失败，使用备用SVG
-                        const target = e.target as HTMLImageElement
-                        target.style.display = 'none'
-                        const fallback = document.createElement('div')
-                        fallback.innerHTML = `
-                          <svg class="w-8 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 16" stroke-width="2">
-                            <path d="M2 4l4 4-4 4" stroke-linecap="round" stroke-linejoin="round" />
-                            <path d="M6 8h12" stroke-linecap="round" />
-                            <path d="M22 12l-4-4 4-4" stroke-linecap="round" stroke-linejoin="round" />
-                            <path d="M18 8H6" stroke-linecap="round" />
-                    </svg>
-                        `
-                        target.parentElement?.appendChild(fallback.firstChild as Node)
-                      }}
-                    />
-                  </div>
+                  </>
                 )}
 
-                {/* 尾帧卡片 - 只在支持首尾帧时显示 */}
-                {currentModelSupportsFirstLastFrame && (
-                  <div
-                    className="relative cursor-pointer group"
-                    onMouseEnter={() => setHoveredFrame('last')}
-                    onMouseLeave={() => setHoveredFrame(null)}
-                    onClick={triggerLastFrameUpload}
-                  >
+                {/* 图片生成模式：参考图上传（扑克牌堆叠样式） */}
+                {generationType === 'image' && (
+                  <div className="flex items-center gap-2">
                     <input
                       type="file"
                       accept="image/*"
-                      onChange={handleLastFrame}
+                      multiple
+                      onChange={handleReferenceImageUpload}
                       className="hidden"
-                      ref={lastFrameInputRef}
+                      ref={referenceImageInputRef}
                     />
-                    <div
-                      className={`frame-upload-card relative ${
-                        lastFramePreview ? 'has-image' : ''
-                      } ${
-                        // 根据宽高比动态调整尺寸（与首帧保持一致）
-                        frameAspectRatio === '16:9' ? 'w-32 aspect-video' : 
-                        frameAspectRatio === '9:16' ? 'w-16 aspect-[9/16]' : 
-                        frameImageInfo ? '' : 'w-24 h-24'
-                      }`}
-                      style={frameImageInfo && frameAspectRatio === 'other' ? {
-                        width: `${Math.min(128, Math.max(64, frameImageInfo.width * 0.1))}px`,
-                        aspectRatio: `${frameImageInfo.width}/${frameImageInfo.height}`
-                      } : undefined}
-                    >
-                      {lastFramePreview ? (
-                        <div className="relative w-full h-full group">
-                          <img
-                            src={lastFramePreview}
-                            alt="尾帧"
-                            className={`absolute inset-0 w-full h-full rounded-[17px] cursor-pointer ${
-                              frameAspectRatio === 'other' ? 'object-cover object-top' : 'object-cover'
-                            }`}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setPreviewImage({ url: lastFramePreview, type: 'last' })
-                            }}
-                          />
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-center justify-center z-10">
-                          <div className="w-10 h-10 bg-gray-300 rounded-lg flex items-center justify-center mb-1">
-                            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    
+                    {/* 参考图堆叠显示 */}
+                    <div className="relative h-24 flex items-center">
+                      {referenceImages.length === 0 ? (
+                        // 没有参考图时显示上传按钮
+                        <div
+                          onClick={triggerReferenceImageUpload}
+                          className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-all"
+                        >
+                          <div className="w-10 h-10 bg-gray-200 rounded-lg flex items-center justify-center mb-1">
+                            <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
                             </svg>
                           </div>
-                          <span className="text-xs text-gray-700 font-bold">尾帧</span>
+                          <span className="text-xs text-gray-500">参考图</span>
+                          <span className="text-[10px] text-gray-400">(可选)</span>
+                        </div>
+                      ) : (
+                        // 有参考图时显示扑克牌堆叠效果
+                        <div className="relative" style={{ width: `${Math.min(referenceImages.length * 20 + 80, 160)}px` }}>
+                          {referenceImages.map((img, index) => (
+                            <div
+                              key={index}
+                              className="absolute w-20 h-20 rounded-xl overflow-hidden border-2 border-white shadow-md transition-all hover:z-50 hover:scale-110 cursor-pointer"
+                              style={{
+                                left: `${index * 20}px`,
+                                zIndex: index + 1,
+                                transform: `rotate(${(index - Math.floor(referenceImages.length / 2)) * 3}deg)`,
+                              }}
+                              onClick={() => setPreviewImage({ url: img.preview, type: 'first' })}
+                            >
+                              <img
+                                src={img.preview}
+                                alt={`参考图${index + 1}`}
+                                className="w-full h-full object-cover"
+                              />
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  removeReferenceImage(index)
+                                }}
+                                className="absolute top-0.5 right-0.5 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center text-[10px] hover:bg-red-600 z-10"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                          
+                          {/* 添加更多按钮 */}
+                          {(() => {
+                            const currentImageModel = imageModels.find(m => m.value === selectedImageModel)
+                            const maxImages = currentImageModel?.maxReferenceImages || 4
+                            if (referenceImages.length < maxImages && maxImages > 0) {
+                              return (
+                                <div
+                                  onClick={triggerReferenceImageUpload}
+                                  className="absolute w-20 h-20 border-2 border-dashed border-gray-300 rounded-xl flex items-center justify-center cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-all"
+                                  style={{
+                                    left: `${referenceImages.length * 20}px`,
+                                    zIndex: referenceImages.length + 1,
+                                  }}
+                                >
+                                  <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                                  </svg>
+                                </div>
+                              )
+                            }
+                            return null
+                          })()}
                         </div>
                       )}
-                      {lastFramePreview && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            clearLastFrame()
-                          }}
-                          className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600 z-20"
-                        >
-                          ×
-                        </button>
-                      )}
                     </div>
+                    
+                    {/* 参考图数量提示 */}
+                    {referenceImages.length > 0 && (
+                      <div className="text-xs text-gray-500 ml-2">
+                        {referenceImages.length}/{imageModels.find(m => m.value === selectedImageModel)?.maxReferenceImages || 4}张
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -2414,51 +2624,94 @@ function FirstLastFrameVideo() {
 
             {/* 控制栏 */}
             <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-              <div className="flex items-center gap-4">
-                {/* 模型选择 */}
+              <div className="flex items-center gap-4 flex-wrap">
+                {/* 生成类型切换 */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setGenerationType('video')}
+                    className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer ${
+                      generationType === 'video'
+                        ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-sm'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    视频生成
+                  </button>
+                  <button
+                    onClick={() => setGenerationType('image')}
+                    className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer ${
+                      generationType === 'image'
+                        ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-sm'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    图片生成
+                  </button>
+                </div>
+
+                {/* 模型选择 - 根据生成类型显示不同的模型 */}
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-600 font-medium">模型:</span>
-                  <select
-                    value={selectedModel}
-                    onChange={(e) => setSelectedModel(e.target.value)}
-                    className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer text-center"
-                    style={{ textAlignLast: 'center' }}
-                  >
-                    {supportedModels.map(model => (
-                      <option key={model.value} value={model.value}>
-                        {model.label}
-                      </option>
-                    ))}
-                  </select>
+                  {generationType === 'video' ? (
+                    <select
+                      value={selectedModel}
+                      onChange={(e) => setSelectedModel(e.target.value)}
+                      className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer text-center"
+                      style={{ textAlignLast: 'center' }}
+                    >
+                      {supportedModels.map(model => (
+                        <option key={model.value} value={model.value}>
+                          {model.label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <select
+                      value={selectedImageModel}
+                      onChange={(e) => setSelectedImageModel(e.target.value)}
+                      className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer text-center"
+                      style={{ textAlignLast: 'center' }}
+                    >
+                      {availableImageModels.map(model => (
+                        <option key={model.value} value={model.value}>
+                          {model.label}
+                          {model.maxReferenceImages === 0 ? ' (仅文生图)' : ` (最多${model.maxReferenceImages}张参考图)`}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
                 
-                {/* 分辨率选择 */}
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-600 font-medium">分辨率:</span>
-                  <button
-                    onClick={() => setResolution('720p')}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer ${
-                      resolution === '720p'
-                        ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    720P
-                  </button>
-                  <button
-                    onClick={() => setResolution('1080p')}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer ${
-                      resolution === '1080p'
-                        ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    1080P
-                  </button>
-                </div>
+                {/* 视频生成特有的选项 */}
+                {generationType === 'video' && (
+                  <>
+                    {/* 分辨率选择 */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-600 font-medium">分辨率:</span>
+                      <button
+                        onClick={() => setResolution('720p')}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer ${
+                          resolution === '720p'
+                            ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        720P
+                      </button>
+                      <button
+                        onClick={() => setResolution('1080p')}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer ${
+                          resolution === '1080p'
+                            ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        1080P
+                      </button>
+                    </div>
                 
-                {/* 时长选择 - 根据模型动态显示 */}
-                <div className="flex items-center gap-2">
+                    {/* 时长选择 - 根据模型动态显示 */}
+                    <div className="flex items-center gap-2">
                   {availableDurations.map((dur) => (
                     <button
                       key={dur}
@@ -2472,28 +2725,50 @@ function FirstLastFrameVideo() {
                       {dur}秒
                     </button>
                   ))}
-                </div>
+                    </div>
                 
-                {/* 尺寸选择 */}
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-600 font-medium">尺寸:</span>
-                  {availableRatios.map((ratio) => (
-                    <button
-                      key={ratio}
-                      onClick={() => setSelectedRatio(ratio as '16:9' | '9:16')}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer ${
-                        selectedRatio === ratio
-                          ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                    >
-                      {ratio}
-                    </button>
-                  ))}
-                  {frameAspectRatio && frameAspectRatio !== 'other' && frameAspectRatio !== selectedRatio && (
-                    <span className="text-xs text-orange-500 ml-1">(图片为{frameAspectRatio})</span>
-                  )}
-                </div>
+                    {/* 尺寸选择 */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-600 font-medium">尺寸:</span>
+                      {availableRatios.map((ratio) => (
+                        <button
+                          key={ratio}
+                          onClick={() => setSelectedRatio(ratio as '16:9' | '9:16')}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer ${
+                            selectedRatio === ratio
+                              ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm'
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                        >
+                          {ratio}
+                        </button>
+                      ))}
+                      {frameAspectRatio && frameAspectRatio !== 'other' && frameAspectRatio !== selectedRatio && (
+                        <span className="text-xs text-orange-500 ml-1">(图片为{frameAspectRatio})</span>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {/* 图片生成特有的选项 */}
+                {generationType === 'image' && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600 font-medium">尺寸:</span>
+                    {['16:9', '9:16', '1:1'].map((ratio) => (
+                      <button
+                        key={ratio}
+                        onClick={() => setSelectedRatio(ratio as '16:9' | '9:16')}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer ${
+                          selectedRatio === ratio
+                            ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        {ratio}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               
               <div className="flex items-center gap-3">
@@ -2506,10 +2781,10 @@ function FirstLastFrameVideo() {
                 
                 <button
                   type="button"
-                  onClick={generateVideo}
-                  disabled={!prompt.trim() || isGenerating || (!firstFrameFile && !firstFramePreview)}
+                  onClick={generationType === 'video' ? generateVideo : generateImage}
+                  disabled={!prompt.trim() || isGenerating || (generationType === 'video' && !firstFrameFile && !firstFramePreview)}
                   className={`px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg font-medium shadow-lg hover:shadow-xl hover:from-blue-600 hover:to-blue-700 active:scale-95 transition-all flex items-center gap-2 ${
-                    (!prompt.trim() || isGenerating || (!firstFrameFile && !firstFramePreview)) && 'opacity-50 cursor-not-allowed'
+                    (!prompt.trim() || isGenerating || (generationType === 'video' && !firstFrameFile && !firstFramePreview)) && 'opacity-50 cursor-not-allowed'
                   }`}
                 >
                   {isGenerating ? (
@@ -2525,7 +2800,7 @@ function FirstLastFrameVideo() {
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                       </svg>
-                      生成视频
+                      {generationType === 'video' ? '生成视频' : '生成图片'}
                     </>
                   )}
                 </button>

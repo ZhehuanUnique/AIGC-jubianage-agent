@@ -75,11 +75,31 @@ function ProjectManagement() {
 
   // 根据当前路径过滤项目
   const filteredProjects = useMemo(() => {
+    // 先计算哪些项目名称有重复（会显示为文件夹）
+    const nameCountMap = new Map<string, number>()
+    apiProjects.forEach(p => {
+      const projectPath = p.path || '/'
+      if (projectPath === '/') {
+        nameCountMap.set(p.name, (nameCountMap.get(p.name) || 0) + 1)
+      }
+    })
+    
     return apiProjects.filter(p => {
       const projectPath = p.path || '/'
       // 显示当前路径下的项目（不包括子文件夹中的）
       if (currentPath === '/') {
+        // 在根目录时，排除同名项目（它们会显示为文件夹）
+        const count = nameCountMap.get(p.name) || 0
+        if (count > 1) {
+          return false // 同名项目显示为文件夹，不单独显示
+        }
         return projectPath === '/'
+      }
+      // 如果当前路径不是根目录，检查项目名称是否匹配文件夹名称
+      // 文件夹名称是路径的最后一部分
+      const folderName = currentPath.split('/').filter(Boolean).pop()
+      if (folderName && projectPath === '/' && p.name === folderName) {
+        return true
       }
       return projectPath === currentPath
     })
@@ -89,28 +109,43 @@ function ProjectManagement() {
   const subFolders = useMemo(() => {
     const folderMap = new Map<string, ApiProject[]>()
     
-    apiProjects.forEach(p => {
-      const projectPath = p.path || '/'
-      // 检查是否是当前路径的直接子项目（作为文件夹）
-      let expectedParentPath: string
-      if (currentPath === '/') {
-        expectedParentPath = `/${p.name}`
-      } else {
+    // 在根目录时，按项目名称分组，如果同名项目超过1个，显示为文件夹
+    if (currentPath === '/') {
+      const nameCountMap = new Map<string, ApiProject[]>()
+      apiProjects.forEach(p => {
+        const projectPath = p.path || '/'
+        if (projectPath === '/') {
+          const existing = nameCountMap.get(p.name) || []
+          existing.push(p)
+          nameCountMap.set(p.name, existing)
+        }
+      })
+      
+      // 只有同名项目超过1个时才显示为文件夹
+      nameCountMap.forEach((projects, name) => {
+        if (projects.length > 1) {
+          folderMap.set(name, projects)
+        }
+      })
+    } else {
+      // 非根目录时，使用原来的逻辑
+      apiProjects.forEach(p => {
+        const projectPath = p.path || '/'
+        let expectedParentPath: string
         expectedParentPath = `${currentPath}/${p.name}`
-      }
-      
-      // 查找以此项目为父级的子项目
-      const hasChildren = apiProjects.some(child => 
-        child.path === expectedParentPath || 
-        (child.parentId === p.id)
-      )
-      
-      if (hasChildren && projectPath === currentPath) {
-        const existing = folderMap.get(p.name) || []
-        existing.push(p)
-        folderMap.set(p.name, existing)
-      }
-    })
+        
+        const hasChildren = apiProjects.some(child => 
+          child.path === expectedParentPath || 
+          (child.parentId === p.id)
+        )
+        
+        if (hasChildren && projectPath === currentPath) {
+          const existing = folderMap.get(p.name) || []
+          existing.push(p)
+          folderMap.set(p.name, existing)
+        }
+      })
+    }
     
     return Array.from(folderMap.entries()).map(([name, projects]) => ({
       name,

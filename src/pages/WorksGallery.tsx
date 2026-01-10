@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Heart, Play, Trash2, Plus, Sparkles, Download, Share2, MoreVertical } from 'lucide-react'
 import { getCommunityVideos, toggleVideoLike, recordVideoView, deleteCommunityVideo, CommunityVideo } from '../services/api'
-import { alertError, alertWarning } from '../utils/alert'
+import { alertError, alertWarning, alertSuccess } from '../utils/alert'
 import { AuthService } from '../services/auth'
 import NavigationBar from '../components/NavigationBar'
 import { PublishVideoModal } from '../components/PublishVideoModal'
@@ -131,6 +131,54 @@ function WorksGallery() {
     } catch (error) {
       console.error('点赞失败:', error)
       alertError(error instanceof Error ? error.message : '点赞失败，请稍后重试', '错误')
+    }
+  }
+
+  // 使用模板 - 跳转到剧梦工厂
+  const handleUseTemplate = (video: CommunityVideo, e: React.MouseEvent) => {
+    e.stopPropagation()
+    // 根据视频类型决定跳转模式（视频生成或图片生成）
+    // 目前社区视频都是视频，所以默认跳转到视频生成模式
+    navigate(`/first-last-frame-video?mode=video&templateVideoUrl=${encodeURIComponent(video.videoUrl || '')}&templatePrompt=${encodeURIComponent(video.prompt || '')}&templateModel=${encodeURIComponent(video.model || '')}`)
+  }
+
+  // 下载视频
+  const handleDownload = async (video: CommunityVideo, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!video.videoUrl) {
+      alertError('视频地址不存在', '下载失败')
+      return
+    }
+    try {
+      const response = await fetch(video.videoUrl)
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${video.title || '视频'}.mp4`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+      alertSuccess('下载已开始')
+    } catch (error) {
+      // 如果 fetch 失败，直接打开链接
+      window.open(video.videoUrl, '_blank')
+    }
+  }
+
+  // 分享视频
+  const handleShare = (video: CommunityVideo, e: React.MouseEvent) => {
+    e.stopPropagation()
+    const shareUrl = `${window.location.origin}/works/play/${video.id}`
+    if (navigator.share) {
+      navigator.share({
+        title: video.title || '分享视频',
+        url: shareUrl
+      }).catch(() => {})
+    } else {
+      navigator.clipboard.writeText(shareUrl)
+      alertSuccess('链接已复制到剪贴板')
     }
   }
 
@@ -392,14 +440,23 @@ function WorksGallery() {
                       </div>
                       
                       <div className="flex items-center gap-2 pt-2 border-t border-white/20">
-                        <button className="flex-1 bg-purple-600 hover:bg-purple-700 rounded-lg px-3 py-2 text-white text-xs font-medium flex items-center justify-center gap-1">
+                        <button 
+                          onClick={(e) => handleUseTemplate(video, e)}
+                          className="flex-1 bg-purple-600 hover:bg-purple-700 rounded-lg px-3 py-2 text-white text-xs font-medium flex items-center justify-center gap-1"
+                        >
                           <Sparkles className="w-4 h-4" />
                           <span>使用模板</span>
                         </button>
-                        <button className="w-9 h-9 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center text-white">
+                        <button 
+                          onClick={(e) => handleDownload(video, e)}
+                          className="w-9 h-9 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center text-white"
+                        >
                           <Download className="w-4 h-4" />
                         </button>
-                        <button className="w-9 h-9 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center text-white">
+                        <button 
+                          onClick={(e) => handleShare(video, e)}
+                          className="w-9 h-9 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center text-white"
+                        >
                           <Share2 className="w-4 h-4" />
                         </button>
                         <button className="w-9 h-9 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center text-white">

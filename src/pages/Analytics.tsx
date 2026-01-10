@@ -9,6 +9,7 @@ import GroupManagement from '../components/GroupManagement'
 import { AuthService } from '../services/auth'
 import { alert, alertError, alertWarning, alertSuccess } from '../utils/alert'
 import HamsterLoader from '../components/HamsterLoader'
+import TableSkeleton from '../components/TableSkeleton'
 
 function Analytics() {
   const navigate = useNavigate()
@@ -389,9 +390,7 @@ function Analytics() {
               </div>
 
               {loadingUsers ? (
-                <div className="flex items-center justify-center py-8">
-                  <HamsterLoader size={10} />
-                </div>
+                <TableSkeleton rows={5} columns={7} />
               ) : (
                 <div className="bg-gray-50 border border-gray-200 rounded-lg overflow-hidden">
                   <table className="w-full">

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Heart, Play, ArrowLeft, ChevronUp, ChevronDown, Trash2, Plus, Download, Share2, MessageCircle, Star, X, Send, MoreHorizontal } from 'lucide-react'
-import { getCommunityVideos, toggleVideoLike, recordVideoView, deleteCommunityVideo, CommunityVideo } from '../services/api'
+import { Heart, Play, ArrowLeft, ChevronUp, ChevronDown, Trash2, Plus, Download, Share2, MessageCircle, Star, X, Send, MoreHorizontal, ThumbsUp, ChevronRight } from 'lucide-react'
+import { getCommunityVideos, toggleVideoLike, recordVideoView, deleteCommunityVideo, CommunityVideo, getVideoComments, postVideoComment, toggleCommentLike, deleteVideoComment, VideoComment } from '../services/api'
 import { alertError, alertWarning, alertSuccess } from '../utils/alert'
 import { AuthService } from '../services/auth'
 import { PublishVideoModal } from '../components/PublishVideoModal'
@@ -19,7 +19,7 @@ function WorksShowcase() {
   const [total, setTotal] = useState(0)
   const [sortBy, setSortBy] = useState<'latest' | 'popular' | 'likes'>('latest')
   const limit = 20
-  const [currentUser, setCurrentUser] = useState<{ username: string } | null>(null)
+  const [currentUser, setCurrentUser] = useState<{ username: string; id?: number } | null>(null)
   const [deletingVideoId, setDeletingVideoId] = useState<number | null>(null)
   const [showPublishModal, setShowPublishModal] = useState(false)
   const [deleteConfirmState, setDeleteConfirmState] = useState<{ isOpen: boolean; videoId: number | null }>({ isOpen: false, videoId: null })
@@ -29,6 +29,12 @@ function WorksShowcase() {
   const [showComments, setShowComments] = useState(false)
   const [commentText, setCommentText] = useState('')
   const [isFavorited, setIsFavorited] = useState(false)
+  const [comments, setComments] = useState<VideoComment[]>([])
+  const [commentsTotal, setCommentsTotal] = useState(0)
+  const [isLoadingComments, setIsLoadingComments] = useState(false)
+  const [isPostingComment, setIsPostingComment] = useState(false)
+  const [replyingTo, setReplyingTo] = useState<{ id: number; username: string } | null>(null)
+  const [expandedReplies, setExpandedReplies] = useState<Set<number>>(new Set())
   
   // 防抖控制
   const lastSwitchTime = useRef<number>(0)
@@ -124,6 +130,154 @@ function WorksShowcase() {
     return () => window.removeEventListener('community-video-uploaded', handleVideoUploaded)
   }, [])
 
+  // 加载评论
+  const loadComments = useCallback(async (vId: number) => {
+    try {
+      setIsLoadingComments(true)
+      const result = await getVideoComments(vId, { page: 1, limit: 50 })
+      setComments(result.comments)
+      setCommentsTotal(result.total)
+    } catch (error) {
+      console.error('加载评论失败:', error)
+    } finally {
+      setIsLoadingComments(false)
+    }
+  }, [])
+
+  // 打开评论面板时加载评论
+  useEffect(() => {
+    if (showComments && currentVideo) {
+      loadComments(currentVideo.id)
+    }
+  }, [showComments, currentVideo?.id])
+
+  // 发表评论
+  const handlePostComment = async () => {
+    if (!commentText.trim() || isPostingComment) return
+    if (!checkAuth()) {
+      alertError('请先登录', '需要登录')
+      navigate('/?showLogin=true')
+      return
+    }
+
+    try {
+      setIsPostingComment(true)
+      const newComment = await postVideoComment(
+        currentVideo!.id, 
+        commentText.trim(), 
+        replyingTo?.id
+      )
+      
+      if (replyingTo) {
+        // 如果是回复，添加到对应评论的 replies 中
+        setComments(prev => prev.map(c => {
+          if (c.id === replyingTo.id) {
+            return {
+              ...c,
+              repliesCount: c.repliesCount + 1,
+              replies: [...(c.replies || []), newComment]
+            }
+          }
+          return c
+        }))
+        setReplyingTo(null)
+      } else {
+        // 顶级评论，添加到列表开头
+        setComments(prev => [newComment, ...prev])
+        setCommentsTotal(prev => prev + 1)
+      }
+      
+      setCommentText('')
+      alertSuccess('评论发表成功')
+    } catch (error) {
+      console.error('发表评论失败:', error)
+      alertError(error instanceof Error ? error.message : '发表评论失败', '错误')
+    } finally {
+      setIsPostingComment(false)
+    }
+  }
+
+  // 点赞评论
+  const handleLikeComment = async (commentId: number, isReply: boolean = false, parentId?: number) => {
+    if (!checkAuth()) {
+      alertError('请先登录', '需要登录')
+      return
+    }
+
+    try {
+      const result = await toggleCommentLike(currentVideo!.id, commentId)
+      
+      setComments(prev => prev.map(c => {
+        if (c.id === commentId) {
+          return { ...c, isLiked: result.isLiked, likesCount: result.likesCount }
+        }
+        if (isReply && c.id === parentId && c.replies) {
+          return {
+            ...c,
+            replies: c.replies.map(r => 
+              r.id === commentId 
+                ? { ...r, isLiked: result.isLiked, likesCount: result.likesCount }
+                : r
+            )
+          }
+        }
+        return c
+      }))
+    } catch (error) {
+      console.error('点赞失败:', error)
+    }
+  }
+
+  // 删除评论
+  const handleDeleteComment = async (commentId: number, parentId?: number) => {
+    try {
+      await deleteVideoComment(currentVideo!.id, commentId)
+      
+      if (parentId) {
+        // 删除回复
+        setComments(prev => prev.map(c => {
+          if (c.id === parentId) {
+            return {
+              ...c,
+              repliesCount: Math.max(0, c.repliesCount - 1),
+              replies: c.replies?.filter(r => r.id !== commentId)
+            }
+          }
+          return c
+        }))
+      } else {
+        // 删除顶级评论
+        const comment = comments.find(c => c.id === commentId)
+        const deletedCount = 1 + (comment?.repliesCount || 0)
+        setComments(prev => prev.filter(c => c.id !== commentId))
+        setCommentsTotal(prev => Math.max(0, prev - deletedCount))
+      }
+      
+      alertSuccess('评论已删除')
+    } catch (error) {
+      console.error('删除评论失败:', error)
+      alertError(error instanceof Error ? error.message : '删除评论失败', '错误')
+    }
+  }
+
+  // 格式化评论时间
+  const formatCommentTime = (dateString: string): string => {
+    const date = new Date(dateString)
+    const now = new Date()
+    const diff = now.getTime() - date.getTime()
+    const minutes = Math.floor(diff / (1000 * 60))
+    const hours = Math.floor(diff / (1000 * 60 * 60))
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+    const months = Math.floor(days / 30)
+    
+    if (minutes < 1) return '刚刚'
+    if (minutes < 60) return `${minutes}分钟前`
+    if (hours < 24) return `${hours}小时前`
+    if (days < 30) return `${days}天前`
+    if (months < 12) return `${months}个月前`
+    return `${Math.floor(months / 12)}年前`
+  }
+
   // 切换视频的核心函数
   const switchToVideo = useCallback((newIndex: number) => {
     if (newIndex < 0 || newIndex >= videos.length || newIndex === currentVideoIndex) return
@@ -139,6 +293,8 @@ function WorksShowcase() {
     
     setCurrentVideoIndex(newIndex)
     setShowComments(false) // 切换视频时关闭评论
+    setComments([]) // 清空评论
+    setReplyingTo(null)
     
     setTimeout(() => {
       const newVideo = videoRefs.current.get(videos[newIndex]?.id)
@@ -466,10 +622,10 @@ function WorksShowcase() {
                 onClick={() => setShowComments(!showComments)} 
                 className="flex flex-col items-center gap-1 group"
               >
-                <div className="w-12 h-12 rounded-full flex items-center justify-center text-white hover:text-blue-400 transition-colors">
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${showComments ? 'text-blue-400' : 'text-white hover:text-blue-400'}`}>
                   <MessageCircle className="w-8 h-8" />
                 </div>
-                <span className="text-white text-xs font-medium">0</span>
+                <span className="text-white text-xs font-medium">{commentsTotal > 0 ? formatNumber(commentsTotal) : '评论'}</span>
               </button>
 
               {/* 收藏 */}
@@ -620,35 +776,170 @@ function WorksShowcase() {
               </div>
 
               {/* 评论列表 */}
-              <div className="flex-1 overflow-y-auto p-4">
-                <div className="text-center text-gray-400 py-20">
-                  <MessageCircle className="w-16 h-16 mx-auto mb-4 opacity-30" />
-                  <p className="text-sm">暂无评论</p>
-                  <p className="text-xs mt-1">快来发表第一条评论吧</p>
-                </div>
+              <div className="flex-1 overflow-y-auto">
+                {isLoadingComments ? (
+                  <div className="flex items-center justify-center py-20">
+                    <HamsterLoader size={6} />
+                  </div>
+                ) : comments.length === 0 ? (
+                  <div className="text-center text-gray-400 py-20">
+                    <MessageCircle className="w-16 h-16 mx-auto mb-4 opacity-30" />
+                    <p className="text-sm">暂无评论</p>
+                    <p className="text-xs mt-1">快来发表第一条评论吧</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-100">
+                    {comments.map((comment) => (
+                      <div key={comment.id} className="p-4">
+                        {/* 评论主体 */}
+                        <div className="flex gap-3">
+                          {/* 头像 */}
+                          <div className="flex-shrink-0">
+                            {comment.user.avatar ? (
+                              <img src={comment.user.avatar} alt="" className="w-10 h-10 rounded-full object-cover" />
+                            ) : (
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold">
+                                {comment.user.displayName?.charAt(0) || comment.user.username.charAt(0)}
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* 内容 */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-sm font-medium text-gray-900">{comment.user.displayName || comment.user.username}</span>
+                              <span className="text-xs text-gray-400">{formatCommentTime(comment.createdAt)}</span>
+                            </div>
+                            <p className="text-sm text-gray-800 break-words">{comment.content}</p>
+                            
+                            {/* 操作栏 */}
+                            <div className="flex items-center gap-4 mt-2">
+                              <button 
+                                onClick={() => setReplyingTo({ id: comment.id, username: comment.user.displayName || comment.user.username })}
+                                className="text-xs text-gray-500 hover:text-gray-700"
+                              >
+                                回复
+                              </button>
+                              <button 
+                                onClick={() => handleLikeComment(comment.id)}
+                                className={`flex items-center gap-1 text-xs ${comment.isLiked ? 'text-red-500' : 'text-gray-500 hover:text-gray-700'}`}
+                              >
+                                <Heart size={14} className={comment.isLiked ? 'fill-current' : ''} />
+                                {comment.likesCount > 0 && <span>{comment.likesCount}</span>}
+                              </button>
+                              {(currentUser?.username === comment.user.username || isAdmin) && (
+                                <button 
+                                  onClick={() => handleDeleteComment(comment.id)}
+                                  className="text-xs text-gray-400 hover:text-red-500"
+                                >
+                                  删除
+                                </button>
+                              )}
+                            </div>
+                            
+                            {/* 回复列表 */}
+                            {comment.replies && comment.replies.length > 0 && (
+                              <div className="mt-3 space-y-3 pl-2 border-l-2 border-gray-100">
+                                {comment.replies.map((reply) => (
+                                  <div key={reply.id} className="flex gap-2">
+                                    {reply.user.avatar ? (
+                                      <img src={reply.user.avatar} alt="" className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
+                                    ) : (
+                                      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-400 to-cyan-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                                        {reply.user.displayName?.charAt(0) || reply.user.username.charAt(0)}
+                                      </div>
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 mb-0.5">
+                                        <span className="text-xs font-medium text-gray-900">{reply.user.displayName || reply.user.username}</span>
+                                        <span className="text-xs text-gray-400">{formatCommentTime(reply.createdAt)}</span>
+                                      </div>
+                                      <p className="text-xs text-gray-700 break-words">{reply.content}</p>
+                                      <div className="flex items-center gap-3 mt-1">
+                                        <button 
+                                          onClick={() => handleLikeComment(reply.id, true, comment.id)}
+                                          className={`flex items-center gap-1 text-xs ${reply.isLiked ? 'text-red-500' : 'text-gray-400 hover:text-gray-600'}`}
+                                        >
+                                          <Heart size={12} className={reply.isLiked ? 'fill-current' : ''} />
+                                          {reply.likesCount > 0 && <span>{reply.likesCount}</span>}
+                                        </button>
+                                        {(currentUser?.username === reply.user.username || isAdmin) && (
+                                          <button 
+                                            onClick={() => handleDeleteComment(reply.id, comment.id)}
+                                            className="text-xs text-gray-400 hover:text-red-500"
+                                          >
+                                            删除
+                                          </button>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                                
+                                {/* 展开更多回复 */}
+                                {comment.repliesCount > (comment.replies?.length || 0) && (
+                                  <button 
+                                    onClick={() => setExpandedReplies(prev => {
+                                      const next = new Set(prev)
+                                      if (next.has(comment.id)) {
+                                        next.delete(comment.id)
+                                      } else {
+                                        next.add(comment.id)
+                                      }
+                                      return next
+                                    })}
+                                    className="flex items-center gap-1 text-xs text-purple-600 hover:text-purple-700 ml-9"
+                                  >
+                                    展开{comment.repliesCount - (comment.replies?.length || 0)}条回复
+                                    <ChevronRight size={14} />
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* 评论输入框 */}
               <div className="border-t border-gray-200 p-4">
+                {replyingTo && (
+                  <div className="flex items-center justify-between mb-2 px-2 py-1 bg-gray-50 rounded text-xs text-gray-500">
+                    <span>回复 @{replyingTo.username}</span>
+                    <button onClick={() => setReplyingTo(null)} className="text-gray-400 hover:text-gray-600">
+                      <X size={14} />
+                    </button>
+                  </div>
+                )}
                 <div className="flex items-center gap-3">
                   <div className="flex-1 relative">
                     <input
                       type="text"
                       value={commentText}
                       onChange={(e) => setCommentText(e.target.value)}
-                      placeholder="留下你的精彩评论吧"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault()
+                          handlePostComment()
+                        }
+                      }}
+                      placeholder={replyingTo ? `回复 @${replyingTo.username}` : "留下你的精彩评论吧"}
                       className="w-full px-4 py-2.5 bg-gray-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:bg-white transition-all"
                     />
                   </div>
                   <button 
-                    disabled={!commentText.trim()}
+                    onClick={handlePostComment}
+                    disabled={!commentText.trim() || isPostingComment}
                     className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
-                      commentText.trim() 
+                      commentText.trim() && !isPostingComment
                         ? 'bg-purple-600 text-white hover:bg-purple-700' 
                         : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                     }`}
                   >
-                    <Send size={18} />
+                    {isPostingComment ? <HamsterLoader size={3} /> : <Send size={18} />}
                   </button>
                 </div>
               </div>

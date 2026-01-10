@@ -423,6 +423,41 @@ function VoiceCreation() {
 
         {/* 主内容区域 */}
         <div className="flex-1 p-6 overflow-y-auto bg-gray-50">
+          {/* 预设音色区域 */}
+          <div className="max-w-7xl mx-auto mb-6">
+            <div className="bg-white rounded-lg border border-gray-200 p-4">
+              <div className="text-sm font-medium text-gray-700 mb-3">预设音色</div>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { id: 'xiaoshuai', name: '解说小帅', speed: 1 },
+                  { id: 'xiaoshuai-1.2x', name: '解说小帅 1.2x', speed: 1.2 },
+                  { id: 'xiaomei', name: '温柔小美', speed: 1 },
+                  { id: 'laowang', name: '沉稳老王', speed: 1 },
+                  { id: 'xiaoli', name: '活泼小丽', speed: 1 },
+                ].map((preset) => (
+                  <button
+                    key={preset.id}
+                    onClick={() => {
+                      // TODO: 加载预设音色的参考音频
+                      alertWarning(`预设音色"${preset.name}"功能开发中`, '提示')
+                    }}
+                    className="px-4 py-2 bg-gray-100 hover:bg-blue-100 hover:text-blue-600 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                  >
+                    <Mic className="w-4 h-4" />
+                    {preset.name}
+                  </button>
+                ))}
+                <button
+                  onClick={() => referenceAudioInputRef.current?.click()}
+                  className="px-4 py-2 border-2 border-dashed border-gray-300 hover:border-blue-500 hover:bg-blue-50 rounded-lg text-sm font-medium text-gray-500 hover:text-blue-600 transition-colors flex items-center gap-2"
+                >
+                  <Upload className="w-4 h-4" />
+                  上传自定义音色
+                </button>
+              </div>
+            </div>
+          </div>
+
           {/* 三栏布局：音色参考音频 | 文本输入 | 生成结果 */}
           <div className="max-w-7xl mx-auto grid grid-cols-3 gap-6 mb-6">
             {/* 左侧：音色参考音频 */}

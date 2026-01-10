@@ -10301,6 +10301,446 @@ app.post('/api/community-videos/:videoId/view', authenticateToken, async (req, r
   }
 })
 
+// ==================== 视频评论 API ====================
+// 获取视频评论列表
+app.get('/api/community-videos/:videoId/comments', authenticateToken, async (req, res) => {
+  try {
+    const { videoId } = req.params
+    const { page = 1, limit = 20 } = req.query
+    const userId = req.user?.id
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+
+    const offset = (parseInt(page) - 1) * parseInt(limit)
+
+    // 获取顶级评论（parent_id IS NULL）
+    const commentsResult = await db.query(`
+      SELECT 
+        c.id,
+        c.content,
+        c.likes_count,
+        c.replies_count,
+        c.created_at,
+        c.parent_id,
+        u.id as user_id,
+        u.username,
+        u.display_name,
+        u.avatar,
+        EXISTS(SELECT 1 FROM video_comment_likes WHERE comment_id = c.id AND user_id = $3) as is_liked
+      FROM video_comments c
+      JOIN users u ON c.user_id = u.id
+      WHERE c.video_id = $1 AND c.parent_id IS NULL
+      ORDER BY c.likes_count DESC, c.created_at DESC
+      LIMIT $2 OFFSET $4
+    `, [videoId, parseInt(limit), userId || 0, offset])
+
+    // 获取每个评论的前3条回复
+    const comments = await Promise.all(commentsResult.rows.map(async (comment) => {
+      const repliesResult = await db.query(`
+        SELECT 
+          c.id,
+          c.content,
+          c.likes_count,
+          c.created_at,
+          c.parent_id,
+          u.id as user_id,
+          u.username,
+          u.display_name,
+          u.avatar,
+          EXISTS(SELECT 1 FROM video_comment_likes WHERE comment_id = c.id AND user_id = $2) as is_liked
+        FROM video_comments c
+        JOIN users u ON c.user_id = u.id
+        WHERE c.parent_id = $1
+        ORDER BY c.created_at ASC
+        LIMIT 3
+      `, [comment.id, userId || 0])
+
+      return {
+        id: comment.id,
+        content: comment.content,
+        likesCount: comment.likes_count,
+        repliesCount: comment.replies_count,
+        createdAt: comment.created_at,
+        isLiked: comment.is_liked,
+        user: {
+          id: comment.user_id,
+          username: comment.username,
+          displayName: comment.display_name,
+          avatar: comment.avatar
+        },
+        replies: repliesResult.rows.map(reply => ({
+          id: reply.id,
+          content: reply.content,
+          likesCount: reply.likes_count,
+          createdAt: reply.created_at,
+          isLiked: reply.is_liked,
+          user: {
+            id: reply.user_id,
+            username: reply.username,
+            displayName: reply.display_name,
+            avatar: reply.avatar
+          }
+        }))
+      }
+    }))
+
+    // 获取总数
+    const countResult = await db.query(
+      'SELECT COUNT(*) as total FROM video_comments WHERE video_id = $1 AND parent_id IS NULL',
+      [videoId]
+    )
+    const total = parseInt(countResult.rows[0].total)
+
+    res.json({
+      success: true,
+      data: {
+        comments,
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        hasMore: offset + comments.length < total
+      }
+    })
+  } catch (error) {
+    console.error('获取评论列表失败:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '获取评论列表失败'
+    })
+  }
+})
+
+// 获取评论的更多回复
+app.get('/api/community-videos/:videoId/comments/:commentId/replies', authenticateToken, async (req, res) => {
+  try {
+    const { commentId } = req.params
+    const { page = 1, limit = 10 } = req.query
+    const userId = req.user?.id
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+
+    const offset = (parseInt(page) - 1) * parseInt(limit)
+
+    const repliesResult = await db.query(`
+      SELECT 
+        c.id,
+        c.content,
+        c.likes_count,
+        c.created_at,
+        u.id as user_id,
+        u.username,
+        u.display_name,
+        u.avatar,
+        EXISTS(SELECT 1 FROM video_comment_likes WHERE comment_id = c.id AND user_id = $2) as is_liked
+      FROM video_comments c
+      JOIN users u ON c.user_id = u.id
+      WHERE c.parent_id = $1
+      ORDER BY c.created_at ASC
+      LIMIT $3 OFFSET $4
+    `, [commentId, userId || 0, parseInt(limit), offset])
+
+    const countResult = await db.query(
+      'SELECT COUNT(*) as total FROM video_comments WHERE parent_id = $1',
+      [commentId]
+    )
+    const total = parseInt(countResult.rows[0].total)
+
+    res.json({
+      success: true,
+      data: {
+        replies: repliesResult.rows.map(reply => ({
+          id: reply.id,
+          content: reply.content,
+          likesCount: reply.likes_count,
+          createdAt: reply.created_at,
+          isLiked: reply.is_liked,
+          user: {
+            id: reply.user_id,
+            username: reply.username,
+            displayName: reply.display_name,
+            avatar: reply.avatar
+          }
+        })),
+        total,
+        hasMore: offset + repliesResult.rows.length < total
+      }
+    })
+  } catch (error) {
+    console.error('获取回复列表失败:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '获取回复列表失败'
+    })
+  }
+})
+
+// 发表评论
+app.post('/api/community-videos/:videoId/comments', authenticateToken, async (req, res) => {
+  try {
+    const { videoId } = req.params
+    const { content, parentId } = req.body
+    const userId = req.user?.id
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: '未登录，请先登录'
+      })
+    }
+
+    if (!content || !content.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: '评论内容不能为空'
+      })
+    }
+
+    // 检查视频是否存在
+    const videoResult = await db.query(
+      'SELECT id FROM community_videos WHERE id = $1',
+      [videoId]
+    )
+    if (videoResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: '视频不存在'
+      })
+    }
+
+    // 如果是回复，检查父评论是否存在
+    if (parentId) {
+      const parentResult = await db.query(
+        'SELECT id FROM video_comments WHERE id = $1 AND video_id = $2',
+        [parentId, videoId]
+      )
+      if (parentResult.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: '回复的评论不存在'
+        })
+      }
+    }
+
+    // 插入评论
+    const insertResult = await db.query(`
+      INSERT INTO video_comments (video_id, user_id, content, parent_id)
+      VALUES ($1, $2, $3, $4)
+      RETURNING id, created_at
+    `, [videoId, userId, content.trim(), parentId || null])
+
+    const newComment = insertResult.rows[0]
+
+    // 如果是回复，更新父评论的回复数
+    if (parentId) {
+      await db.query(
+        'UPDATE video_comments SET replies_count = replies_count + 1 WHERE id = $1',
+        [parentId]
+      )
+    }
+
+    // 更新视频的评论数
+    await db.query(
+      'UPDATE community_videos SET comments_count = COALESCE(comments_count, 0) + 1 WHERE id = $1',
+      [videoId]
+    )
+
+    // 获取用户信息
+    const userResult = await db.query(
+      'SELECT username, display_name, avatar FROM users WHERE id = $1',
+      [userId]
+    )
+    const user = userResult.rows[0]
+
+    res.json({
+      success: true,
+      data: {
+        id: newComment.id,
+        content: content.trim(),
+        likesCount: 0,
+        repliesCount: 0,
+        createdAt: newComment.created_at,
+        isLiked: false,
+        parentId: parentId || null,
+        user: {
+          id: userId,
+          username: user.username,
+          displayName: user.display_name,
+          avatar: user.avatar
+        }
+      }
+    })
+  } catch (error) {
+    console.error('发表评论失败:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '发表评论失败'
+    })
+  }
+})
+
+// 点赞/取消点赞评论
+app.post('/api/community-videos/:videoId/comments/:commentId/like', authenticateToken, async (req, res) => {
+  try {
+    const { commentId } = req.params
+    const userId = req.user?.id
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: '未登录，请先登录'
+      })
+    }
+
+    // 检查评论是否存在
+    const commentResult = await db.query(
+      'SELECT id, likes_count FROM video_comments WHERE id = $1',
+      [commentId]
+    )
+    if (commentResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: '评论不存在'
+      })
+    }
+
+    // 检查是否已点赞
+    const likeResult = await db.query(
+      'SELECT id FROM video_comment_likes WHERE comment_id = $1 AND user_id = $2',
+      [commentId, userId]
+    )
+
+    let isLiked = false
+    let newLikesCount = commentResult.rows[0].likes_count
+
+    if (likeResult.rows.length > 0) {
+      // 已点赞，取消点赞
+      await db.query(
+        'DELETE FROM video_comment_likes WHERE comment_id = $1 AND user_id = $2',
+        [commentId, userId]
+      )
+      newLikesCount = Math.max(0, newLikesCount - 1)
+      isLiked = false
+    } else {
+      // 未点赞，添加点赞
+      await db.query(
+        'INSERT INTO video_comment_likes (comment_id, user_id) VALUES ($1, $2)',
+        [commentId, userId]
+      )
+      newLikesCount = newLikesCount + 1
+      isLiked = true
+    }
+
+    // 更新评论的点赞数
+    await db.query(
+      'UPDATE video_comments SET likes_count = $1 WHERE id = $2',
+      [newLikesCount, commentId]
+    )
+
+    res.json({
+      success: true,
+      data: {
+        isLiked,
+        likesCount: newLikesCount
+      }
+    })
+  } catch (error) {
+    console.error('点赞评论失败:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '点赞评论失败'
+    })
+  }
+})
+
+// 删除评论
+app.delete('/api/community-videos/:videoId/comments/:commentId', authenticateToken, async (req, res) => {
+  try {
+    const { videoId, commentId } = req.params
+    const userId = req.user?.id
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: '未登录，请先登录'
+      })
+    }
+
+    // 检查评论是否存在及权限
+    const commentResult = await db.query(
+      'SELECT id, user_id, parent_id FROM video_comments WHERE id = $1 AND video_id = $2',
+      [commentId, videoId]
+    )
+    if (commentResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: '评论不存在'
+      })
+    }
+
+    const comment = commentResult.rows[0]
+
+    // 检查是否是评论作者或管理员
+    const userResult = await db.query(
+      'SELECT username, role FROM users WHERE id = $1',
+      [userId]
+    )
+    const user = userResult.rows[0]
+    const isAdmin = user?.username === 'Chiefavefan' || user?.role === 'super_admin' || user?.role === 'admin'
+
+    if (comment.user_id !== userId && !isAdmin) {
+      return res.status(403).json({
+        success: false,
+        error: '没有权限删除此评论'
+      })
+    }
+
+    // 计算要删除的评论数（包括子评论）
+    let deletedCount = 1
+    if (!comment.parent_id) {
+      // 如果是顶级评论，获取子评论数
+      const childCountResult = await db.query(
+        'SELECT COUNT(*) as count FROM video_comments WHERE parent_id = $1',
+        [commentId]
+      )
+      deletedCount += parseInt(childCountResult.rows[0].count)
+    }
+
+    // 如果是子评论，更新父评论的回复数
+    if (comment.parent_id) {
+      await db.query(
+        'UPDATE video_comments SET replies_count = GREATEST(replies_count - 1, 0) WHERE id = $1',
+        [comment.parent_id]
+      )
+    }
+
+    // 删除评论（级联删除子评论）
+    await db.query('DELETE FROM video_comments WHERE id = $1', [commentId])
+
+    // 更新视频的评论数
+    await db.query(
+      'UPDATE community_videos SET comments_count = GREATEST(COALESCE(comments_count, 0) - $1, 0) WHERE id = $2',
+      [deletedCount, videoId]
+    )
+
+    res.json({
+      success: true,
+      message: '评论已删除'
+    })
+  } catch (error) {
+    console.error('删除评论失败:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || '删除评论失败'
+    })
+  }
+})
+
 // ==================== 用户关注 API ====================
 // 关注/取消关注用户
 app.post('/api/user-follows', authenticateToken, async (req, res) => {

@@ -1,9 +1,13 @@
 name: Deploy to Server
 
+# 已禁用自动部署，改用手动部署
+# on:
+#   push:
+#     branches:
+#       - main
+
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:  # 只能手动触发
 
 jobs:
   deploy:
