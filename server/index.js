@@ -9278,10 +9278,58 @@ async function startServer() {
     }
   })
 
-  // 设置/更新小组共享密码（仅组长可操作）
+  // 获取小组共享密码（仅组长和管理员可查看）
+  app.get('/api/groups/:groupId/share-password', authenticateToken, async (req, res) => {
+    try {
+      const userId = req.user?.id
+      const { groupId } = req.params
+      const username = req.user?.username
+
+      if (!userId) {
+        return res.status(401).json({ success: false, error: '未登录' })
+      }
+
+      const pool = await import('./db/connection.js')
+      const db = pool.default
+
+      // 检查是否是管理员
+      const isAdmin = username === 'Chiefavefan' || username === 'jubian888'
+
+      // 检查用户是否是该组的组长
+      const roleCheck = await db.query(
+        `SELECT role FROM user_groups WHERE user_id = $1 AND group_id = $2`,
+        [userId, parseInt(groupId)]
+      )
+
+      const isLeader = roleCheck.rows.length > 0 && ['leader', 'admin'].includes(roleCheck.rows[0].role)
+
+      if (!isAdmin && !isLeader) {
+        return res.status(403).json({ success: false, error: '只有组长和管理员可以查看共享密码' })
+      }
+
+      // 获取密码
+      const result = await db.query(
+        `SELECT share_password FROM group_share_passwords WHERE group_id = $1`,
+        [parseInt(groupId)]
+      )
+
+      res.json({
+        success: true,
+        data: {
+          password: result.rows.length > 0 ? result.rows[0].share_password : ''
+        }
+      })
+    } catch (error) {
+      console.error('获取共享密码失败:', error)
+      res.status(500).json({ success: false, error: '获取共享密码失败' })
+    }
+  })
+
+  // 设置/更新小组共享密码（组长和管理员可操作）
   app.post('/api/groups/:groupId/share-password', authenticateToken, async (req, res) => {
     try {
       const userId = req.user?.id
+      const username = req.user?.username
       const { groupId } = req.params
       const { password } = req.body
 
@@ -9289,12 +9337,11 @@ async function startServer() {
         return res.status(401).json({ success: false, error: '未登录' })
       }
 
-      if (!password || password.length < 4) {
-        return res.status(400).json({ success: false, error: '密码至少4位' })
-      }
-
       const pool = await import('./db/connection.js')
       const db = pool.default
+
+      // 检查是否是管理员
+      const isAdmin = username === 'Chiefavefan' || username === 'jubian888'
 
       // 检查用户是否是该组的组长（role = 'leader' 或 'admin'）
       const roleCheck = await db.query(
@@ -9302,8 +9349,24 @@ async function startServer() {
         [userId, parseInt(groupId)]
       )
 
-      if (roleCheck.rows.length === 0 || !['leader', 'admin'].includes(roleCheck.rows[0].role)) {
-        return res.status(403).json({ success: false, error: '只有组长可以设置共享密码' })
+      const isLeader = roleCheck.rows.length > 0 && ['leader', 'admin'].includes(roleCheck.rows[0].role)
+
+      if (!isAdmin && !isLeader) {
+        return res.status(403).json({ success: false, error: '只有组长和管理员可以设置共享密码' })
+      }
+
+      // 如果密码为空，删除密码记录
+      if (!password || password.trim() === '') {
+        await db.query(
+          `DELETE FROM group_share_passwords WHERE group_id = $1`,
+          [parseInt(groupId)]
+        )
+        return res.json({ success: true, message: '共享密码已清除' })
+      }
+
+      // 密码至少4位
+      if (password.length < 4) {
+        return res.status(400).json({ success: false, error: '密码至少4位' })
       }
 
       // 使用 upsert 设置密码

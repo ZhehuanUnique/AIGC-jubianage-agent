@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, Plus, Users, Trash2, UserPlus, Loader2, Edit2 } from 'lucide-react'
+import { X, Plus, Users, Trash2, UserPlus, Loader2, Edit2, Key, Eye, EyeOff } from 'lucide-react'
 import { alertSuccess, alertError } from '../utils/alert'
 import { AuthService } from '../services/auth'
 
@@ -11,6 +11,7 @@ interface Group {
   creator_username?: string
   member_count?: number
   created_at?: string
+  share_password?: string
 }
 
 interface GroupMember {
@@ -39,6 +40,7 @@ function GroupManagement({ users, onUpdate }: GroupManagementProps) {
   const [showAddMemberModal, setShowAddMemberModal] = useState(false)
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null)
   const [groupMembers, setGroupMembers] = useState<GroupMember[]>([])
   const [currentUser, setCurrentUser] = useState<{ username: string } | null>(null)
@@ -48,6 +50,11 @@ function GroupManagement({ users, onUpdate }: GroupManagementProps) {
   const [editGroupName, setEditGroupName] = useState('')
   const [editGroupDescription, setEditGroupDescription] = useState('')
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null)
+  
+  // 密码管理状态
+  const [sharePassword, setSharePassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [savingPassword, setSavingPassword] = useState(false)
 
   // 检查是否是管理员
   const isAdmin = currentUser?.username === 'Chiefavefan' || currentUser?.username === 'jubian888'
@@ -99,6 +106,71 @@ function GroupManagement({ users, onUpdate }: GroupManagementProps) {
     } catch (error) {
       console.error('加载小组成员失败:', error)
     }
+  }
+
+  // 检查当前用户是否是小组组长
+  const isGroupLeader = (group: Group): boolean => {
+    if (!currentUser) return false
+    // 管理员可以管理所有小组
+    if (isAdmin) return true
+    // 检查是否是组长（通过成员列表中的 role 判断）
+    const member = groupMembers.find(m => m.username === currentUser.username)
+    return member?.role === 'leader'
+  }
+
+  // 加载小组共享密码
+  const loadGroupPassword = async (groupId: number) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/groups/${groupId}/share-password`, {
+        headers: {
+          'Authorization': `Bearer ${getToken()}`,
+        },
+      })
+      const result = await response.json()
+      if (result.success) {
+        setSharePassword(result.data?.password || '')
+      }
+    } catch (error) {
+      console.error('加载小组密码失败:', error)
+    }
+  }
+
+  // 保存小组共享密码
+  const handleSavePassword = async () => {
+    if (!selectedGroup) return
+    
+    setSavingPassword(true)
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/groups/${selectedGroup.id}/share-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${getToken()}`,
+        },
+        body: JSON.stringify({ password: sharePassword }),
+      })
+      
+      const result = await response.json()
+      if (result.success) {
+        alertSuccess('共享密码已保存！')
+        setShowPasswordModal(false)
+      } else {
+        alertError(result.error || '保存失败')
+      }
+    } catch (error) {
+      console.error('保存密码失败:', error)
+      alertError('保存失败，请稍后重试')
+    } finally {
+      setSavingPassword(false)
+    }
+  }
+
+  // 打开密码管理弹窗
+  const handleManagePassword = async (group: Group) => {
+    setSelectedGroup(group)
+    await loadGroupMembers(group.id)
+    await loadGroupPassword(group.id)
+    setShowPasswordModal(true)
   }
 
   useEffect(() => {
@@ -349,6 +421,13 @@ function GroupManagement({ users, onUpdate }: GroupManagementProps) {
                         编辑
                       </button>
                     )}
+                    <button
+                      onClick={() => handleManagePassword(group)}
+                      className="px-3 py-1 bg-yellow-600 text-white rounded text-sm hover:bg-yellow-700 flex items-center gap-1"
+                    >
+                      <Key size={14} />
+                      共享密码
+                    </button>
                     <button
                       onClick={() => {
                         setSelectedGroup(group)
@@ -613,6 +692,83 @@ function GroupManagement({ users, onUpdate }: GroupManagementProps) {
                   className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   添加
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 共享密码管理弹窗 */}
+      {showPasswordModal && selectedGroup && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <Key size={20} />
+                管理共享密码 - {selectedGroup.name}
+              </h3>
+              <button onClick={() => {
+                setShowPasswordModal(false)
+                setSelectedGroup(null)
+                setSharePassword('')
+                setShowPassword(false)
+              }}>
+                <X size={24} />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
+                <p>设置共享密码后，其他小组成员可以通过输入此密码来访问本小组的项目文件夹。</p>
+                <p className="mt-2 text-yellow-600">⚠️ 只有小组组长和管理员可以修改密码。</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm mb-2 font-medium">共享密码</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={sharePassword}
+                    onChange={(e) => setSharePassword(e.target.value)}
+                    placeholder="输入共享密码（留空则禁用共享）"
+                    className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+              
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  onClick={() => {
+                    setShowPasswordModal(false)
+                    setSelectedGroup(null)
+                    setSharePassword('')
+                    setShowPassword(false)
+                  }}
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleSavePassword}
+                  disabled={savingPassword}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {savingPassword ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      保存中...
+                    </>
+                  ) : (
+                    '保存密码'
+                  )}
                 </button>
               </div>
             </div>

@@ -86,8 +86,20 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   // 验证密码并获取跨组访问权限
   const handleVerifyPassword = async () => {
-    if (!selectedGroupId || !crossGroupPassword) {
-      alertError('请选择小组并输入密码', '错误')
+    if (!selectedGroupId) {
+      alertError('请选择小组', '错误')
+      return
+    }
+
+    // 检查选中的小组是否有密码
+    const selectedGroup = availableGroups.find(g => g.id === selectedGroupId)
+    if (selectedGroup && !selectedGroup.hasSharePassword) {
+      alertInfo('该小组尚未设置共享密码，请联系小组组长设置密码后再试', '提示')
+      return
+    }
+
+    if (!crossGroupPassword) {
+      alertError('请输入密码', '错误')
       return
     }
 
@@ -245,9 +257,9 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500"
                   >
                     <option value="">选择要访问的小组</option>
-                    {availableGroups.filter(g => g.hasSharePassword).map(group => (
+                    {availableGroups.map(group => (
                       <option key={group.id} value={group.id}>
-                        {group.name} ({group.memberCount}人)
+                        {group.name} ({group.memberCount}人){group.hasSharePassword ? '' : ' - 未设置密码'}
                       </option>
                     ))}
                   </select>
