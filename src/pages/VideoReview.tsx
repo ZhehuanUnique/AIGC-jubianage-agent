@@ -6,7 +6,6 @@ import { alertError, alertInfo, alertSuccess, alertWarning } from '../utils/aler
 import { uploadVideo, importVideosToJianying, getProjectFragments, deleteAnnotation, getAnnotations, createAnnotation } from '../services/api'
 import { AuthService } from '../services/auth'
 import { getUserSettings, updateUserSettings } from '../services/settingsService'
-import HamsterLoader from '../components/HamsterLoader'
 
 function VideoReview() {
   const { projectId, fragmentId } = useParams()
@@ -1073,8 +1072,8 @@ function VideoReview() {
 
               </>
             ) : (
-              /* 上传区域 - 使用仓鼠加载动画 */
-              <div className="w-full h-full bg-gray-50 flex flex-col items-center justify-center relative">
+              /* 上传区域 - 简洁的占位符样式 */
+              <div className="w-full h-full bg-gray-100 flex flex-col items-center justify-center relative">
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -1082,11 +1081,11 @@ function VideoReview() {
                   onChange={handleVideoUpload}
                   className="hidden"
                 />
-                {/* 仓鼠加载动画 */}
-                <div className="mb-8">
-                  <HamsterLoader size={14} />
+                {/* 灰色占位符块 */}
+                <div className="w-24 h-24 bg-gray-200 rounded-lg mb-6 flex items-center justify-center">
+                  <Upload size={32} className="text-gray-400" />
                 </div>
-                <p className="text-gray-500 text-sm mb-6">等待上传视频...</p>
+                <p className="text-gray-400 text-sm mb-6">暂无视频</p>
                 {/* 渐变上传按钮 */}
                 <button
                   onClick={handleUploadClick}
