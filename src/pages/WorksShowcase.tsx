@@ -47,6 +47,11 @@ function WorksShowcase() {
 
   const isAdmin = currentUser?.username === 'Chiefavefan' || currentUser?.username === 'jubian888'
 
+  // 当前视频 - 必须在所有使用它的 hooks 和函数之前定义
+  const currentVideo = videos.length > 0 && currentVideoIndex >= 0 && currentVideoIndex < videos.length 
+    ? videos[currentVideoIndex] 
+    : null
+
   // 触摸滑动相关
   const touchStartY = useRef<number>(0)
   const touchStartX = useRef<number>(0)
@@ -146,10 +151,13 @@ function WorksShowcase() {
 
   // 打开评论面板时加载评论
   useEffect(() => {
-    if (showComments && currentVideo) {
-      loadComments(currentVideo.id)
+    if (showComments && videos.length > 0 && currentVideoIndex >= 0 && currentVideoIndex < videos.length) {
+      const video = videos[currentVideoIndex]
+      if (video) {
+        loadComments(video.id)
+      }
     }
-  }, [showComments, currentVideo?.id])
+  }, [showComments, videos, currentVideoIndex, loadComments])
 
   // 发表评论
   const handlePostComment = async () => {
@@ -486,11 +494,6 @@ function WorksShowcase() {
       recordVideoView(videos[currentVideoIndex].id)
     }
   }, [currentVideoIndex, videos])
-
-  // 当前视频 - 必须在所有 useEffect 之前定义，避免 TDZ 问题
-  const currentVideo = videos.length > 0 && currentVideoIndex >= 0 && currentVideoIndex < videos.length 
-    ? videos[currentVideoIndex] 
-    : null
 
   return (
     <div 
