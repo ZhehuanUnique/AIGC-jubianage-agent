@@ -214,6 +214,11 @@ function FirstLastFrameVideo() {
   const [showOperationDropdown, setShowOperationDropdown] = useState(false)
   const [showModelDropdown, setShowModelDropdown] = useState(false)
   
+  // 搜索状态
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showBackToBottom, setShowBackToBottom] = useState(false)
+  const historySectionRef = useRef<HTMLDivElement>(null)
+  
   const firstFrameInputRef = useRef<HTMLInputElement>(null)
   const lastFrameInputRef = useRef<HTMLInputElement>(null)
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -225,6 +230,20 @@ function FirstLastFrameVideo() {
   // 应用筛选逻辑
   const applyFilters = (allTasksList: VideoTask[]) => {
     let filtered = [...allTasksList]
+
+    // 搜索关键词筛选
+    if (searchQuery.trim()) {
+      const query = searchQuery.trim().toLowerCase()
+      filtered = filtered.filter(video => {
+        // 匹配 prompt/text 中的关键词
+        const textMatch = video.text?.toLowerCase().includes(query)
+        // 匹配模型名称
+        const modelMatch = video.model?.toLowerCase().includes(query)
+        // 匹配分辨率
+        const resolutionMatch = video.resolution?.toLowerCase().includes(query)
+        return textMatch || modelMatch || resolutionMatch
+      })
+    }
 
     // 时间范围筛选
     if (timeFilter !== 'all') {
@@ -427,7 +446,7 @@ function FirstLastFrameVideo() {
   // 当筛选条件改变时，重新应用筛选
   useEffect(() => {
     applyFilters(allTasks)
-  }, [timeFilter, videoFilter, operationFilter])
+  }, [timeFilter, videoFilter, operationFilter, searchQuery])
 
   useEffect(() => {
     loadHistory()
@@ -1345,7 +1364,7 @@ function FirstLastFrameVideo() {
               </button>
             </div>
             
-            {/* 右侧：筛选下拉菜单 */}
+            {/* 右侧：筛选下拉菜单和搜索框 */}
             <div className="flex items-center gap-2">
               {/* 时间筛选 */}
               <div className="relative">
@@ -1567,13 +1586,56 @@ function FirstLastFrameVideo() {
                   </div>
                 )}
               </div>
+              
+              {/* 搜索框 */}
+              <div className="searchbar-container">
+                <div className="searchbar">
+                  <div className="searchbar-wrapper">
+                    <div className="searchbar-left">
+                      <div className="search-icon-wrapper">
+                        <span className="search-icon searchbar-icon">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                            <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"></path>
+                          </svg>
+                        </span>
+                      </div>
+                    </div>
+                    <div className="searchbar-center">
+                      <div className="searchbar-input-spacer"></div>
+                      <input 
+                        type="text" 
+                        className="searchbar-input" 
+                        maxLength={100} 
+                        autoCapitalize="off" 
+                        autoComplete="off" 
+                        placeholder="搜索关键词"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </nav>
 
+      {/* 回到底部按钮 */}
+      <button
+        onClick={() => {
+          window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
+        }}
+        className="back-to-bottom-btn"
+        title="回到底部"
+      >
+        <svg className="back-to-bottom-icon" viewBox="0 0 384 512">
+          <path d="M169.4 470.6c12.5 12.5 32.8 12.5 45.3 0l160-160c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L224 370.8V64c0-17.7-14.3-32-32-32s-32 14.3-32 32v306.8L54.6 265.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l160 160z"></path>
+        </svg>
+      </button>
+
       {/* 历史视频区域（全屏滚动，从导航栏下方开始） */}
-      <div className="pb-[600px] pt-24 history-section">
+      <div className="pb-[600px] pt-24 history-section" ref={historySectionRef}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* 历史视频网格 - 参考Vue项目，只在首次加载且没有视频时显示加载状态 */}
           {isLoading && isInitialLoad && tasks.length === 0 ? (

@@ -1551,3 +1551,165 @@ select.text-center::-ms-expand {
   -ms-user-select: none;
   user-select: none;
 }
+
+
+/* ==================== 搜索框样式 ==================== */
+.searchbar-container {
+  display: flex;
+  align-items: center;
+}
+
+.searchbar {
+  font-size: 14px;
+  font-family: arial, sans-serif;
+  color: #202124;
+  display: flex;
+  z-index: 3;
+  height: 40px;
+  background: white;
+  border: 1px solid #dfe1e5;
+  box-shadow: none;
+  border-radius: 20px;
+  margin: 0;
+  width: auto;
+  max-width: 200px;
+  transition: all 0.3s ease;
+}
+
+.searchbar:hover {
+  box-shadow: 0 1px 6px rgb(32 33 36 / 28%);
+  border-color: rgba(223,225,229,0);
+}
+
+.searchbar:focus-within {
+  box-shadow: 0 1px 6px rgb(32 33 36 / 28%);
+  border-color: rgba(223,225,229,0);
+  max-width: 280px;
+}
+
+.searchbar-wrapper {
+  flex: 1;
+  display: flex;
+  padding: 5px 12px 0 12px;
+}
+
+.searchbar-left {
+  font-size: 14px;
+  font-family: arial, sans-serif;
+  color: #202124;
+  display: flex;
+  align-items: center;
+  padding-right: 8px;
+  margin-top: -5px;
+}
+
+.search-icon-wrapper {
+  margin: auto;
+}
+
+.search-icon {
+  margin-top: 3px;
+  color: #9aa0a6;
+  height: 18px;
+  line-height: 18px;
+  width: 18px;
+}
+
+.searchbar-icon {
+  display: inline-block;
+  fill: currentColor;
+  height: 20px;
+  line-height: 20px;
+  position: relative;
+  width: 20px;
+}
+
+.searchbar-center {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+}
+
+.searchbar-input-spacer {
+  color: transparent;
+  flex: 100%;
+  white-space: pre;
+  height: 30px;
+  font-size: 14px;
+}
+
+.searchbar-input {
+  background-color: transparent;
+  border: none;
+  margin: 0;
+  padding: 0;
+  color: rgba(0, 0, 0, .87);
+  word-wrap: break-word;
+  outline: none;
+  display: flex;
+  flex: 100%;
+  margin-top: -33px;
+  height: 30px;
+  font-size: 14px;
+  max-width: 100%;
+  width: 100%;
+}
+
+.searchbar-input::placeholder {
+  color: #9aa0a6;
+}
+
+/* ==================== 回到底部按钮样式 ==================== */
+.back-to-bottom-btn {
+  position: fixed;
+  right: 30px;
+  bottom: 30px;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background-color: rgb(20, 20, 20);
+  border: none;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0px 0px 0px 4px rgba(180, 160, 255, 0.253);
+  cursor: pointer;
+  transition-duration: 0.3s;
+  overflow: hidden;
+  z-index: 40;
+}
+
+.back-to-bottom-icon {
+  width: 12px;
+  transition-duration: 0.3s;
+  fill: white;
+}
+
+.back-to-bottom-btn:hover {
+  width: 120px;
+  border-radius: 50px;
+  transition-duration: 0.3s;
+  background-color: rgb(181, 160, 255);
+  align-items: center;
+}
+
+.back-to-bottom-btn:hover .back-to-bottom-icon {
+  transition-duration: 0.3s;
+  transform: translateY(200%);
+}
+
+.back-to-bottom-btn::before {
+  position: absolute;
+  top: -20px;
+  content: "回到底部";
+  color: white;
+  font-size: 0px;
+}
+
+.back-to-bottom-btn:hover::before {
+  font-size: 13px;
+  opacity: 1;
+  top: unset;
+  transition-duration: 0.3s;
+}
