@@ -625,17 +625,19 @@ function Analytics() {
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-xl font-semibold mb-4">新建用户</h3>
-            <div className="space-y-4">
+            <form autoComplete="off" className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   用户名 <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
+                  name="new_username_field"
                   value={newUsername}
                   onChange={(e) => setNewUsername(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                   placeholder="请输入用户名"
+                  autoComplete="new-password"
                 />
               </div>
               <div>
@@ -644,10 +646,12 @@ function Analytics() {
                 </label>
                 <input
                   type="password"
+                  name="new_password_field"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                   placeholder="请输入密码"
+                  autoComplete="new-password"
                 />
               </div>
               <div>
@@ -656,27 +660,31 @@ function Analytics() {
                 </label>
                 <input
                   type="text"
+                  name="new_display_name_field"
                   value={newDisplayName}
                   onChange={(e) => setNewDisplayName(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                   placeholder="请输入显示名称（可选）"
+                  autoComplete="off"
                 />
               </div>
               <div className="flex gap-2 justify-end">
                 <button
+                  type="button"
                   onClick={() => setShowUserModal(false)}
                   className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
                 >
                   取消
                 </button>
                 <button
+                  type="button"
                   onClick={handleCreateUser}
                   className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
                 >
                   创建
                 </button>
               </div>
-            </div>
+            </form>
           </div>
         </div>
       )}
