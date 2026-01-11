@@ -487,7 +487,10 @@ function WorksShowcase() {
     }
   }, [currentVideoIndex, videos])
 
-  const currentVideo = videos[currentVideoIndex]
+  // 当前视频 - 必须在所有 useEffect 之前定义，避免 TDZ 问题
+  const currentVideo = videos.length > 0 && currentVideoIndex >= 0 && currentVideoIndex < videos.length 
+    ? videos[currentVideoIndex] 
+    : null
 
   return (
     <div 

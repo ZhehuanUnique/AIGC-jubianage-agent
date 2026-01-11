@@ -1976,11 +1976,13 @@ async function processVideoTask(taskId, sourceVideoUrl, processingType, userId, 
         }
       }
     } else if (processingType === 'super_resolution') {
-      // 超分辨率处理
-      const { upscaleVideoWithRealESRGAN } = await import('./services/realESRGANService.js')
+      // 超分辨率处理 - 支持多个提供商
       
-      // 从metadata中获取放大倍数（如果前端传递了）
-      let scale = 2 // 默认2倍放大
+      // 从metadata中获取提供商和分辨率
+      let provider = 'tencent' // 默认使用腾讯云
+      let resolution = '1080p'
+      let scale = 2
+      
       try {
         const taskMetaResult = await db.query(
           'SELECT metadata FROM video_processing_tasks WHERE id = $1',
@@ -1988,6 +1990,12 @@ async function processVideoTask(taskId, sourceVideoUrl, processingType, userId, 
         )
         if (taskMetaResult.rows.length > 0 && taskMetaResult.rows[0].metadata) {
           metadata = taskMetaResult.rows[0].metadata
+          if (metadata.provider) {
+            provider = metadata.provider
+          }
+          if (metadata.resolution) {
+            resolution = metadata.resolution
+          }
           if (metadata.scale) {
             scale = metadata.scale
           }
@@ -1996,12 +2004,71 @@ async function processVideoTask(taskId, sourceVideoUrl, processingType, userId, 
         console.warn('⚠️ 读取任务metadata失败:', metaError.message)
       }
       
-      result = await upscaleVideoWithRealESRGAN(sourceVideoUrl, {
-        scale: scale,
-        model: 'RealESRGAN_x4plus', // 支持2x和4x的模型
-        tileSize: 0, // 自动分块
-        tilePad: 10,
-      })
+      console.log(`📹 超分辨率任务 ${taskId}: provider=${provider}, resolution=${resolution}`)
+      
+      if (provider === 'tencent') {
+        // 腾讯云数据万象超分辨率
+        const { upscaleVideoWithTencentCI } = await import('./services/tencentCIService.js')
+        result = await upscaleVideoWithTencentCI(sourceVideoUrl, {
+          resolution: resolution,
+        })
+      } else if (provider === 'vidu') {
+        // Vidu HD 超分辨率
+        const { upscaleVideoWithViduHd, getViduHdTaskStatus } = await import('./services/viduHdService.js')
+        
+        // 提交任务
+        const submitResult = await upscaleVideoWithViduHd(sourceVideoUrl, {
+          upscaleResolution: resolution,
+        })
+        
+        // 轮询等待完成
+        let viduResult = null
+        const maxAttempts = 120 // 最多等待10分钟
+        for (let i = 0; i < maxAttempts; i++) {
+          await new Promise(resolve => setTimeout(resolve, 5000)) // 每5秒查询一次
+          const status = await getViduHdTaskStatus(submitResult.taskId)
+          
+          if (status.status === 'completed') {
+            viduResult = status
+            break
+          } else if (status.status === 'failed') {
+            throw new Error(status.message || 'Vidu HD 处理失败')
+          }
+          
+          // 更新进度
+          await db.query(
+            `UPDATE video_processing_tasks SET metadata = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
+            [JSON.stringify({ ...metadata, progress: status.progress }), taskId]
+          )
+        }
+        
+        if (!viduResult) {
+          throw new Error('Vidu HD 处理超时')
+        }
+        
+        result = {
+          videoUrl: viduResult.videoUrl,
+          cosKey: null, // Vidu返回的是外部URL
+          resolution: resolution,
+          provider: 'vidu',
+        }
+      } else if (provider === 'realesrgan') {
+        // Real-ESRGAN 本地超分辨率
+        const { upscaleVideoWithRealESRGAN } = await import('./services/realESRGANService.js')
+        
+        // 解析倍数（2x -> 2, 4x -> 4）
+        const scaleValue = resolution.includes('x') ? parseInt(resolution.replace('x', '')) : scale
+        
+        result = await upscaleVideoWithRealESRGAN(sourceVideoUrl, {
+          scale: scaleValue,
+          model: 'RealESRGAN_x4plus',
+          tileSize: 0,
+          tilePad: 10,
+        })
+        result.provider = 'realesrgan'
+      } else {
+        throw new Error(`不支持的超分辨率提供商: ${provider}`)
+      }
     } else {
       throw new Error(`不支持的处理类型: ${processingType}`)
     }
@@ -2113,7 +2180,7 @@ async function processVideoTask(taskId, sourceVideoUrl, processingType, userId, 
 // 创建视频处理任务（补帧、超分辨率等）
 app.post('/api/video-processing-tasks', authenticateToken, async (req, res) => {
   try {
-    const { videoTaskId, processingType, targetFps, method, scale } = req.body
+    const { videoTaskId, processingType, targetFps, method, scale, provider, resolution } = req.body
     const userId = req.user?.id
     
     if (!userId) {
@@ -2155,11 +2222,13 @@ app.post('/api/video-processing-tasks', authenticateToken, async (req, res) => {
     
     const sourceVideo = sourceVideoResult.rows[0]
     
-    // 创建处理任务（包含metadata，存储目标帧率、技术选择或放大倍数）
-    const metadata = (targetFps || method || scale) ? JSON.stringify({ 
+    // 创建处理任务（包含metadata，存储目标帧率、技术选择、放大倍数或超分辨率提供商）
+    const metadata = (targetFps || method || scale || provider || resolution) ? JSON.stringify({ 
       ...(targetFps && { targetFps: parseInt(targetFps) }),
       ...(method && { method: method }),
-      ...(scale && { scale: parseInt(scale) })
+      ...(scale && { scale: parseInt(scale) }),
+      ...(provider && { provider: provider }),
+      ...(resolution && { resolution: resolution })
     }) : null
     const taskResult = await db.query(
       `INSERT INTO video_processing_tasks 
@@ -9825,7 +9894,7 @@ app.get('/api/trending-rankings', authenticateToken, async (req, res) => {
     
     // 获取今天的榜单数据
     const today = new Date().toISOString().split('T')[0]
-    const result = await db.query(
+    let result = await db.query(
       `SELECT ranking_data, date, updated_at 
        FROM trending_rankings 
        WHERE ranking_type = $1 AND date = $2 
@@ -9845,7 +9914,53 @@ app.get('/api/trending-rankings', authenticateToken, async (req, res) => {
       })
     }
     
-    // 如果没有今天的榜单，返回空数组
+    // 如果没有今天的榜单，尝试获取最近一天的数据
+    result = await db.query(
+      `SELECT ranking_data, date, updated_at 
+       FROM trending_rankings 
+       WHERE ranking_type = $1 
+       ORDER BY date DESC, updated_at DESC 
+       LIMIT 1`,
+      [type]
+    )
+    
+    if (result.rows.length > 0) {
+      // 返回最近的数据，同时在后台触发更新
+      const latestData = result.rows[0]
+      
+      // 异步触发榜单更新（不阻塞响应）
+      (async () => {
+        try {
+          console.log(`📊 今天(${today})没有${type}榜单数据，后台触发更新...`)
+          const { updateRanking } = await import('./services/trendingRankingService.js')
+          const ranking = await updateRanking(type)
+          
+          await db.query(
+            `INSERT INTO trending_rankings (ranking_type, ranking_data, date, updated_at)
+             VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+             ON CONFLICT (ranking_type, date) 
+             DO UPDATE SET 
+               ranking_data = EXCLUDED.ranking_data,
+               updated_at = CURRENT_TIMESTAMP`,
+            [type, JSON.stringify(ranking), today]
+          )
+          console.log(`✅ ${type}榜单已更新`)
+        } catch (updateError) {
+          console.error(`❌ 后台更新${type}榜单失败:`, updateError.message)
+        }
+      })()
+      
+      return res.json({
+        success: true,
+        data: {
+          ranking: latestData.ranking_data,
+          date: latestData.date,
+          updatedAt: latestData.updated_at,
+        },
+      })
+    }
+    
+    // 如果完全没有数据，返回空数组
     res.json({
       success: true,
       data: {

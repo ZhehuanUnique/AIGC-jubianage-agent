@@ -26,6 +26,7 @@ function VideoReview() {
   const [isUploading, setIsUploading] = useState(false)
   const [cosVideoUrl, setCosVideoUrl] = useState<string | null>(null)
   const [isVideoLoading, setIsVideoLoading] = useState(false)
+  const [hasVideoLoadedOnce, setHasVideoLoadedOnce] = useState(false) // 标记视频是否已经加载过一次
   const [videoThumbnail, setVideoThumbnail] = useState<string | null>(null) // 视频第一帧（乐观更新）
   const videoRef = useRef<HTMLVideoElement>(null)
   const progressBarRef = useRef<HTMLDivElement>(null)
@@ -208,6 +209,7 @@ function VideoReview() {
                 setVideoUrl(latestVideoUrl)
                 setCosVideoUrl(latestVideoUrl)
                 setIsVideoLoading(true) // 设置加载状态
+                setHasVideoLoadedOnce(false) // 重置加载标记，新视频需要显示加载状态
                 console.log('✅ 已加载片段视频:', latestVideoUrl)
                 
                 // 乐观更新：立即提取视频第一帧作为占位符
@@ -732,6 +734,7 @@ function VideoReview() {
     const localUrl = URL.createObjectURL(file)
     setVideoUrl(localUrl)
     setVideoFile(file)
+    setHasVideoLoadedOnce(false) // 重置加载标记，新视频需要显示加载状态
     
     // 设置视频时长（保留小数，更精确）
     try {
@@ -940,8 +943,8 @@ function VideoReview() {
           <div className="flex-1 bg-gray-50 border border-gray-200 rounded-lg mb-4 flex items-center justify-center relative overflow-hidden">
             {videoUrl ? (
               <>
-                {/* 视频加载状态 - 使用新的加载动画 */}
-                {isVideoLoading && (
+                {/* 视频加载状态 - 仅在初次加载时显示 */}
+                {isVideoLoading && !hasVideoLoadedOnce && (
                   <div className="absolute inset-0 bg-white flex items-center justify-center z-20">
                     <div className="text-center">
                       <div className="video-loading-bounce"></div>
@@ -955,20 +958,26 @@ function VideoReview() {
                   src={videoUrl}
                   className="w-full h-full object-contain"
                     onLoadStart={() => {
-                      setIsVideoLoading(true)
-                      // 设置超时，如果10秒内视频还没加载完成，停止加载状态
-                      setTimeout(() => {
-                        setIsVideoLoading(false)
-                      }, 10000)
+                      // 只在首次加载时显示加载状态
+                      if (!hasVideoLoadedOnce) {
+                        setIsVideoLoading(true)
+                        // 设置超时，如果10秒内视频还没加载完成，停止加载状态
+                        setTimeout(() => {
+                          setIsVideoLoading(false)
+                        }, 10000)
+                      }
                     }}
                     onCanPlay={() => {
                       setIsVideoLoading(false)
+                      setHasVideoLoadedOnce(true)
                     }}
                     onLoadedData={() => {
                       setIsVideoLoading(false)
+                      setHasVideoLoadedOnce(true)
                     }}
                     onCanPlayThrough={() => {
                       setIsVideoLoading(false)
+                      setHasVideoLoadedOnce(true)
                     }}
                   onTimeUpdate={(e) => {
                     try {
@@ -1219,6 +1228,7 @@ function VideoReview() {
                         const latestVideoUrl = fragment.videoUrls[0]
                         setVideoUrl(latestVideoUrl)
                         setCosVideoUrl(latestVideoUrl)
+                        setHasVideoLoadedOnce(false) // 重置加载标记
                         navigate(`/project/${projectId}/fragments/${fragment.id}/review`, { replace: true })
                       }
                     }}

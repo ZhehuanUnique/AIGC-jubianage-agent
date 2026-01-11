@@ -7,6 +7,7 @@ import HamsterLoader from '../components/HamsterLoader'
 import VideoGeneratingLoader from '../components/VideoGeneratingLoader'
 import { generateFirstLastFrameVideo, getFirstLastFrameVideoStatus, getFirstLastFrameVideos, createVideoProcessingTask, getVideoFps, toggleFirstLastFrameVideoLike, toggleFirstLastFrameVideoFavorite } from '../services/api'
 import { FrameInterpolationModal } from '../components/FrameInterpolationModal'
+import { SuperResolutionModal } from '../components/SuperResolutionModal'
 import { calculateVideoGenerationCredit } from '../utils/creditCalculator'
 import { getUserSettings } from '../services/settingsService'
 import { UserApi } from '../services/userApi'
@@ -201,6 +202,7 @@ function FirstLastFrameVideo() {
   const videoRefs = useRef<Map<string, HTMLVideoElement>>(new Map())
   const [deleteConfirmState, setDeleteConfirmState] = useState<{ isOpen: boolean; taskId: string | null }>({ isOpen: false, taskId: null })
   const [frameInterpolationModal, setFrameInterpolationModal] = useState<{ isOpen: boolean; taskId: string | null; currentFps?: number; isLoadingFps?: boolean }>({ isOpen: false, taskId: null })
+  const [superResolutionModal, setSuperResolutionModal] = useState<{ isOpen: boolean; taskId: string | null; currentResolution?: string }>({ isOpen: false, taskId: null })
   const [previewImage, setPreviewImage] = useState<{ url: string; type: 'first' | 'last' } | null>(null)
   const [generatingTask, setGeneratingTask] = useState<{ taskId: string; progress: number; status: 'accelerating' | 'generating'; startTime: number } | null>(null)
   const [sharedTaskIds, setSharedTaskIds] = useState<Set<string>>(new Set()) // 已分享到社区的任务ID
@@ -2074,19 +2076,14 @@ function FirstLastFrameVideo() {
                                         <span>补帧</span>
                                       </button>
                                       <button
-                                        onClick={async (e) => {
+                                        onClick={(e) => {
                                           e.stopPropagation()
-                                          try {
-                                            await createVideoProcessingTask({
-                                              videoTaskId: task.id,
-                                              processingType: 'super_resolution'
-                                            })
-                                            // 刷新历史记录，显示新的超分辨率任务
-                                            loadHistory(true) // 静默模式刷新
-                                          } catch (error) {
-                                            console.error('创建超分辨率任务失败:', error)
-                                            alertError(error instanceof Error ? error.message : '创建超分辨率任务失败，请稍后重试', '操作失败')
-                                          }
+                                          // 打开超分辨率模态框
+                                          setSuperResolutionModal({ 
+                                            isOpen: true, 
+                                            taskId: task.id, 
+                                            currentResolution: task.resolution || '720p' 
+                                          })
                                         }}
                                         className="px-3 py-1.5 bg-black bg-opacity-60 hover:bg-opacity-80 text-white rounded-lg text-sm transition-all flex items-center gap-2"
                                         title="超分辨率"
@@ -3119,6 +3116,70 @@ function FirstLastFrameVideo() {
           </div>
         </div>
       )}
+
+      {/* 超分辨率弹窗 */}
+      <SuperResolutionModal
+        isOpen={superResolutionModal.isOpen}
+        onClose={() => setSuperResolutionModal({ isOpen: false, taskId: null })}
+        currentResolution={superResolutionModal.currentResolution}
+        onConfirm={async (provider, resolution) => {
+          if (!superResolutionModal.taskId) return
+          
+          // 找到原始任务，用于复制信息
+          const originalTask = allTasks.find(t => t.id === superResolutionModal.taskId)
+          
+          try {
+            const result = await createVideoProcessingTask({
+              videoTaskId: superResolutionModal.taskId,
+              processingType: 'super_resolution',
+              provider: provider,
+              resolution: resolution,
+            })
+            
+            // 关闭弹窗
+            setSuperResolutionModal({ isOpen: false, taskId: null })
+            
+            // 立即添加一个"生成中"的临时任务到列表顶部
+            if (result.success && result.data?.taskId) {
+              const providerNames = {
+                tencent: '腾讯云',
+                vidu: 'Vidu HD',
+                realesrgan: 'Real-ESRGAN',
+              }
+              const tempTask: VideoTask = {
+                id: `sr-${result.data.taskId}`, // 使用 sr- 前缀标识超分辨率任务
+                status: 'processing',
+                videoUrl: '', // 还没有视频
+                firstFrameUrl: originalTask?.firstFrameUrl || '',
+                lastFrameUrl: originalTask?.lastFrameUrl,
+                model: `${originalTask?.model || '未知'} (超分辨率 ${resolution})`,
+                resolution: resolution,
+                ratio: originalTask?.ratio || '16:9',
+                duration: originalTask?.duration || 5,
+                text: originalTask?.text ? `${originalTask.text} (${providerNames[provider]}超分辨率中...)` : `${providerNames[provider]}超分辨率处理中...`,
+                createdAt: new Date().toISOString(),
+                isLiked: false,
+                isFavorited: false,
+                isUltraHd: false,
+              }
+              
+              // 添加到列表顶部
+              setAllTasks(prev => [tempTask, ...prev])
+              setTasks(prev => [tempTask, ...prev])
+              allTasksRef.current = [tempTask, ...allTasksRef.current]
+              
+              // 开始轮询超分辨率任务状态（复用补帧的轮询逻辑）
+              pollFrameInterpolationStatus(result.data.taskId)
+            } else {
+              // 如果没有返回taskId，直接刷新历史记录
+              loadHistory(true)
+            }
+          } catch (error) {
+            console.error('创建超分辨率任务失败:', error)
+            alertError(error instanceof Error ? error.message : '创建超分辨率任务失败，请稍后重试', '操作失败')
+          }
+        }}
+      />
 
     </div>
   )

@@ -2160,6 +2160,8 @@ export async function createVideoProcessingTask(params: {
   processingType: 'frame_interpolation' | 'super_resolution'
   targetFps?: number // 目标帧率（如30或60），仅用于补帧
   method?: 'rife' | 'ffmpeg' // 技术选择，仅用于补帧
+  provider?: 'tencent' | 'vidu' | 'realesrgan' // 超分辨率提供商
+  resolution?: string // 目标分辨率（如1080p, 2K, 4K, 2x, 4x）
 }): Promise<{ success: boolean; data?: { taskId: string } }> {
   try {
     const token = AuthService.getToken()
