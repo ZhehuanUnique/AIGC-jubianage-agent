@@ -43,8 +43,9 @@ const API_BASE_URL = (() => {
 function UserPermissionModal({ isOpen, onClose, userId, username }: UserPermissionModalProps) {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [disabledImageModels, setDisabledImageModels] = useState<string[]>([])
-  const [disabledVideoModels, setDisabledVideoModels] = useState<string[]>([])
+  // 存储启用的模型（勾选=启用）
+  const [enabledImageModels, setEnabledImageModels] = useState<string[]>([])
+  const [enabledVideoModels, setEnabledVideoModels] = useState<string[]>([])
 
   // 获取 token
   const getToken = () => localStorage.getItem('auth_token') || ''
@@ -60,20 +61,29 @@ function UserPermissionModal({ isOpen, onClose, userId, username }: UserPermissi
       })
       const result = await response.json()
       if (result.success) {
-        const imageModels: string[] = []
-        const videoModels: string[] = []
+        // 获取禁用的模型列表
+        const disabledImageModels: string[] = []
+        const disabledVideoModels: string[] = []
         result.data.forEach((item: { modelType: string; modelName: string }) => {
           if (item.modelType === 'image') {
-            imageModels.push(item.modelName)
+            disabledImageModels.push(item.modelName)
           } else if (item.modelType === 'video') {
-            videoModels.push(item.modelName)
+            disabledVideoModels.push(item.modelName)
           }
         })
-        setDisabledImageModels(imageModels)
-        setDisabledVideoModels(videoModels)
+        // 计算启用的模型（所有模型 - 禁用的模型）
+        setEnabledImageModels(IMAGE_MODELS.map(m => m.name).filter(name => !disabledImageModels.includes(name)))
+        setEnabledVideoModels(VIDEO_MODELS.map(m => m.name).filter(name => !disabledVideoModels.includes(name)))
+      } else {
+        // 如果没有权限记录，默认全部启用
+        setEnabledImageModels(IMAGE_MODELS.map(m => m.name))
+        setEnabledVideoModels(VIDEO_MODELS.map(m => m.name))
       }
     } catch (error) {
       console.error('加载用户权限失败:', error)
+      // 出错时默认全部启用
+      setEnabledImageModels(IMAGE_MODELS.map(m => m.name))
+      setEnabledVideoModels(VIDEO_MODELS.map(m => m.name))
     } finally {
       setLoading(false)
     }
@@ -85,28 +95,50 @@ function UserPermissionModal({ isOpen, onClose, userId, username }: UserPermissi
     }
   }, [isOpen, userId])
 
-  // 切换图片模型禁用状态
+  // 切换图片模型启用状态
   const toggleImageModel = (modelName: string) => {
-    setDisabledImageModels(prev => 
+    setEnabledImageModels(prev => 
       prev.includes(modelName) 
         ? prev.filter(m => m !== modelName)
         : [...prev, modelName]
     )
   }
 
-  // 切换视频模型禁用状态
+  // 切换视频模型启用状态
   const toggleVideoModel = (modelName: string) => {
-    setDisabledVideoModels(prev => 
+    setEnabledVideoModels(prev => 
       prev.includes(modelName) 
         ? prev.filter(m => m !== modelName)
         : [...prev, modelName]
     )
+  }
+
+  // 全选/取消全选图片模型
+  const toggleAllImageModels = () => {
+    if (enabledImageModels.length === IMAGE_MODELS.length) {
+      setEnabledImageModels([])
+    } else {
+      setEnabledImageModels(IMAGE_MODELS.map(m => m.name))
+    }
+  }
+
+  // 全选/取消全选视频模型
+  const toggleAllVideoModels = () => {
+    if (enabledVideoModels.length === VIDEO_MODELS.length) {
+      setEnabledVideoModels([])
+    } else {
+      setEnabledVideoModels(VIDEO_MODELS.map(m => m.name))
+    }
   }
 
   // 保存权限设置
   const handleSave = async () => {
     setSaving(true)
     try {
+      // 计算禁用的模型（所有模型 - 启用的模型）
+      const disabledImageModels = IMAGE_MODELS.map(m => m.name).filter(name => !enabledImageModels.includes(name))
+      const disabledVideoModels = VIDEO_MODELS.map(m => m.name).filter(name => !enabledVideoModels.includes(name))
+      
       const response = await fetch(`${API_BASE_URL}/api/users/${userId}/model-permissions/batch`, {
         method: 'POST',
         headers: {
@@ -166,33 +198,41 @@ function UserPermissionModal({ isOpen, onClose, userId, username }: UserPermissi
             </div>
           ) : (
             <div className="space-y-6">
-              <p className="text-sm text-gray-600 bg-yellow-50 p-3 rounded-lg">
-                ⚠️ 勾选的模型将被禁用，该用户将无法在任何功能中使用这些模型。
+              <p className="text-sm text-gray-600 bg-green-50 p-3 rounded-lg">
+                ✅ 勾选的模型表示启用，该用户可以使用这些模型。未勾选的模型将被禁用。
               </p>
 
               {/* 图片生成模型 */}
               <div>
-                <h4 className="font-medium text-gray-800 mb-3 flex items-center gap-2">
-                  <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                  图片生成模型
-                </h4>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-medium text-gray-800 flex items-center gap-2">
+                    <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                    图片生成模型
+                  </h4>
+                  <button
+                    onClick={toggleAllImageModels}
+                    className="text-xs text-purple-600 hover:text-purple-700"
+                  >
+                    {enabledImageModels.length === IMAGE_MODELS.length ? '取消全选' : '全选'}
+                  </button>
+                </div>
                 <div className="grid grid-cols-2 gap-2">
                   {IMAGE_MODELS.map(model => (
                     <label 
                       key={model.name}
                       className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
-                        disabledImageModels.includes(model.name)
-                          ? 'bg-red-50 border-red-200'
+                        enabledImageModels.includes(model.name)
+                          ? 'bg-green-50 border-green-200'
                           : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
                       }`}
                     >
                       <input
                         type="checkbox"
-                        checked={disabledImageModels.includes(model.name)}
+                        checked={enabledImageModels.includes(model.name)}
                         onChange={() => toggleImageModel(model.name)}
-                        className="w-4 h-4 text-red-600 rounded"
+                        className="w-4 h-4 text-green-600 rounded"
                       />
-                      <span className={`text-sm ${disabledImageModels.includes(model.name) ? 'text-red-700' : 'text-gray-700'}`}>
+                      <span className={`text-sm ${enabledImageModels.includes(model.name) ? 'text-green-700' : 'text-gray-500'}`}>
                         {model.label}
                       </span>
                     </label>
@@ -202,27 +242,35 @@ function UserPermissionModal({ isOpen, onClose, userId, username }: UserPermissi
 
               {/* 视频生成模型 */}
               <div>
-                <h4 className="font-medium text-gray-800 mb-3 flex items-center gap-2">
-                  <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                  视频生成模型
-                </h4>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-medium text-gray-800 flex items-center gap-2">
+                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                    视频生成模型
+                  </h4>
+                  <button
+                    onClick={toggleAllVideoModels}
+                    className="text-xs text-purple-600 hover:text-purple-700"
+                  >
+                    {enabledVideoModels.length === VIDEO_MODELS.length ? '取消全选' : '全选'}
+                  </button>
+                </div>
                 <div className="grid grid-cols-2 gap-2">
                   {VIDEO_MODELS.map(model => (
                     <label 
                       key={model.name}
                       className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
-                        disabledVideoModels.includes(model.name)
-                          ? 'bg-red-50 border-red-200'
+                        enabledVideoModels.includes(model.name)
+                          ? 'bg-green-50 border-green-200'
                           : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
                       }`}
                     >
                       <input
                         type="checkbox"
-                        checked={disabledVideoModels.includes(model.name)}
+                        checked={enabledVideoModels.includes(model.name)}
                         onChange={() => toggleVideoModel(model.name)}
-                        className="w-4 h-4 text-red-600 rounded"
+                        className="w-4 h-4 text-green-600 rounded"
                       />
-                      <span className={`text-sm ${disabledVideoModels.includes(model.name) ? 'text-red-700' : 'text-gray-700'}`}>
+                      <span className={`text-sm ${enabledVideoModels.includes(model.name) ? 'text-green-700' : 'text-gray-500'}`}>
                         {model.label}
                       </span>
                     </label>
