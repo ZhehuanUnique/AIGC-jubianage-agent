@@ -3235,6 +3235,176 @@ app.delete('/api/users/:userId', authenticateToken, async (req, res) => {
   }
 })
 
+// ==================== 用户模型权限管理 API ====================
+
+// 获取用户被禁用的模型列表
+app.get('/api/users/:userId/model-permissions', authenticateToken, async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId)
+    const currentUsername = req.user.username
+    
+    // 只有管理员可以查看
+    const isAdmin = currentUsername === 'Chiefavefan' || currentUsername === 'jubian888'
+    if (!isAdmin) {
+      return res.status(403).json({ error: '没有权限' })
+    }
+
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+    
+    const result = await db.query(
+      `SELECT model_type, model_name, is_disabled, disabled_at 
+       FROM user_model_permissions 
+       WHERE user_id = $1 AND is_disabled = true
+       ORDER BY model_type, model_name`,
+      [userId]
+    )
+    
+    res.json({ 
+      success: true, 
+      data: result.rows.map(row => ({
+        modelType: row.model_type,
+        modelName: row.model_name,
+        isDisabled: row.is_disabled,
+        disabledAt: row.disabled_at
+      }))
+    })
+  } catch (error) {
+    console.error('获取用户模型权限失败:', error)
+    res.status(500).json({ error: '获取用户模型权限失败' })
+  }
+})
+
+// 设置用户模型权限（禁用/启用模型）
+app.post('/api/users/:userId/model-permissions', authenticateToken, async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId)
+    const currentUserId = req.user.id
+    const currentUsername = req.user.username
+    const { modelType, modelName, isDisabled } = req.body
+    
+    // 只有管理员可以设置
+    const isAdmin = currentUsername === 'Chiefavefan' || currentUsername === 'jubian888'
+    if (!isAdmin) {
+      return res.status(403).json({ error: '没有权限' })
+    }
+
+    if (!modelType || !modelName) {
+      return res.status(400).json({ error: '请提供模型类型和模型名称' })
+    }
+
+    if (!['image', 'video'].includes(modelType)) {
+      return res.status(400).json({ error: '模型类型必须是 image 或 video' })
+    }
+
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+    
+    if (isDisabled) {
+      // 禁用模型
+      await db.query(
+        `INSERT INTO user_model_permissions (user_id, model_type, model_name, is_disabled, disabled_by)
+         VALUES ($1, $2, $3, true, $4)
+         ON CONFLICT (user_id, model_type, model_name) 
+         DO UPDATE SET is_disabled = true, disabled_by = $4, updated_at = CURRENT_TIMESTAMP`,
+        [userId, modelType, modelName, currentUserId]
+      )
+    } else {
+      // 启用模型（删除禁用记录）
+      await db.query(
+        `DELETE FROM user_model_permissions 
+         WHERE user_id = $1 AND model_type = $2 AND model_name = $3`,
+        [userId, modelType, modelName]
+      )
+    }
+    
+    res.json({ success: true, message: isDisabled ? '模型已禁用' : '模型已启用' })
+  } catch (error) {
+    console.error('设置用户模型权限失败:', error)
+    res.status(500).json({ error: '设置用户模型权限失败' })
+  }
+})
+
+// 批量设置用户模型权限
+app.post('/api/users/:userId/model-permissions/batch', authenticateToken, async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId)
+    const currentUserId = req.user.id
+    const currentUsername = req.user.username
+    const { disabledModels } = req.body // { image: ['model1', 'model2'], video: ['model3'] }
+    
+    // 只有管理员可以设置
+    const isAdmin = currentUsername === 'Chiefavefan' || currentUsername === 'jubian888'
+    if (!isAdmin) {
+      return res.status(403).json({ error: '没有权限' })
+    }
+
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+    
+    // 先删除该用户所有的禁用记录
+    await db.query('DELETE FROM user_model_permissions WHERE user_id = $1', [userId])
+    
+    // 批量插入新的禁用记录
+    if (disabledModels) {
+      for (const modelType of ['image', 'video']) {
+        const models = disabledModels[modelType] || []
+        for (const modelName of models) {
+          await db.query(
+            `INSERT INTO user_model_permissions (user_id, model_type, model_name, is_disabled, disabled_by)
+             VALUES ($1, $2, $3, true, $4)
+             ON CONFLICT (user_id, model_type, model_name) DO NOTHING`,
+            [userId, modelType, modelName, currentUserId]
+          )
+        }
+      }
+    }
+    
+    res.json({ success: true, message: '权限设置已保存' })
+  } catch (error) {
+    console.error('批量设置用户模型权限失败:', error)
+    res.status(500).json({ error: '批量设置用户模型权限失败' })
+  }
+})
+
+// 获取当前用户可用的模型列表（排除被禁用的）
+app.get('/api/models/available', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id
+    
+    const pool = await import('./db/connection.js')
+    const db = pool.default
+    
+    // 获取用户被禁用的模型
+    const disabledResult = await db.query(
+      `SELECT model_type, model_name FROM user_model_permissions 
+       WHERE user_id = $1 AND is_disabled = true`,
+      [userId]
+    )
+    
+    const disabledModels = {
+      image: [],
+      video: []
+    }
+    
+    disabledResult.rows.forEach(row => {
+      if (disabledModels[row.model_type]) {
+        disabledModels[row.model_type].push(row.model_name)
+      }
+    })
+    
+    res.json({ 
+      success: true, 
+      data: {
+        disabledModels
+      }
+    })
+  } catch (error) {
+    console.error('获取可用模型列表失败:', error)
+    res.status(500).json({ error: '获取可用模型列表失败' })
+  }
+})
+
 // 获取用户操作日志（需要认证）
 app.get('/api/users/:userId/logs', authenticateToken, async (req, res) => {
   try {

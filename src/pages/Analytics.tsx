@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import SidebarNavigation from '../components/SidebarNavigation'
-import { Users, TrendingUp, Plus, Trash2, Loader2, Edit } from 'lucide-react'
+import { Users, TrendingUp, Plus, Trash2, Loader2, Edit, Shield } from 'lucide-react'
 import { UserApi, type User, type ConsumptionRanking } from '../services/userApi'
 import DailyConsumptionChart from '../components/DailyConsumptionChart'
 import UserLogsModal from '../components/UserLogsModal'
 import GroupManagement from '../components/GroupManagement'
+import UserPermissionModal from '../components/UserPermissionModal'
 import { AuthService } from '../services/auth'
 import { alert, alertError, alertWarning, alertSuccess } from '../utils/alert'
 import HamsterLoader from '../components/HamsterLoader'
@@ -38,6 +39,11 @@ function Analytics() {
   const [editIsActive, setEditIsActive] = useState(true)
   const [editRole, setEditRole] = useState<'user' | 'admin' | 'super_admin'>('user')
   const [saving, setSaving] = useState(false)
+  
+  // 权限设置状态
+  const [showPermissionModal, setShowPermissionModal] = useState(false)
+  const [permissionUserId, setPermissionUserId] = useState<number | null>(null)
+  const [permissionUsername, setPermissionUsername] = useState('')
   
   // 消耗统计状态
   const [startDate, setStartDate] = useState<string>(() => {
@@ -404,6 +410,9 @@ function Analytics() {
                         )}
                         <th className="px-4 py-3 text-left text-sm font-medium">状态</th>
                         <th className="px-4 py-3 text-left text-sm font-medium">创建时间</th>
+                        {isAdmin && (
+                          <th className="px-4 py-3 text-left text-sm font-medium">权限设置</th>
+                        )}
                         <th className="px-4 py-3 text-left text-sm font-medium">操作</th>
                       </tr>
                     </thead>
@@ -443,6 +452,21 @@ function Analytics() {
                           <td className="px-4 py-3 text-sm">
                             {formatDate(user.createdAt)}
                           </td>
+                          {isAdmin && (
+                            <td className="px-4 py-3">
+                              <button
+                                onClick={() => {
+                                  setPermissionUserId(user.id)
+                                  setPermissionUsername(user.displayName || user.username)
+                                  setShowPermissionModal(true)
+                                }}
+                                className="px-3 py-1 bg-purple-600 text-white rounded text-sm hover:bg-purple-700 flex items-center gap-1"
+                              >
+                                <Shield size={14} />
+                                权限
+                              </button>
+                            </td>
+                          )}
                           <td className="px-4 py-3">
                             <div className="flex gap-2">
                               {isAdmin && (
@@ -844,6 +868,20 @@ function Analytics() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 权限设置弹窗 */}
+      {showPermissionModal && permissionUserId && (
+        <UserPermissionModal
+          isOpen={showPermissionModal}
+          onClose={() => {
+            setShowPermissionModal(false)
+            setPermissionUserId(null)
+            setPermissionUsername('')
+          }}
+          userId={permissionUserId}
+          username={permissionUsername}
+        />
       )}
     </div>
   )
