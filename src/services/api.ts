@@ -2498,13 +2498,11 @@ export async function getCommunityVideos(params?: {
 export async function getCommunityVideoDetail(videoId: number): Promise<CommunityVideo> {
   try {
     const token = AuthService.getToken()
-    if (!token) {
-      throw new Error('未登录，请先登录')
-    }
+    // 不需要登录也可以查看视频详情
 
     const response = await fetch(`${API_BASE_URL}/api/community-videos/${videoId}`, {
       headers: {
-        'Authorization': `Bearer ${token}`,
+        ...(token && { 'Authorization': `Bearer ${token}` }),
       },
     })
 

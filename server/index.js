@@ -21,7 +21,7 @@ import { ollamaService } from './services/videoMotionPrompt/ollamaService.js'
 import { getModelInfo } from './services/videoMotionPrompt/config.js'
 import { AuthService } from './services/authService.js'
 import { UserService } from './services/userService.js'
-import { authenticateToken } from './middleware/authMiddleware.js'
+import { authenticateToken, optionalAuthenticate } from './middleware/authMiddleware.js'
 import { initDefaultUsers } from './db/initDefaultUsers.js'
 import { SunoService } from './services/sunoService.js'
 import { MusicGptService } from './services/musicGptService.js'
@@ -9791,7 +9791,7 @@ app.get('/api/community-videos', authenticateToken, async (req, res) => {
 })
 
 // 获取社区视频详情
-app.get('/api/community-videos/:videoId', authenticateToken, async (req, res) => {
+app.get('/api/community-videos/:videoId', optionalAuthenticate, async (req, res) => {
   try {
     const { videoId } = req.params
     const pool = await import('./db/connection.js')

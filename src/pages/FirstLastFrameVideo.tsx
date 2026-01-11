@@ -2331,6 +2331,28 @@ function FirstLastFrameVideo() {
                       onMouseEnter={() => setHoveredFrame('first')}
                       onMouseLeave={() => setHoveredFrame(null)}
                       onClick={triggerFirstFrameUpload}
+                      onDragOver={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        e.currentTarget.querySelector('.frame-upload-card')?.classList.add('border-purple-500', 'bg-purple-50')
+                      }}
+                      onDragLeave={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        e.currentTarget.querySelector('.frame-upload-card')?.classList.remove('border-purple-500', 'bg-purple-50')
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        e.currentTarget.querySelector('.frame-upload-card')?.classList.remove('border-purple-500', 'bg-purple-50')
+                        const files = e.dataTransfer.files
+                        if (files && files.length > 0 && firstFrameInputRef.current) {
+                          const dataTransfer = new DataTransfer()
+                          dataTransfer.items.add(files[0])
+                          firstFrameInputRef.current.files = dataTransfer.files
+                          firstFrameInputRef.current.dispatchEvent(new Event('change', { bubbles: true }))
+                        }
+                      }}
                     >
                       <input
                         type="file"
@@ -2424,6 +2446,28 @@ function FirstLastFrameVideo() {
                         onMouseEnter={() => setHoveredFrame('last')}
                         onMouseLeave={() => setHoveredFrame(null)}
                         onClick={triggerLastFrameUpload}
+                        onDragOver={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          e.currentTarget.querySelector('.frame-upload-card')?.classList.add('border-purple-500', 'bg-purple-50')
+                        }}
+                        onDragLeave={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          e.currentTarget.querySelector('.frame-upload-card')?.classList.remove('border-purple-500', 'bg-purple-50')
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          e.currentTarget.querySelector('.frame-upload-card')?.classList.remove('border-purple-500', 'bg-purple-50')
+                          const files = e.dataTransfer.files
+                          if (files && files.length > 0 && lastFrameInputRef.current) {
+                            const dataTransfer = new DataTransfer()
+                            dataTransfer.items.add(files[0])
+                            lastFrameInputRef.current.files = dataTransfer.files
+                            lastFrameInputRef.current.dispatchEvent(new Event('change', { bubbles: true }))
+                          }
+                        }}
                       >
                         <input
                           type="file"
@@ -2505,6 +2549,31 @@ function FirstLastFrameVideo() {
                         // 没有参考图时显示上传按钮
                         <div
                           onClick={triggerReferenceImageUpload}
+                          onDragOver={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            e.currentTarget.classList.add('border-purple-500', 'bg-purple-50')
+                          }}
+                          onDragLeave={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            e.currentTarget.classList.remove('border-purple-500', 'bg-purple-50')
+                          }}
+                          onDrop={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            e.currentTarget.classList.remove('border-purple-500', 'bg-purple-50')
+                            const files = e.dataTransfer.files
+                            if (files && files.length > 0) {
+                              const input = referenceImageInputRef.current
+                              if (input) {
+                                const dataTransfer = new DataTransfer()
+                                Array.from(files).forEach(file => dataTransfer.items.add(file))
+                                input.files = dataTransfer.files
+                                input.dispatchEvent(new Event('change', { bubbles: true }))
+                              }
+                            }
+                          }}
                           className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-all"
                         >
                           <div className="w-10 h-10 bg-gray-200 rounded-lg flex items-center justify-center mb-1">
@@ -2513,7 +2582,6 @@ function FirstLastFrameVideo() {
                             </svg>
                           </div>
                           <span className="text-xs text-gray-500">参考图</span>
-                          <span className="text-[10px] text-gray-400">(可选)</span>
                         </div>
                       ) : (
                         // 有参考图时显示扑克牌堆叠效果
