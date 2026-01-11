@@ -9,6 +9,7 @@ import { generateFirstLastFrameVideo, getFirstLastFrameVideoStatus, getFirstLast
 import { FrameInterpolationModal } from '../components/FrameInterpolationModal'
 import { calculateVideoGenerationCredit } from '../utils/creditCalculator'
 import { getUserSettings } from '../services/settingsService'
+import { UserApi } from '../services/userApi'
 
 interface VideoTask {
   id: string
@@ -39,11 +40,21 @@ function FirstLastFrameVideo() {
   const [enterKeySubmit, setEnterKeySubmit] = useState(false)
   const [bottomBarMode, setBottomBarMode] = useState<'auto' | 'fixed'>('auto') // 底部栏模式
   
-  // 加载设置
+  // 用户被禁用的模型列表
+  const [disabledModels, setDisabledModels] = useState<{ image: string[]; video: string[] }>({ image: [], video: [] })
+  
+  // 加载设置和禁用模型列表
   useEffect(() => {
     const settings = getUserSettings()
     setEnterKeySubmit(settings.workflow?.enterKeySubmit || false)
     setBottomBarMode(settings.firstLastFrame?.bottomBarMode || 'auto')
+    
+    // 获取用户被禁用的模型
+    UserApi.getDisabledModels().then(disabled => {
+      setDisabledModels(disabled)
+    }).catch(err => {
+      console.error('获取禁用模型列表失败:', err)
+    })
   }, [])
   
   const [firstFrameFile, setFirstFrameFile] = useState<File | null>(null)
@@ -2727,7 +2738,9 @@ function FirstLastFrameVideo() {
                       className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer text-center"
                       style={{ textAlignLast: 'center' }}
                     >
-                      {supportedModels.map(model => (
+                      {supportedModels
+                        .filter(model => !disabledModels.video.includes(model.value))
+                        .map(model => (
                         <option key={model.value} value={model.value}>
                           {model.label}
                         </option>
@@ -2740,7 +2753,9 @@ function FirstLastFrameVideo() {
                       className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer text-center"
                       style={{ textAlignLast: 'center' }}
                     >
-                      {availableImageModels.map(model => (
+                      {availableImageModels
+                        .filter(model => !disabledModels.image.includes(model.value))
+                        .map(model => (
                         <option key={model.value} value={model.value}>
                           {model.label}
                           {model.maxReferenceImages === 0 ? ' (仅文生图)' : ` (最多${model.maxReferenceImages}张参考图)`}

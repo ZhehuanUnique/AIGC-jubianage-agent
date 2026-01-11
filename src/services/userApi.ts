@@ -188,4 +188,22 @@ export class UserApi {
     const data = await response.json()
     return data.trend
   }
+
+  /**
+   * 获取当前用户被禁用的模型列表
+   */
+  static async getDisabledModels(): Promise<{ image: string[]; video: string[] }> {
+    const response = await fetch(`${API_BASE_URL}/api/models/available`, {
+      headers: AuthService.getAuthHeaders(),
+    })
+    
+    if (!response.ok) {
+      // 如果获取失败，返回空列表（不阻止用户使用）
+      console.error('获取禁用模型列表失败')
+      return { image: [], video: [] }
+    }
+    
+    const data = await response.json()
+    return data.data?.disabledModels || { image: [], video: [] }
+  }
 }

@@ -66,16 +66,14 @@ export class UserService {
       const newUser = result.rows[0]
 
       // 自动将新用户加入默认组（group_id=1），角色为member
-      // 这样新用户可以像管理员一样使用生图/生视频功能
       try {
-        const defaultGroupId = 1 // 默认组ID
+        const defaultGroupId = 1
         await pool.query(
           'INSERT INTO user_groups (user_id, group_id, role) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING',
           [newUser.id, defaultGroupId, 'member']
         )
         console.log(`✅ 新用户 ${username} (ID: ${newUser.id}) 已自动加入默认组`)
       } catch (groupError) {
-        // 加入组失败不影响用户创建
         console.warn(`⚠️ 新用户加入默认组失败:`, groupError.message)
       }
 
@@ -99,7 +97,6 @@ export class UserService {
       let paramIndex = 1
 
       if (updates.username !== undefined) {
-        // 检查用户名是否已被其他用户使用
         const existingUser = await pool.query(
           'SELECT id FROM users WHERE username = $1 AND id != $2',
           [updates.username, userId]
@@ -209,40 +206,31 @@ export class UserService {
    */
   static async deleteUser(userId, currentUserId, currentUsername, password) {
     try {
-      // 验证密码
       const isValidPassword = await this.verifyPassword(currentUserId, password)
       if (!isValidPassword) {
         throw new Error('密码错误')
       }
 
-      // 获取要删除的用户信息
       const targetUser = await this.getUserById(userId)
       if (!targetUser) {
         throw new Error('用户不存在')
       }
 
-      // 权限检查
       const currentUserRole = this.getUserRole(currentUsername)
       const targetUserRole = this.getUserRole(targetUser.username)
 
-      // 超级管理员可以删除所有用户（除了自己）
       if (currentUserRole === 'superadmin') {
         if (targetUser.username === 'Chiefavefan') {
           throw new Error('不能删除超级管理员')
         }
-      }
-      // 超级管理员只能删除普通用户
-      else if (currentUserRole === 'admin') {
+      } else if (currentUserRole === 'admin') {
         if (targetUserRole === 'superadmin' || targetUserRole === 'admin') {
           throw new Error('超级管理员不能删除其他管理员')
         }
-      }
-      // 普通用户不能删除任何人
-      else {
+      } else {
         throw new Error('没有权限删除用户')
       }
 
-      // 执行删除
       const result = await pool.query('DELETE FROM users WHERE id = $1', [userId])
       return result.rowCount > 0
     } catch (error) {
@@ -260,14 +248,12 @@ export class UserService {
    */
   static async getUserOperationLogs(userId, limit = 50, offset = 0) {
     try {
-      // 获取总数
       const countResult = await pool.query(
         'SELECT COUNT(*) as total FROM operation_logs WHERE user_id = $1',
         [userId]
       )
       const total = parseInt(countResult.rows[0].total)
 
-      // 获取日志列表
       const logsResult = await pool.query(
         `SELECT id, operation_type, operation_name, resource_type, resource_id, 
                 description, points_consumed, status, error_message, metadata, created_at
@@ -310,80 +296,44 @@ export class UserService {
   }
 
   /**
-   * 获取所有用户消耗排名（同时返回积分和实际成本）
+   * 获取所有用户消耗排名（从 first_last_frame_videos 表获取视频生成消耗）
    * @param {Date} startDate - 开始日期
    * @param {Date} endDate - 结束日期
-   * @param {boolean} showRealCost - 是否显示真实成本
+   * @param {boolean} showRealCost - 是否显示真实成本（暂不支持，预留）
    * @returns {Promise<Array>}
    */
   static async getUserConsumptionRanking(startDate = null, endDate = null, showRealCost = false) {
     try {
-      const conditions = []
+      const conditions = ["v.status = 'completed'"]
       const params = []
       let paramIndex = 1
 
       if (startDate) {
-        conditions.push(`ol.created_at >= $${paramIndex++}`)
+        conditions.push(`v.created_at >= $${paramIndex++}`)
         params.push(startDate)
       }
 
       if (endDate) {
-        conditions.push(`ol.created_at <= $${paramIndex++}`)
-        params.push(new Date(endDate.getTime() + 24 * 60 * 60 * 1000 - 1)) // 结束日期的23:59:59
+        conditions.push(`v.created_at <= $${paramIndex++}`)
+        params.push(new Date(endDate.getTime() + 24 * 60 * 60 * 1000 - 1))
       }
 
-      const whereClause = conditions.length > 0 ? ' AND ' + conditions.join(' AND ') : ''
+      const whereClause = conditions.length > 0 ? ' WHERE ' + conditions.join(' AND ') : ''
 
-      // 如果需要显示真实成本
-      if (showRealCost) {
-        const costQuery = `
-          SELECT 
-            u.id,
-            u.username,
-            u.display_name,
-            COALESCE(SUM(
-              CASE 
-                WHEN ol.metadata IS NOT NULL AND ol.metadata::text != 'null' 
-                THEN COALESCE((ol.metadata->>'costInYuan')::numeric, 0)
-                ELSE 0
-              END
-            ), 0) as total_cost
-          FROM users u
-          LEFT JOIN operation_logs ol ON u.id = ol.user_id AND ol.status = 'success' ${whereClause}
-          GROUP BY u.id, u.username, u.display_name
-          HAVING COALESCE(SUM(
-            CASE 
-              WHEN ol.metadata IS NOT NULL AND ol.metadata::text != 'null' 
-              THEN COALESCE((ol.metadata->>'costInYuan')::numeric, 0)
-              ELSE 0
-            END
-          ), 0) > 0
-          ORDER BY total_cost DESC
-        `
-
-        const costResult = await pool.query(costQuery, params)
-        return costResult.rows.map((row, index) => ({
-          rank: index + 1,
-          userId: row.id,
-          username: row.username,
-          displayName: row.display_name || row.username,
-          totalConsumption: parseFloat(row.total_cost) || 0,
-          isRealCost: true,
-        }))
-      }
-      
-      // 显示积分消耗
+      // 从 first_last_frame_videos 表获取视频生成消耗
       const query = `
         SELECT 
           u.id,
           u.username,
           u.display_name,
-          COALESCE(SUM(ol.points_consumed), 0) as total_points
+          COUNT(v.id) as video_count,
+          COALESCE(SUM(v.estimated_credit), 0) as total_credits
         FROM users u
-        LEFT JOIN operation_logs ol ON u.id = ol.user_id AND ol.status = 'success' ${whereClause}
+        INNER JOIN first_last_frame_videos v ON u.id = v.user_id
+        ${whereClause}
         GROUP BY u.id, u.username, u.display_name
-        HAVING COALESCE(SUM(ol.points_consumed), 0) > 0
-        ORDER BY total_points DESC
+        HAVING COALESCE(SUM(v.estimated_credit), 0) > 0
+        ORDER BY total_credits DESC
       `
 
       const result = await pool.query(query, params)
@@ -393,7 +343,8 @@ export class UserService {
         userId: row.id,
         username: row.username,
         displayName: row.display_name || row.username,
-        totalConsumption: parseFloat(row.total_points) || 0,
+        totalConsumption: parseFloat(row.total_credits) || 0,
+        videoCount: parseInt(row.video_count) || 0,
         isRealCost: false,
       }))
     } catch (error) {
@@ -423,7 +374,7 @@ export class UserService {
       )
 
       return result.rows.map(row => ({
-        date: row.date.toISOString().split('T')[0], // YYYY-MM-DD格式
+        date: row.date.toISOString().split('T')[0],
         totalPoints: parseFloat(row.total_points) || 0,
         userCount: parseInt(row.user_count) || 0,
         operationCount: parseInt(row.operation_count) || 0,
