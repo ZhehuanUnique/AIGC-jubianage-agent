@@ -465,7 +465,15 @@ function AssetDetails() {
     }
   }
 
+  // 删除中的资产ID集合
+  const [deletingAssets, setDeletingAssets] = useState<Set<string | number>>(new Set())
+
   const removeAsset = async (type: 'character' | 'scene' | 'item', id: string | number) => {
+    // 防止重复点击
+    if (deletingAssets.has(id)) {
+      return
+    }
+
     // 如果是临时ID（字符串且以temp-开头），直接删除本地状态
     if (typeof id === 'string' && id.startsWith('temp-')) {
       if (type === 'character') {
@@ -479,36 +487,49 @@ function AssetDetails() {
     }
 
     // 如果是数据库ID（数字），从数据库删除
+    setDeletingAssets(prev => new Set(prev).add(id))
+    
     try {
       const numericId = typeof id === 'number' ? id : parseInt(id.toString(), 10)
       if (isNaN(numericId)) {
         console.warn('无效的资产ID:', id)
+        setDeletingAssets(prev => {
+          const next = new Set(prev)
+          next.delete(id)
+          return next
+        })
         return
       }
 
       if (type === 'character') {
         await deleteCharacter(numericId)
-        setCharacters(characters.filter((c) => {
+        setCharacters(prev => prev.filter((c) => {
           const cId = typeof c.id === 'number' ? c.id : parseInt(c.id.toString(), 10)
-          return !isNaN(cId) && cId !== numericId
+          return isNaN(cId) || cId !== numericId
         }))
       } else if (type === 'scene') {
         await deleteScene(numericId)
-        setScenes(scenes.filter((s) => {
+        setScenes(prev => prev.filter((s) => {
           const sId = typeof s.id === 'number' ? s.id : parseInt(s.id.toString(), 10)
-          return !isNaN(sId) && sId !== numericId
+          return isNaN(sId) || sId !== numericId
         }))
       } else {
         await deleteItem(numericId)
-        setItems(items.filter((i) => {
+        setItems(prev => prev.filter((i) => {
           const iId = typeof i.id === 'number' ? i.id : parseInt(i.id.toString(), 10)
-          return !isNaN(iId) && iId !== numericId
+          return isNaN(iId) || iId !== numericId
         }))
       }
       console.log(`✅ ${type} 已从数据库删除: ID=${numericId}`)
     } catch (error) {
       console.error(`删除${type}失败:`, error)
       alertError(error instanceof Error ? error.message : `删除${type}失败`, '错误')
+    } finally {
+      setDeletingAssets(prev => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
     }
   }
 
@@ -1204,9 +1225,18 @@ function AssetDetails() {
                     {/* 右上角删除按钮 */}
                     <button
                       onClick={() => removeAsset('character', char.id)}
-                      className="absolute top-3 right-3 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white hover:bg-red-600 z-40"
+                      disabled={deletingAssets.has(char.id)}
+                      className={`absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center text-white z-40 ${
+                        deletingAssets.has(char.id) 
+                          ? 'bg-gray-400 cursor-not-allowed' 
+                          : 'bg-red-500 hover:bg-red-600'
+                      }`}
                     >
-                      <Trash2 size={14} />
+                      {deletingAssets.has(char.id) ? (
+                        <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      ) : (
+                        <Trash2 size={14} />
+                      )}
                     </button>
                     <div className="flex justify-between items-start mb-2 pr-8">
                     <input
@@ -1362,9 +1392,18 @@ function AssetDetails() {
                   {/* 右上角删除按钮 */}
                   <button
                     onClick={() => removeAsset('scene', scene.id)}
-                    className="absolute top-4 right-4 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white hover:bg-red-600 z-40"
+                    disabled={deletingAssets.has(scene.id)}
+                    className={`absolute top-4 right-4 w-6 h-6 rounded-full flex items-center justify-center text-white z-40 ${
+                      deletingAssets.has(scene.id) 
+                        ? 'bg-gray-400 cursor-not-allowed' 
+                        : 'bg-red-500 hover:bg-red-600'
+                    }`}
                   >
-                    <Trash2 size={14} />
+                    {deletingAssets.has(scene.id) ? (
+                      <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <Trash2 size={14} />
+                    )}
                   </button>
                   <div className="flex justify-between items-start mb-3 pr-8">
                     <input
@@ -1518,9 +1557,18 @@ function AssetDetails() {
                   {/* 右上角删除按钮 */}
                   <button
                     onClick={() => removeAsset('item', item.id)}
-                    className="absolute top-4 right-4 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white hover:bg-red-600 z-40"
+                    disabled={deletingAssets.has(item.id)}
+                    className={`absolute top-4 right-4 w-6 h-6 rounded-full flex items-center justify-center text-white z-40 ${
+                      deletingAssets.has(item.id) 
+                        ? 'bg-gray-400 cursor-not-allowed' 
+                        : 'bg-red-500 hover:bg-red-600'
+                    }`}
                   >
-                    <Trash2 size={14} />
+                    {deletingAssets.has(item.id) ? (
+                      <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <Trash2 size={14} />
+                    )}
                   </button>
                   <div className="flex justify-between items-start mb-3 pr-8">
                     <input

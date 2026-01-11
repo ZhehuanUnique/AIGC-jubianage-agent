@@ -164,7 +164,11 @@ function TaskList() {
 
   const handleModeConfirm = (mode: 'fusion' | 'image') => {
     setIsModalOpen(false)
-    if (mode === 'image') {
+    if (mode === 'fusion') {
+      // 融生视频模式 - 跳转到剧梦工厂（首尾帧生视频）
+      navigate('/first-last-frame-video')
+    } else if (mode === 'image') {
+      // 图生视频模式 - 跳转到剧本输入
       navigate('/script-input')
     }
   }
