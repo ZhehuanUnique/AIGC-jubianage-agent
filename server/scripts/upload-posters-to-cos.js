@@ -2,7 +2,7 @@ import { readdir, readFile, writeFile } from 'fs/promises'
 import { join } from 'path'
 import { fileURLToPath } from 'url'
 import { dirname } from 'path'
-import { uploadFile } from '../services/cosService.js'
+import { uploadFile } from '../services/storageService.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)

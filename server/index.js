@@ -29,7 +29,7 @@ import { checkIndexTtsHealth, getVoices, generateSpeech, generateSpeechBatch } f
 import { generateJianyingDraft } from './services/jianyingDraftService.js'
 import { importVideosToJianying, createDraft, addVideosToDraft, saveDraft, getDraftFiles } from './services/jianyingAssistantService.js'
 import { uploadMusicToCOS, saveMusicToDatabase, getUserMusicList, deleteMusic } from './services/musicStorageService.js'
-import { listFiles } from './services/cosService.js'
+import { listFiles } from './services/storageService.js'
 import dotenv from 'dotenv'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
@@ -376,7 +376,7 @@ app.post('/api/generate-reference-video', uploadImage.fields([
       
       // 如果是 base64，需要先上传到 COS 转换为 HTTP URL
       if (referenceImageUrl.startsWith('data:image/')) {
-        const { uploadBuffer, generateCosKey } = await import('./services/cosService.js')
+        const { uploadBuffer, generateKey } = await import('./services/storageService.js')
         const base64Data = referenceImageUrl.split(',')[1]
         const mimeType = referenceImageUrl.match(/data:([^;]+)/)?.[1] || 'image/png'
         const imageBuffer = Buffer.from(base64Data, 'base64')
@@ -384,7 +384,7 @@ app.post('/api/generate-reference-video', uploadImage.fields([
                     mimeType.includes('png') ? 'png' :
                     mimeType.includes('gif') ? 'gif' :
                     mimeType.includes('webp') ? 'webp' : 'jpg'
-        const cosKey = generateCosKey('image', ext)
+        const cosKey = generateKey('image', ext)
         const uploadResult = await uploadBuffer(imageBuffer, cosKey, mimeType)
         referenceImageUrl = uploadResult.url
       }
@@ -401,13 +401,13 @@ app.post('/api/generate-reference-video', uploadImage.fields([
     let referenceVideoUrl
     if (req.files && req.files.referenceVideo && req.files.referenceVideo[0]) {
       // 视频文件需要上传到 COS（直接从内存Buffer读取）
-      const { uploadBuffer, generateCosKey } = await import('./services/cosService.js')
+      const { uploadBuffer, generateKey } = await import('./services/storageService.js')
       const videoBuffer = req.files.referenceVideo[0].buffer
       const videoMimeType = req.files.referenceVideo[0].mimetype
       const ext = videoMimeType.includes('mp4') ? 'mp4' :
                   videoMimeType.includes('webm') ? 'webm' :
                   videoMimeType.includes('mov') ? 'mov' : 'mp4'
-      const cosKey = generateCosKey('video', ext)
+      const cosKey = generateKey('video', ext)
       const uploadResult = await uploadBuffer(videoBuffer, cosKey, videoMimeType)
       referenceVideoUrl = uploadResult.url
     } else if (req.body.referenceVideoUrl) {
@@ -491,7 +491,7 @@ app.post('/api/generate-first-last-frame-video', uploadImage.fields([
       
       // 如果是 base64，需要先上传到 COS 转换为 HTTP URL
       if (firstFrameUrl.startsWith('data:image/')) {
-        const { uploadBuffer, generateCosKey } = await import('./services/cosService.js')
+        const { uploadBuffer, generateKey } = await import('./services/storageService.js')
         const base64Data = firstFrameUrl.split(',')[1]
         const mimeType = firstFrameUrl.match(/data:([^;]+)/)?.[1] || 'image/png'
         const imageBuffer = Buffer.from(base64Data, 'base64')
@@ -499,7 +499,7 @@ app.post('/api/generate-first-last-frame-video', uploadImage.fields([
                     mimeType.includes('png') ? 'png' :
                     mimeType.includes('gif') ? 'gif' :
                     mimeType.includes('webp') ? 'webp' : 'jpg'
-        const cosKey = generateCosKey('image', ext)
+        const cosKey = generateKey('image', ext)
         const uploadResult = await uploadBuffer(imageBuffer, cosKey, mimeType)
         firstFrameUrl = uploadResult.url
       }
@@ -523,7 +523,7 @@ app.post('/api/generate-first-last-frame-video', uploadImage.fields([
       
       // 如果是 base64，需要先上传到 COS 转换为 HTTP URL
       if (lastFrameUrl.startsWith('data:image/')) {
-        const { uploadBuffer, generateCosKey } = await import('./services/cosService.js')
+        const { uploadBuffer, generateKey } = await import('./services/storageService.js')
         const base64Data = lastFrameUrl.split(',')[1]
         const mimeType = lastFrameUrl.match(/data:([^;]+)/)?.[1] || 'image/png'
         const imageBuffer = Buffer.from(base64Data, 'base64')
@@ -531,7 +531,7 @@ app.post('/api/generate-first-last-frame-video', uploadImage.fields([
                     mimeType.includes('png') ? 'png' :
                     mimeType.includes('gif') ? 'gif' :
                     mimeType.includes('webp') ? 'webp' : 'jpg'
-        const cosKey = generateCosKey('image', ext)
+        const cosKey = generateKey('image', ext)
         const uploadResult = await uploadBuffer(imageBuffer, cosKey, mimeType)
         lastFrameUrl = uploadResult.url
       }
@@ -637,7 +637,7 @@ app.post('/api/first-last-frame-video/generate', authenticateToken, uploadImage.
     // 检查首帧图片（支持文件上传或URL）
     let firstFrameUrl
     if (req.files && req.files.firstFrame && req.files.firstFrame[0]) {
-      const { uploadBuffer } = await import('./services/cosService.js')
+      const { uploadBuffer } = await import('./services/storageService.js')
       const imageBuffer = req.files.firstFrame[0].buffer
       const mimeType = req.files.firstFrame[0].mimetype
       const ext = mimeType.includes('jpeg') || mimeType.includes('jpg') ? 'jpg' :
@@ -662,7 +662,7 @@ app.post('/api/first-last-frame-video/generate', authenticateToken, uploadImage.
     let lastFrameUrl
     const hasLastFrame = req.files && req.files.lastFrame && req.files.lastFrame[0]
     if (hasLastFrame) {
-      const { uploadBuffer } = await import('./services/cosService.js')
+      const { uploadBuffer } = await import('./services/storageService.js')
       const imageBuffer = req.files.lastFrame[0].buffer
       const mimeType = req.files.lastFrame[0].mimetype
       const ext = mimeType.includes('jpeg') || mimeType.includes('jpg') ? 'jpg' :
@@ -1154,7 +1154,7 @@ app.get('/api/first-last-frame-video/status/:taskId', authenticateToken, async (
               const videoBuffer = Buffer.from(await videoResponse.arrayBuffer())
 
               // 保存到 projects/{projectId}/videos/
-              const { uploadBuffer } = await import('./services/cosService.js')
+              const { uploadBuffer } = await import('./services/storageService.js')
               const timestamp = Date.now() + (isFirstVideo ? 0 : Math.random() * 1000) // 确保唯一性
               const cosKey = `projects/${projectId}/videos/first_last_frame_${timestamp}.mp4`
               const uploadResult = await uploadBuffer(videoBuffer, cosKey, 'video/mp4')
@@ -1467,7 +1467,7 @@ app.delete('/api/first-last-frame-videos/:taskId', authenticateToken, async (req
       // 删除COS中的视频文件
       if (task.result_cos_key) {
         try {
-          const { deleteFile } = await import('./services/cosService.js')
+          const { deleteFile } = await import('./services/storageService.js')
           await deleteFile(task.result_cos_key).catch(err => {
             console.warn('删除COS补帧视频文件失败:', err)
           })
@@ -1511,7 +1511,7 @@ app.delete('/api/first-last-frame-videos/:taskId', authenticateToken, async (req
     // 删除COS中的视频文件
     if (video.cos_key) {
       try {
-        const { deleteFile } = await import('./services/cosService.js')
+        const { deleteFile } = await import('./services/storageService.js')
         await deleteFile(video.cos_key).catch(err => {
           console.warn('删除COS视频文件失败:', err)
         })
@@ -1523,7 +1523,7 @@ app.delete('/api/first-last-frame-videos/:taskId', authenticateToken, async (req
     // 删除首帧图片（如果存在且是COS URL）
     if (video.first_frame_url) {
       try {
-        const { deleteFile } = await import('./services/cosService.js')
+        const { deleteFile } = await import('./services/storageService.js')
         const match = video.first_frame_url.match(/https?:\/\/[^\/]+\/(.+)/)
         if (match) {
           await deleteFile(match[1]).catch(err => {
@@ -1538,7 +1538,7 @@ app.delete('/api/first-last-frame-videos/:taskId', authenticateToken, async (req
     // 删除尾帧图片（如果存在且是COS URL）
     if (video.last_frame_url) {
       try {
-        const { deleteFile } = await import('./services/cosService.js')
+        const { deleteFile } = await import('./services/storageService.js')
         const match = video.last_frame_url.match(/https?:\/\/[^\/]+\/(.+)/)
         if (match) {
           await deleteFile(match[1]).catch(err => {
@@ -4214,7 +4214,7 @@ app.post('/api/upload-video-community', authenticateToken, uploadVideo.single('v
     const videoBuffer = req.file.buffer
     
     // 生成COS路径（社区视频专用目录）
-    const { generateCosKey, uploadBuffer } = await import('./services/cosService.js')
+    const { generateKey, uploadBuffer } = await import('./services/storageService.js')
     const ext = req.file.originalname.split('.').pop() || 'mp4'
     const fileName = req.file.originalname || `video_${Date.now()}.${ext}`
     const cosKey = `community/videos/${Date.now()}_${fileName}`
@@ -4271,13 +4271,13 @@ app.post('/api/upload-video', authenticateToken, uploadVideo.single('video'), as
     const videoBuffer = req.file.buffer
     
     // 生成COS路径
-    const { generateCosKey } = await import('./services/cosService.js')
+    const { generateKey } = await import('./services/storageService.js')
     const ext = req.file.originalname.split('.').pop() || 'mp4'
     const fileName = req.file.originalname || `video_${Date.now()}.${ext}`
-    const cosKey = generateCosKey('videos', `${Date.now()}_${fileName}`)
+    const cosKey = generateKey('videos', `${Date.now()}_${fileName}`)
     
     // 上传到COS
-    const { uploadBuffer } = await import('./services/cosService.js')
+    const { uploadBuffer } = await import('./services/storageService.js')
     const result = await uploadBuffer(videoBuffer, cosKey, req.file.mimetype)
     
     console.log(`✅ 视频上传成功: ${result.url}`)
@@ -4525,12 +4525,12 @@ app.post('/api/upload-character-image', authenticateToken, uploadImage.single('i
     const imageBuffer = req.file.buffer
     
     // 生成COS路径
-    const { generateCosKey } = await import('./services/cosService.js')
+    const { generateKey } = await import('./services/storageService.js')
     const ext = req.file.originalname.split('.').pop() || 'jpg'
-    const cosKey = generateCosKey('characters', `character_${characterId || Date.now()}.${ext}`)
+    const cosKey = generateKey('characters', `character_${characterId || Date.now()}.${ext}`)
     
     // 上传到COS（添加超时和错误处理）
-    const { uploadBuffer } = await import('./services/cosService.js')
+    const { uploadBuffer } = await import('./services/storageService.js')
     console.log(`📤 开始上传角色图片到COS: ${cosKey}, 大小: ${imageBuffer.length} bytes`)
     
     const uploadStartTime = Date.now()
@@ -5497,7 +5497,7 @@ app.get('/api/projects/:projectId/cos-files', authenticateToken, async (req, res
       })
     }
 
-    const { listFiles } = await import('./services/cosService.js')
+    const { listFiles } = await import('./services/storageService.js')
     
     // 获取所有相关文件
     const prefixes = ['characters/', 'scenes/', 'items/', 'videos/', 'images/']
@@ -5545,7 +5545,7 @@ app.delete('/api/cos/files', authenticateToken, async (req, res) => {
       })
     }
 
-    const { deleteFiles } = await import('./services/cosService.js')
+    const { deleteFiles } = await import('./services/storageService.js')
     await deleteFiles(keys)
 
     res.json({
@@ -5626,7 +5626,7 @@ app.post('/api/projects/:projectId/cleanup-cos', authenticateToken, async (req, 
       keepKeys.forEach(key => allKeepKeys.push(key))
     }
 
-    const { cleanupProjectFiles } = await import('./services/cosService.js')
+    const { cleanupProjectFiles } = await import('./services/storageService.js')
     const result = await cleanupProjectFiles(project.rows[0].name, allKeepKeys)
 
     res.json({
@@ -6408,7 +6408,7 @@ app.delete('/api/fragments/:fragmentId', authenticateToken, async (req, res) => 
       // 删除COS中的视频文件
       if (video.rows[0].cos_key) {
         try {
-          const { deleteFile } = await import('./services/cosService.js')
+          const { deleteFile } = await import('./services/storageService.js')
           await deleteFile(video.rows[0].cos_key).catch(err => {
             console.warn('删除COS视频文件失败:', err)
           })
@@ -6464,7 +6464,7 @@ app.delete('/api/fragments/:fragmentId', authenticateToken, async (req, res) => 
     // 删除COS中的视频文件
     if (videoFiles.rows.length > 0) {
       try {
-        const { deleteFile } = await import('./services/cosService.js')
+        const { deleteFile } = await import('./services/storageService.js')
         for (const file of videoFiles.rows) {
           if (file.cos_key) {
             await deleteFile(file.cos_key).catch(err => {
@@ -6480,7 +6480,7 @@ app.delete('/api/fragments/:fragmentId', authenticateToken, async (req, res) => 
     // 删除缩略图（如果存在）
     if (shot.rows[0].thumbnail_image_url) {
       try {
-        const { deleteFile } = await import('./services/cosService.js')
+        const { deleteFile } = await import('./services/storageService.js')
         const url = shot.rows[0].thumbnail_image_url
         const match = url.match(/https?:\/\/[^\/]+\/(.+)/)
         if (match) {
@@ -6703,15 +6703,15 @@ app.post('/api/upload-base64-image', authenticateToken, async (req, res) => {
     const imageBuffer = Buffer.from(base64Data, 'base64')
 
     // 生成 COS key
-    const { generateCosKey } = await import('./services/cosService.js')
+    const { generateKey } = await import('./services/storageService.js')
     const ext = mimeType.includes('jpeg') || mimeType.includes('jpg') ? 'jpg' :
                 mimeType.includes('png') ? 'png' :
                 mimeType.includes('gif') ? 'gif' :
                 mimeType.includes('webp') ? 'webp' : 'jpg'
-    const cosKey = generateCosKey('images', `poster.${ext}`)
+    const cosKey = generateKey('images', `poster.${ext}`)
 
     // 上传到 COS
-    const { uploadBuffer } = await import('./services/cosService.js')
+    const { uploadBuffer } = await import('./services/storageService.js')
     const result = await uploadBuffer(imageBuffer, cosKey, mimeType)
 
     console.log(`✅ Base64 图片上传成功: ${result.url}`)
@@ -6768,7 +6768,7 @@ app.delete('/api/characters/:id', authenticateToken, async (req, res) => {
     // 删除COS文件（如果存在）
     if (character.rows[0].image_url) {
       try {
-        const { deleteFile } = await import('./services/cosService.js')
+        const { deleteFile } = await import('./services/storageService.js')
         // 从URL中提取COS key
         const url = character.rows[0].image_url
         const match = url.match(/https?:\/\/[^\/]+\/(.+)/)
@@ -7048,12 +7048,12 @@ app.post('/api/upload-scene-image', authenticateToken, uploadImage.single('image
     const imageBuffer = req.file.buffer
     
     // 生成COS路径
-    const { generateCosKey } = await import('./services/cosService.js')
+    const { generateKey } = await import('./services/storageService.js')
     const ext = req.file.originalname.split('.').pop() || 'jpg'
-    const cosKey = generateCosKey('scenes', `scene_${sceneId || Date.now()}.${ext}`)
+    const cosKey = generateKey('scenes', `scene_${sceneId || Date.now()}.${ext}`)
     
     // 上传到COS
-    const { uploadBuffer } = await import('./services/cosService.js')
+    const { uploadBuffer } = await import('./services/storageService.js')
     const uploadResult = await uploadBuffer(imageBuffer, cosKey, req.file.mimetype)
     
     console.log(`✅ 场景图片上传到COS成功: ${uploadResult.url}`)
@@ -7156,7 +7156,7 @@ app.delete('/api/scenes/:id', authenticateToken, async (req, res) => {
     // 删除COS文件（如果存在）
     if (scene.rows[0].image_url) {
       try {
-        const { deleteFile } = await import('./services/cosService.js')
+        const { deleteFile } = await import('./services/storageService.js')
         // 从URL中提取COS key
         const url = scene.rows[0].image_url
         const match = url.match(/https?:\/\/[^\/]+\/(.+)/)
@@ -7276,12 +7276,12 @@ app.post('/api/upload-item-image', authenticateToken, uploadImage.single('image'
     const imageBuffer = req.file.buffer
     
     // 生成COS路径
-    const { generateCosKey } = await import('./services/cosService.js')
+    const { generateKey } = await import('./services/storageService.js')
     const ext = req.file.originalname.split('.').pop() || 'jpg'
-    const cosKey = generateCosKey('items', `item_${itemId || Date.now()}.${ext}`)
+    const cosKey = generateKey('items', `item_${itemId || Date.now()}.${ext}`)
     
     // 上传到COS
-    const { uploadBuffer } = await import('./services/cosService.js')
+    const { uploadBuffer } = await import('./services/storageService.js')
     const uploadResult = await uploadBuffer(imageBuffer, cosKey, req.file.mimetype)
     
     console.log(`✅ 物品图片上传到COS成功: ${uploadResult.url}`)
@@ -7383,7 +7383,7 @@ app.delete('/api/items/:id', authenticateToken, async (req, res) => {
     // 删除COS文件（如果存在）
     if (item.rows[0].image_url) {
       try {
-        const { deleteFile } = await import('./services/cosService.js')
+        const { deleteFile } = await import('./services/storageService.js')
         // 从URL中提取COS key
         const url = item.rows[0].image_url
         const match = url.match(/https?:\/\/[^\/]+\/(.+)/)
@@ -7900,16 +7900,16 @@ app.post('/api/upload-asset-base64-image', authenticateToken, async (req, res) =
     const dbProjectId = projectResult.rows[0].id
 
     // 生成 COS key
-    const { generateCosKey } = await import('./services/cosService.js')
+    const { generateKey } = await import('./services/storageService.js')
     const ext = mimeType.includes('jpeg') || mimeType.includes('jpg') ? 'jpg' :
                 mimeType.includes('png') ? 'png' :
                 mimeType.includes('gif') ? 'gif' :
                 mimeType.includes('webp') ? 'webp' : 'jpg'
-    const cosKey = generateCosKey(assetType === 'character' ? 'characters' : assetType === 'scene' ? 'scenes' : 'items', 
+    const cosKey = generateKey(assetType === 'character' ? 'characters' : assetType === 'scene' ? 'scenes' : 'items', 
                                    `${assetType}_${Date.now()}.${ext}`)
 
     // 上传到 COS
-    const { uploadBuffer } = await import('./services/cosService.js')
+    const { uploadBuffer } = await import('./services/storageService.js')
     const uploadResult = await uploadBuffer(imageBuffer, cosKey, mimeType)
 
     console.log(`✅ ${assetType} 图片上传到COS成功: ${uploadResult.url}`)

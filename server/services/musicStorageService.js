@@ -1,4 +1,4 @@
-import { uploadBuffer, generateCosKey } from './cosService.js'
+import { uploadBuffer, generateKey as generateCosKey } from './storageService.js'
 import dotenv from 'dotenv'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'

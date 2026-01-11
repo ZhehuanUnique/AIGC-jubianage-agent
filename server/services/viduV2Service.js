@@ -2,7 +2,7 @@ import dotenv from 'dotenv'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 import { existsSync } from 'fs'
-import { uploadBuffer, generateCosKey } from './cosService.js'
+import { uploadBuffer, generateKey as generateCosKey } from './storageService.js'
 
 // 加载.env文件
 const __filename = fileURLToPath(import.meta.url)

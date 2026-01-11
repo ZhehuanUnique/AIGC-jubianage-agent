@@ -3,7 +3,7 @@ import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 import { existsSync } from 'fs'
 import { generateFirstLastFrameVideoWithSeedance, getSeedanceTaskStatus } from './services/doubaoSeedanceService.js'
-import { uploadBuffer, generateCosKey } from './services/cosService.js'
+import { uploadBuffer, generateKey as generateCosKey } from './services/storageService.js'
 
 // 加载.env文件
 const __filename = fileURLToPath(import.meta.url)

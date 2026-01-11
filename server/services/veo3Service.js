@@ -87,12 +87,12 @@ export async function generateVideoWithVeo3(imageUrl, options = {}) {
     if (imageUrl.startsWith('data:image/')) {
       console.log('📤 Veo3.1 需要HTTP URL，上传base64图片到COS...')
       
-      if (!process.env.COS_SECRET_ID || !process.env.COS_SECRET_KEY || !process.env.COS_BUCKET) {
-        throw new Error('Veo3.1 需要HTTP URL，但COS配置不完整。请检查 COS_SECRET_ID、COS_SECRET_KEY 和 COS_BUCKET 环境变量')
+      if (!process.env.TOS_ACCESS_KEY_ID && !process.env.COS_SECRET_ID) {
+        throw new Error('Veo3.1 需要HTTP URL，但存储配置不完整。请检查 TOS 或 COS 环境变量')
       }
       
-      // 导入COS服务
-      const { uploadBuffer, generateCosKey } = await import('./cosService.js')
+      // 导入统一存储服务
+      const { uploadBuffer, generateKey: generateCosKey } = await import('./storageService.js')
       
       // 解析base64数据
       const base64Data = imageUrl.split(',')[1]

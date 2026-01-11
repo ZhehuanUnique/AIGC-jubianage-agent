@@ -11,7 +11,7 @@
  * - 任务查询: https://302ai.apifox.cn/211531465e0
  */
 
-import { uploadBuffer } from './cosService.js'
+import { uploadBuffer } from './storageService.js'
 
 const API_BASE_URL = process.env.KLING_API_HOST || 'https://api.302.ai'
 

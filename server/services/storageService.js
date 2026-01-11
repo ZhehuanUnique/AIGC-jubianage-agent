@@ -195,13 +195,46 @@ export function getStorageInfo() {
   }
 }
 
+/**
+ * 获取文件列表
+ */
+export async function listFiles(prefix = '', maxKeys = 100) {
+  const service = getService()
+  return await service.listFiles(prefix, maxKeys)
+}
+
+/**
+ * 批量删除文件
+ */
+export async function deleteFiles(objectKeys) {
+  const service = getService()
+  if (service.deleteFiles) {
+    return await service.deleteFiles(objectKeys)
+  }
+  // 如果服务不支持批量删除，逐个删除
+  for (const key of objectKeys) {
+    await service.deleteFile(key)
+  }
+}
+
+/**
+ * 清理项目文件（保留 COS 的实现）
+ */
+export async function cleanupProjectFiles(projectName, keepKeys = []) {
+  // 这个函数比较复杂，直接调用 COS 服务的实现
+  return await cosService.cleanupProjectFiles(projectName, keepKeys)
+}
+
 export default {
   uploadFile,
   uploadBuffer,
   uploadFromUrl,
   downloadFile,
   deleteFile,
+  deleteFiles,
+  cleanupProjectFiles,
   getFileUrl,
   generateKey,
+  listFiles,
   getStorageInfo,
 }
